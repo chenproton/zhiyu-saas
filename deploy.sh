@@ -64,7 +64,7 @@ echo ""
 echo "[5/4] 本地 PM2 启动服务..."
 
 # 先清理可能存在的残留 PM2 进程和端口占用
-pm2 describe "$SITE_NAME" > /dev/null 2>&1 && pm2 delete "$SITE_NAME"
+pm2 delete "$SITE_NAME" &>/dev/null || true
 PM2_PID=$(lsof -t -i:"$PORT" 2>/dev/null || true)
 if [ -n "$PM2_PID" ]; then
   echo "   发现端口 $PORT 被占用，正在清理..."
@@ -72,9 +72,9 @@ if [ -n "$PM2_PID" ]; then
 fi
 sleep 1
 
-# 使用 ecosystem.config.js 启动，确保端口等环境变量正确传递
-cd "$SCRIPT_DIR"
+# 使用 ecosystem.config.js 启动，配置集中管理
 pm2 start ecosystem.config.js --env production
+
 pm2 save > /dev/null
 
 echo ""
