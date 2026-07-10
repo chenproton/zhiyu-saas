@@ -1,0 +1,119 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhiyu-saas/backend/internal/domain"
+	"github.com/zhiyu-saas/backend/internal/middleware"
+)
+
+type BannerHandler struct {
+	DB *pgxpool.Pool
+}
+
+type BannerListResponse struct {
+	Items []domain.Banner `json:"items"`
+}
+
+type CreateBannerRequest struct {
+	Title   string `json:"title"`
+	Image   string `json:"image"`
+	Link    string `json:"link"`
+	Sort    int    `json:"sort"`
+	Enabled bool   `json:"enabled"`
+}
+
+func (h *BannerHandler) List(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.DB.Query(r.Context(), `
+		SELECT id, title, image, link, sort, enabled FROM banners ORDER BY sort, id
+	`)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list banners")
+		return
+	}
+	defer rows.Close()
+
+	items := make([]domain.Banner, 0)
+	for rows.Next() {
+		var b domain.Banner
+		if err := rows.Scan(&b.ID, &b.Title, &b.Image, &b.Link, &b.Sort, &b.Enabled); err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to scan banners")
+			return
+		}
+		items = append(items, b)
+	}
+
+	respondJSON(w, http.StatusOK, BannerListResponse{Items: items})
+}
+
+func (h *BannerHandler) Create(w http.ResponseWriter, r *http.Request) {
+	if !requireOperator(r) {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req CreateBannerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	id := "bn-" + uuid.NewString()
+	_, err := h.DB.Exec(r.Context(), `
+		INSERT INTO banners (id, title, image, link, sort, enabled) VALUES ($1, $2, $3, $4, $5, $6)
+	`, id, req.Title, req.Image, req.Link, req.Sort, req.Enabled)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to create banner")
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, domain.Banner{ID: id, Title: req.Title, Image: req.Image, Link: req.Link, Sort: req.Sort, Enabled: req.Enabled})
+}
+
+func (h *BannerHandler) Update(w http.ResponseWriter, r *http.Request) {
+	if !requireOperator(r) {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	var req CreateBannerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE banners SET title = $1, image = $2, link = $3, sort = $4, enabled = $5 WHERE id = $6
+	`, req.Title, req.Image, req.Link, req.Sort, req.Enabled, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update banner")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, domain.Banner{ID: id, Title: req.Title, Image: req.Image, Link: req.Link, Sort: req.Sort, Enabled: req.Enabled})
+}
+
+func (h *BannerHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	if !requireOperator(r) {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM banners WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete banner")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func requireOperator(r *http.Request) bool {
+	claims := middleware.CurrentUser(r)
+	return claims != nil && claims.Role == domain.UserRoleOperator
+}

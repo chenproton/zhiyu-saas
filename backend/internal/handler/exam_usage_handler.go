@@ -1,0 +1,290 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhiyu-saas/backend/internal/domain"
+	"github.com/zhiyu-saas/backend/internal/middleware"
+)
+
+type ExamUsageHandler struct {
+	DB *pgxpool.Pool
+}
+
+type ExamUsageListResponse struct {
+	Items []domain.ExamUsage `json:"items"`
+	Total int                `json:"total"`
+}
+
+type CreateExamUsageRequest struct {
+	ExamID      string   `json:"examId"`
+	Name        string   `json:"name"`
+	Description *string  `json:"description"`
+	StartTime   *string  `json:"startTime"`
+	EndTime     *string  `json:"endTime"`
+	Duration    *int     `json:"duration"`
+	TargetType  *string  `json:"targetType"`
+	TargetIDs   []string `json:"targetIds"`
+}
+
+func (h *ExamUsageHandler) List(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	examID := r.URL.Query().Get("examId")
+	status := r.URL.Query().Get("status")
+	search := r.URL.Query().Get("search")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50
+	offset := 0
+	if v, err := parseInt(limitStr, 50); err == nil && v > 0 {
+		limit = v
+	}
+	if v, err := parseInt(offsetStr, 0); err == nil && v >= 0 {
+		offset = v
+	}
+
+	where := []string{"1=1"}
+	args := []interface{}{}
+	argIdx := 1
+
+	if examID != "" {
+		where = append(where, "exam_id = $"+itoa(argIdx))
+		args = append(args, examID)
+		argIdx++
+	}
+	if status != "" {
+		where = append(where, "status = $"+itoa(argIdx))
+		args = append(args, status)
+		argIdx++
+	}
+	if search != "" {
+		where = append(where, "name ILIKE $"+itoa(argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	countQuery := "SELECT COUNT(*) FROM exam_usages WHERE " + strings.Join(where, " AND ")
+	var total int
+	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
+
+	query := `
+		SELECT id, exam_id, name, description, start_time, end_time, duration, target_type, target_ids, status, creator_id, created_at, updated_at
+		FROM exam_usages
+		WHERE ` + strings.Join(where, " AND ") + `
+		ORDER BY created_at DESC
+		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := h.DB.Query(r.Context(), query, args...)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list exam usages")
+		return
+	}
+	defer rows.Close()
+
+	items, err := h.scanExamUsageRows(rows)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to scan exam usages")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, ExamUsageListResponse{Items: items, Total: total})
+}
+
+func (h *ExamUsageHandler) Get(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	usage, err := h.fetchExamUsage(r.Context(), id)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "exam usage not found")
+		return
+	}
+	respondJSON(w, http.StatusOK, usage)
+}
+
+func (h *ExamUsageHandler) Create(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req CreateExamUsageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ExamID == "" || req.Name == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	id := "eu-" + uuid.NewString()
+	_, err := h.DB.Exec(r.Context(), `
+		INSERT INTO exam_usages (id, exam_id, name, description, start_time, end_time, duration, target_type, target_ids, status, creator_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', $10)
+	`, id, req.ExamID, req.Name, req.Description, req.StartTime, req.EndTime, req.Duration, req.TargetType, req.TargetIDs, claims.UserID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to create exam usage")
+		return
+	}
+
+	usage, _ := h.fetchExamUsage(r.Context(), id)
+	respondJSON(w, http.StatusCreated, usage)
+}
+
+func (h *ExamUsageHandler) Update(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchExamUsage(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "exam usage not found")
+		return
+	}
+
+	var req CreateExamUsageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE exam_usages SET name = $1, description = $2, start_time = $3, end_time = $4,
+			duration = $5, target_type = $6, target_ids = $7, updated_at = NOW()
+		WHERE id = $8
+	`, req.Name, req.Description, req.StartTime, req.EndTime, req.Duration, req.TargetType, req.TargetIDs, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update exam usage")
+		return
+	}
+
+	usage, _ := h.fetchExamUsage(r.Context(), id)
+	respondJSON(w, http.StatusOK, usage)
+}
+
+func (h *ExamUsageHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchExamUsage(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "exam usage not found")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM exam_usages WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete exam usage")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *ExamUsageHandler) Start(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	_, err := h.DB.Exec(r.Context(), `UPDATE exam_usages SET status = 'in_progress', updated_at = NOW() WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to start exam usage")
+		return
+	}
+	usage, _ := h.fetchExamUsage(r.Context(), id)
+	respondJSON(w, http.StatusOK, usage)
+}
+
+func (h *ExamUsageHandler) Finish(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	_, err := h.DB.Exec(r.Context(), `UPDATE exam_usages SET status = 'finished', updated_at = NOW() WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to finish exam usage")
+		return
+	}
+	usage, _ := h.fetchExamUsage(r.Context(), id)
+	respondJSON(w, http.StatusOK, usage)
+}
+
+func (h *ExamUsageHandler) fetchExamUsage(ctx context.Context, id string) (domain.ExamUsage, error) {
+	var u domain.ExamUsage
+	var description, startTime, endTime, targetType *string
+	var duration *int
+	var creatorID *string
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, exam_id, name, description, start_time, end_time, duration, target_type, target_ids, status, creator_id, created_at, updated_at
+		FROM exam_usages WHERE id = $1
+	`, id).Scan(
+		&u.ID, &u.ExamID, &u.Name, &description, &startTime, &endTime, &duration, &targetType, &u.TargetIDs, &u.Status, &creatorID, &u.CreatedAt, &u.UpdatedAt,
+	)
+	if err != nil {
+		return u, err
+	}
+	u.Description = description
+	u.StartTime = startTime
+	u.EndTime = endTime
+	u.Duration = duration
+	u.TargetType = targetType
+	u.CreatorID = creatorID
+	return u, nil
+}
+
+func (h *ExamUsageHandler) scanExamUsageRows(rows pgx.Rows) ([]domain.ExamUsage, error) {
+	items := make([]domain.ExamUsage, 0)
+	for rows.Next() {
+		var u domain.ExamUsage
+		var description, startTime, endTime, targetType *string
+		var duration *int
+		var creatorID *string
+		if err := rows.Scan(
+			&u.ID, &u.ExamID, &u.Name, &description, &startTime, &endTime, &duration, &targetType, &u.TargetIDs, &u.Status, &creatorID, &u.CreatedAt, &u.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		u.Description = description
+		u.StartTime = startTime
+		u.EndTime = endTime
+		u.Duration = duration
+		u.TargetType = targetType
+		u.CreatorID = creatorID
+		items = append(items, u)
+	}
+	return items, nil
+}

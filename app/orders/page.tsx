@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { DashboardLayout } from "@/components/dashboard-layout"
+import { useEffect, useMemo, useState } from "react"
+import { DashboardLayout, useRole } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import {
   Table,
   TableBody,
@@ -15,12 +15,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -28,381 +28,339 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  Plus,
-  Search,
-  MoreHorizontal,
-  Eye,
-  Pencil,
-  Download,
-  CalendarIcon,
-  FileText,
-} from "lucide-react"
-import Link from "next/link"
-import { format } from "date-fns"
-import { zhCN } from "date-fns/locale"
-import { orders, type Order } from "@/lib/mock-data"
-
-function getPaymentStatusBadge(status: string) {
-  switch (status) {
-    case "completed":
-      return <Badge className="bg-success/20 text-success hover:bg-success/30">已完成</Badge>
-    case "pending":
-      return <Badge className="bg-warning/20 text-warning hover:bg-warning/30">待支付</Badge>
-    case "cancelled":
-      return <Badge className="bg-muted text-muted-foreground hover:bg-muted">已作废</Badge>
-    default:
-      return <Badge variant="secondary">{status}</Badge>
-  }
-}
-
-function getOrderTypeBadge(type: string) {
-  switch (type) {
-    case "new":
-      return <Badge variant="outline" className="border-info text-info">新购</Badge>
-    case "renewal":
-      return <Badge variant="outline" className="border-success text-success">续费</Badge>
-    case "expansion":
-      return <Badge variant="outline" className="border-accent text-accent">扩容</Badge>
-    case "upgrade":
-      return <Badge variant="outline" className="border-warning text-warning">升级</Badge>
-    default:
-      return <Badge variant="outline">{type}</Badge>
-  }
-}
+import { Search, Eye, ShoppingCart, Loader2, AlertCircle } from "lucide-react"
+import { orderApi, resourceApi, institutionApi, type Order, type Resource, type Institution } from "@/lib/api"
+import { toast } from "@/hooks/use-toast"
 
 export default function OrdersPage() {
+  const { role, institutionId } = useRole()
+  const [orders, setOrders] = useState<Order[]>([])
+  const [resources, setResources] = useState<Record<string, Resource>>({})
+  const [institutions, setInstitutions] = useState<Record<string, Institution>>({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [paying, setPaying] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: undefined,
-    to: undefined,
-  })
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-  const [detailsOpen, setDetailsOpen] = useState(false)
 
-  const filteredOrders = orders.filter((order) => {
+  const fetchData = async () => {
+    if (!institutionId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const [ordersRes, resourcesRes, institutionsRes] = await Promise.all([
+        orderApi.list(),
+        resourceApi.list({ limit: 1000 }),
+        institutionApi.list({ limit: 1000 }),
+      ])
+      setOrders(ordersRes.items)
+      setResources(Object.fromEntries(resourcesRes.items.map((r) => [r.id, r])))
+      setInstitutions(Object.fromEntries(institutionsRes.items.map((i) => [i.id, i])))
+    } catch (err: any) {
+      setError(err.message || "加载订单数据失败")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [institutionId])
+
+  if (!institutionId) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-[60vh] items-center justify-center">
+          <p className="text-muted-foreground">请先入驻机构</p>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  const myOrders = orders.filter(
+    (o) => o.buyerId === institutionId || o.sellerId === institutionId
+  )
+
+  const filteredOrders = myOrders.filter((o) => {
+    const resource = resources[o.resourceId]
     const matchesSearch =
-      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.tenantName.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus =
-      statusFilter === "all" || order.paymentStatus === statusFilter
+      !searchQuery.trim() ||
+      o.orderNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resource?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      false
+    const matchesStatus = statusFilter === "all" || o.status === statusFilter
     return matchesSearch && matchesStatus
   })
 
-  const handleViewDetails = (order: Order) => {
-    setSelectedOrder(order)
-    setDetailsOpen(true)
-  }
-
-  const exportOrders = () => {
-    const csvContent = [
-      ["订单号", "租户名称", "套餐", "类型", "金额", "状态", "时长", "创建时间"],
-      ...filteredOrders.map((o) => [
-        o.orderNumber,
-        o.tenantName,
-        o.packageName,
-        o.orderType,
-        o.amount,
-        o.paymentStatus,
-        o.duration,
-        o.createdAt,
-      ]),
-    ]
-      .map((row) => row.join(","))
-      .join("\n")
-
-    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `orders-${format(new Date(), "yyyyMMdd")}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const totalAmount = filteredOrders.reduce((sum, o) => sum + o.amount, 0)
+  const totalAmount = filteredOrders.reduce((sum, o) => sum + o.price, 0)
   const completedAmount = filteredOrders
-    .filter((o) => o.paymentStatus === "completed")
-    .reduce((sum, o) => sum + o.amount, 0)
+    .filter((o) => o.status === "paid")
+    .reduce((sum, o) => sum + o.price, 0)
+
+  const handlePay = async (orderId: string) => {
+    setPaying(true)
+    try {
+      await orderApi.pay(orderId)
+      toast({ title: "支付成功" })
+      const res = await orderApi.list()
+      setOrders(res.items)
+      setSelectedOrder(null)
+    } catch (err: any) {
+      toast({
+        title: "支付失败",
+        description: err.message || "请稍后重试",
+        variant: "destructive",
+      })
+    } finally {
+      setPaying(false)
+    }
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Page header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">订单与账单管理</h1>
-            <p className="text-sm text-muted-foreground">
-              记录租户的商业化交易行为与财务明细
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2" onClick={exportOrders}>
-              <Download className="h-4 w-4" />
-              导出账单
-            </Button>
-            <Link href="/orders/new">
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                手工录单
-              </Button>
-            </Link>
-          </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">订单管理</h1>
+          <p className="text-sm text-muted-foreground">
+            {role === "enterprise" ? "查看本机构的销售订单" : "查看本校的采购订单"}
+          </p>
         </div>
 
-        {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="bg-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                总订单数
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-card-foreground">{orders.length}</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                订单总金额
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-card-foreground">
-                ¥{totalAmount.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                已收款金额
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-success">
-                ¥{completedAmount.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                待收款金额
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-warning">
-                ¥{(totalAmount - completedAmount).toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {loading ? (
+          <div className="flex h-[40vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          </div>
+        ) : error ? (
+          <div className="flex h-[40vh] flex-col items-center justify-center gap-4 text-muted-foreground">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+            <p>{error}</p>
+            <Button onClick={fetchData}>重新加载</Button>
+          </div>
+        ) : (
+          <>
+            {/* Stats */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">总订单数</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{myOrders.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">订单总金额</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">¥{totalAmount.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">已完成金额</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-success">¥{completedAmount.toLocaleString()}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">待支付金额</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-warning">
+                    ¥{(totalAmount - completedAmount).toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-        {/* Table */}
-        <Card className="bg-card">
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <CardTitle className="text-base text-card-foreground">订单列表</CardTitle>
-              <div className="flex flex-wrap gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[200px] justify-start bg-input">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "MM/dd", { locale: zhCN })} -{" "}
-                            {format(dateRange.to, "MM/dd", { locale: zhCN })}
-                          </>
-                        ) : (
-                          format(dateRange.from, "yyyy-MM-dd", { locale: zhCN })
-                        )
-                      ) : (
-                        "选择日期范围"
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                      mode="range"
-                      selected={dateRange}
-                      onSelect={(range) =>
-                        setDateRange({ from: range?.from, to: range?.to })
-                      }
-                      locale={zhCN}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-32 bg-input">
-                    <SelectValue placeholder="支付状态" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部状态</SelectItem>
-                    <SelectItem value="completed">已完成</SelectItem>
-                    <SelectItem value="pending">待支付</SelectItem>
-                    <SelectItem value="cancelled">已作废</SelectItem>
-                  </SelectContent>
-                </Select>
+            {/* Filters */}
+            <Card>
+              <CardContent className="flex flex-wrap gap-2 py-4">
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="搜索订单号或租户..."
-                    className="bg-input pl-9"
+                    placeholder="搜索订单号或资源名称..."
+                    className="pl-9"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">订单编号</TableHead>
-                  <TableHead className="text-muted-foreground">租户名称</TableHead>
-                  <TableHead className="text-muted-foreground">购买套餐</TableHead>
-                  <TableHead className="text-muted-foreground">订单类型</TableHead>
-                  <TableHead className="text-muted-foreground">金额</TableHead>
-                  <TableHead className="text-muted-foreground">购买时长</TableHead>
-                  <TableHead className="text-muted-foreground">支付状态</TableHead>
-                  <TableHead className="text-muted-foreground">创建时间</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.map((order) => (
-                  <TableRow key={order.id} className="border-border">
-                    <TableCell className="font-mono text-xs text-card-foreground">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded bg-accent/20">
-                          <FileText className="h-3.5 w-3.5 text-accent" />
-                        </div>
-                        {order.orderNumber}
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-[160px] truncate text-card-foreground">
-                      {order.tenantName}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{order.packageName}</TableCell>
-                    <TableCell>{getOrderTypeBadge(order.orderType)}</TableCell>
-                    <TableCell className="font-medium text-card-foreground">
-                      {order.amount === 0 ? (
-                        <span className="text-muted-foreground">免费</span>
-                      ) : (
-                        `¥${order.amount.toLocaleString()}`
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{order.duration}</TableCell>
-                    <TableCell>{getPaymentStatusBadge(order.paymentStatus)}</TableCell>
-                    <TableCell className="text-muted-foreground">{order.createdAt}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewDetails(order)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            查看详情
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            编辑订单
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {order.paymentStatus === "pending" && (
-                            <DropdownMenuItem className="text-success">
-                              确认收款
-                            </DropdownMenuItem>
-                          )}
-                          {order.paymentStatus === "pending" && (
-                            <DropdownMenuItem className="text-destructive">
-                              作废订单
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="状态筛选" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="paid">已完成</SelectItem>
+                    <SelectItem value="pending">待支付</SelectItem>
+                    <SelectItem value="cancelled">已取消</SelectItem>
+                    <SelectItem value="refunded">已退款</SelectItem>
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
 
-        {/* Details Dialog */}
-        <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+            {/* Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">订单列表</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>订单号</TableHead>
+                      <TableHead>资源名称</TableHead>
+                      <TableHead>{role === "enterprise" ? "采购方" : "销售方"}</TableHead>
+                      <TableHead>金额</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>下单时间</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredOrders.map((order) => {
+                      const resource = resources[order.resourceId]
+                      const counterpartyId = role === "enterprise" ? order.buyerId : order.sellerId
+                      const counterparty = institutions[counterpartyId]
+                      return (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-mono text-xs">{order.orderNo}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{resource?.name || "-"}</TableCell>
+                          <TableCell>{counterparty?.name || "-"}</TableCell>
+                          <TableCell className="font-medium">¥{order.price.toLocaleString()}</TableCell>
+                          <TableCell>
+                            <Badge className={order.status === "paid" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}>
+                              {order.status === "paid" ? "已完成" : order.status === "pending" ? "待支付" : order.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{order.createdAt}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setSelectedOrder(order)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+                {filteredOrders.length === 0 && (
+                  <div className="py-8 text-center text-muted-foreground">暂无订单</div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Order Detail Dialog */}
+        <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>订单详情</DialogTitle>
-              <DialogDescription>订单号: {selectedOrder?.orderNumber}</DialogDescription>
+              <DialogDescription>订单号：{selectedOrder?.orderNo}</DialogDescription>
             </DialogHeader>
             {selectedOrder && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">租户名称</p>
-                    <p className="text-sm text-card-foreground">{selectedOrder.tenantName}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">购买套餐</p>
-                    <p className="text-sm text-card-foreground">{selectedOrder.packageName}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">订单类型</p>
-                    {getOrderTypeBadge(selectedOrder.orderType)}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">购买时长</p>
-                    <p className="text-sm text-card-foreground">{selectedOrder.duration}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">支付状态</p>
-                    {getPaymentStatusBadge(selectedOrder.paymentStatus)}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">创建时间</p>
-                    <p className="text-sm text-card-foreground">{selectedOrder.createdAt}</p>
-                  </div>
-                </div>
-                <div className="rounded-lg bg-secondary p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">订单金额</span>
-                    <span className="text-2xl font-bold text-card-foreground">
-                      {selectedOrder.amount === 0
-                        ? "免费"
-                        : `¥${selectedOrder.amount.toLocaleString()}`}
-                    </span>
-                  </div>
-                </div>
-                {selectedOrder.paymentStatus === "completed" && (
-                  <div className="flex justify-end">
-                    <Link href={`/licenses/issue?order=${selectedOrder.id}`}>
-                      <Button className="gap-2">签发授权</Button>
-                    </Link>
-                  </div>
-                )}
-              </div>
+              <OrderDetailContent
+                order={selectedOrder}
+                role={role ?? "school"}
+                resources={resources}
+                institutions={institutions}
+                paying={paying}
+                onPay={handlePay}
+              />
             )}
           </DialogContent>
         </Dialog>
       </div>
     </DashboardLayout>
+  )
+}
+
+function OrderDetailContent({
+  order,
+  role,
+  resources,
+  institutions,
+  paying,
+  onPay,
+}: {
+  order: Order
+  role: string
+  resources: Record<string, Resource>
+  institutions: Record<string, Institution>
+  paying: boolean
+  onPay: (orderId: string) => void
+}) {
+  const resource = resources[order.resourceId]
+  const buyer = institutions[order.buyerId]
+  const seller = institutions[order.sellerId]
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p className="text-xs text-muted-foreground">资源名称</p>
+          <p className="font-medium text-foreground">{resource?.name || "-"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">资源版本</p>
+          <p className="text-foreground">{resource?.version || "-"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">采购方</p>
+          <p className="text-foreground">{buyer?.name || "-"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">创建方</p>
+          <p className="text-foreground">{seller?.name || "-"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">订单状态</p>
+          <Badge className={order.status === "paid" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}>
+            {order.status === "paid" ? "已完成" : order.status === "pending" ? "待支付" : order.status}
+          </Badge>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">下单时间</p>
+          <p className="text-foreground">{order.createdAt}</p>
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-secondary p-4">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">买断价格</span>
+          <span className="text-xl font-bold text-foreground">¥{order.price.toLocaleString()}</span>
+        </div>
+        {role === "operator" && (
+          <>
+            <div className="mt-2 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">平台抽成</span>
+              <span className="text-foreground">-¥{order.platformFee.toLocaleString()}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">创作者收益</span>
+              <span className="font-medium text-success">¥{order.sellerIncome.toLocaleString()}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {order.status === "pending" && role === "school" && (
+        <Button className="w-full gap-2" disabled={paying} onClick={() => onPay(order.id)}>
+          {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
+          确认支付
+        </Button>
+      )}
+    </div>
   )
 }

@@ -1,0 +1,343 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhiyu-saas/backend/internal/domain"
+	"github.com/zhiyu-saas/backend/internal/middleware"
+)
+
+type MicroCertHandler struct {
+	DB *pgxpool.Pool
+}
+
+type MicroCertTemplateListResponse struct {
+	Items []domain.MicroCertTemplate `json:"items"`
+	Total int                        `json:"total"`
+}
+
+type CreateMicroCertTemplateRequest struct {
+	Title        string  `json:"title"`
+	CertTypeID   string  `json:"certTypeId"`
+	CertTypeName string  `json:"certTypeName"`
+	Content      string  `json:"content"`
+	CoverURL     *string `json:"coverUrl"`
+}
+
+type IssueCertsRequest struct {
+	TemplateID string   `json:"templateId"`
+	UserIDs    []string `json:"userIds"`
+}
+
+type CertIssuanceListResponse struct {
+	Items []domain.CertIssuanceRecord `json:"items"`
+	Total int                         `json:"total"`
+}
+
+func (h *MicroCertHandler) ListTemplates(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	search := r.URL.Query().Get("search")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50
+	offset := 0
+	if v, err := parseInt(limitStr, 50); err == nil && v > 0 {
+		limit = v
+	}
+	if v, err := parseInt(offsetStr, 0); err == nil && v >= 0 {
+		offset = v
+	}
+
+	where := []string{"1=1"}
+	args := []interface{}{}
+	argIdx := 1
+	if search != "" {
+		where = append(where, "title ILIKE $"+itoa(argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	countQuery := "SELECT COUNT(*) FROM micro_cert_templates WHERE " + strings.Join(where, " AND ")
+	var total int
+	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
+
+	query := `
+		SELECT id, title, cert_type_id, cert_type_name, content, cover_url, created_at, updated_at
+		FROM micro_cert_templates
+		WHERE ` + strings.Join(where, " AND ") + `
+		ORDER BY created_at DESC
+		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := h.DB.Query(r.Context(), query, args...)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list micro cert templates")
+		return
+	}
+	defer rows.Close()
+
+	items, err := h.scanTemplateRows(rows)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to scan micro cert templates")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, MicroCertTemplateListResponse{Items: items, Total: total})
+}
+
+func (h *MicroCertHandler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req CreateMicroCertTemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Title == "" || req.CertTypeID == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	id := "mct-" + uuid.NewString()
+	_, err := h.DB.Exec(r.Context(), `
+		INSERT INTO micro_cert_templates (id, title, cert_type_id, cert_type_name, content, cover_url)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, id, req.Title, req.CertTypeID, req.CertTypeName, req.Content, req.CoverURL)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to create micro cert template")
+		return
+	}
+
+	template, _ := h.fetchTemplate(r.Context(), id)
+	respondJSON(w, http.StatusCreated, template)
+}
+
+func (h *MicroCertHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchTemplate(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "micro cert template not found")
+		return
+	}
+
+	var req CreateMicroCertTemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Title == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE micro_cert_templates SET title = $1, cert_type_id = $2, cert_type_name = $3, content = $4, cover_url = $5, updated_at = NOW()
+		WHERE id = $6
+	`, req.Title, req.CertTypeID, req.CertTypeName, req.Content, req.CoverURL, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update micro cert template")
+		return
+	}
+
+	template, _ := h.fetchTemplate(r.Context(), id)
+	respondJSON(w, http.StatusOK, template)
+}
+
+func (h *MicroCertHandler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchTemplate(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "micro cert template not found")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM micro_cert_templates WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete micro cert template")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *MicroCertHandler) IssueCerts(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req IssueCertsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.TemplateID == "" || len(req.UserIDs) == 0 {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	var template domain.MicroCertTemplate
+	if err := h.DB.QueryRow(r.Context(), `
+		SELECT id, title, cert_type_name FROM micro_cert_templates WHERE id = $1
+	`, req.TemplateID).Scan(&template.ID, &template.Title, &template.CertTypeName); err != nil {
+		respondError(w, http.StatusNotFound, "template not found")
+		return
+	}
+
+	tx, err := h.DB.Begin(r.Context())
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	count := 0
+	for _, userID := range req.UserIDs {
+		recordID := "cir-" + uuid.NewString()
+		_, err := tx.Exec(r.Context(), `
+			INSERT INTO cert_issuance_records (id, template_id, template_title, cert_type_name, student_name, student_id, class_name, issue_date, status, cert_number)
+			VALUES ($1, $2, $3, $4, '', $5, '', $6, 'issued', $7)
+		`, recordID, template.ID, template.Title, template.CertTypeName, userID, time.Now(), uuid.NewString())
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to issue certs")
+			return
+		}
+		count++
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to commit")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]int{"count": count})
+}
+
+func (h *MicroCertHandler) ListHistory(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	templateID := r.URL.Query().Get("templateId")
+	search := r.URL.Query().Get("search")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50
+	offset := 0
+	if v, err := parseInt(limitStr, 50); err == nil && v > 0 {
+		limit = v
+	}
+	if v, err := parseInt(offsetStr, 0); err == nil && v >= 0 {
+		offset = v
+	}
+
+	where := []string{"1=1"}
+	args := []interface{}{}
+	argIdx := 1
+	if templateID != "" {
+		where = append(where, "template_id = $"+itoa(argIdx))
+		args = append(args, templateID)
+		argIdx++
+	}
+	if search != "" {
+		where = append(where, "student_name ILIKE $"+itoa(argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	countQuery := "SELECT COUNT(*) FROM cert_issuance_records WHERE " + strings.Join(where, " AND ")
+	var total int
+	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
+
+	query := `
+		SELECT id, template_id, template_title, cert_type_name, student_name, student_id, class_name, issue_date,
+			expire_date, status, cert_number, revoked_at, revoke_reason
+		FROM cert_issuance_records
+		WHERE ` + strings.Join(where, " AND ") + `
+		ORDER BY issue_date DESC
+		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := h.DB.Query(r.Context(), query, args...)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list cert issuance history")
+		return
+	}
+	defer rows.Close()
+
+	items := make([]domain.CertIssuanceRecord, 0)
+	for rows.Next() {
+		var record domain.CertIssuanceRecord
+		var expireDate, revokedAt *time.Time
+		var revokeReason *string
+		if err := rows.Scan(&record.ID, &record.TemplateID, &record.TemplateTitle, &record.CertTypeName, &record.StudentName, &record.StudentID, &record.ClassName, &record.IssueDate,
+			&expireDate, &record.Status, &record.CertNumber, &revokedAt, &revokeReason); err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to scan cert issuance history")
+			return
+		}
+		record.ExpireDate = expireDate
+		record.RevokedAt = revokedAt
+		record.RevokeReason = revokeReason
+		items = append(items, record)
+	}
+	respondJSON(w, http.StatusOK, CertIssuanceListResponse{Items: items, Total: total})
+}
+
+func (h *MicroCertHandler) fetchTemplate(ctx context.Context, id string) (domain.MicroCertTemplate, error) {
+	var t domain.MicroCertTemplate
+	var coverURL *string
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, title, cert_type_id, cert_type_name, content, cover_url, created_at, updated_at
+		FROM micro_cert_templates WHERE id = $1
+	`, id).Scan(&t.ID, &t.Title, &t.CertTypeID, &t.CertTypeName, &t.Content, &coverURL, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		return t, err
+	}
+	t.CoverURL = coverURL
+	return t, nil
+}
+
+func (h *MicroCertHandler) scanTemplateRows(rows pgx.Rows) ([]domain.MicroCertTemplate, error) {
+	items := make([]domain.MicroCertTemplate, 0)
+	for rows.Next() {
+		var t domain.MicroCertTemplate
+		var coverURL *string
+		if err := rows.Scan(&t.ID, &t.Title, &t.CertTypeID, &t.CertTypeName, &t.Content, &coverURL, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			return nil, err
+		}
+		t.CoverURL = coverURL
+		items = append(items, t)
+	}
+	return items, nil
+}

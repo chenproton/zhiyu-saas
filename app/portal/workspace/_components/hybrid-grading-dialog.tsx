@@ -1,0 +1,359 @@
+"use client"
+
+import { useMemo, useState } from "react"
+import {
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Eye,
+  FileText,
+  GraduationCap,
+  PenLine,
+  Search,
+  Users,
+} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
+import { mockClassPlans, mockClassSessions, type ClassPlanItem, type ClassSessionData } from "../_data/mock-teacher-data"
+
+interface HybridGradingDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  sessionTitle: string
+  className?: string
+}
+
+const lastNames = ["张", "李", "王", "赵", "陈", "刘", "周", "吴", "孙", "郑", "林", "杨", "黄", "朱", "马", "胡", "郭", "何", "罗", "高"]
+const firstNames = ["伟", "芳", "明", "静", "涛", "敏", "洋", "杰", "丽", "强", "军", "磊", "婷", "文", "波", "娜", "辉", "雪", "勇", "云"]
+const classNames = ["计网2401班", "计网2402班", "计网2301班"]
+
+function genStudentId(i: number) { return `s-${String(i + 1).padStart(3, "0")}` }
+function genStudentName(i: number) { return `${lastNames[i % lastNames.length]}${firstNames[(i + 3) % firstNames.length]}` }
+function genStudentNumber(i: number) { return `20240101${String(i + 1).padStart(2, "0")}` }
+
+interface CourseStudent {
+  studentId: string
+  studentName: string
+  studentNumber: string
+  className: string
+  enrollmentYear: number
+  status: "pending" | "graded"
+  submittedAt: string
+}
+
+interface SessionGroup {
+  sessionId: string
+  sessionLabel: string
+  venue: string
+  students: CourseStudent[]
+  pendingCount: number
+  gradedCount: number
+}
+
+interface CourseGroup {
+  planId: string
+  courseName: string
+  className: string
+  studentCount: number
+  sessions: SessionGroup[]
+  pendingCount: number
+  gradedCount: number
+}
+
+const HYBRID_PLAN_IDS = ["cls-1", "cls-3", "cls-6"]
+
+function generateMockSubmissions(): CourseGroup[] {
+  const plans = HYBRID_PLAN_IDS.map(id => mockClassPlans.find(p => p.id === id)).filter(Boolean) as ClassPlanItem[]
+  return plans.map(plan => {
+    const sessions = mockClassSessions.filter(s => s.courseId === plan.id).sort((a, b) => a.week - b.week)
+    const sessionGroups: SessionGroup[] = sessions.slice(0, 6).map((sess, si) => {
+      const studentCount = 8 + Math.floor(Math.random() * 15)
+      const students: CourseStudent[] = Array.from({ length: studentCount }, (_, i) => {
+        const statusRand = Math.random()
+        return {
+          studentId: genStudentId(si * 20 + i),
+          studentName: genStudentName(si * 20 + i),
+          studentNumber: genStudentNumber(si * 20 + i),
+          className: classNames[i % classNames.length],
+          enrollmentYear: 2024,
+          status: statusRand > 0.4 ? "graded" : "pending",
+          submittedAt: `2026-0${Math.floor(Math.random() * 6 + 1)}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, "0")} ${String(Math.floor(Math.random() * 12) + 8).padStart(2, "0")}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
+        }
+      })
+      const pendingCount = students.filter(s => s.status === "pending").length
+      return {
+        sessionId: sess.id,
+        sessionLabel: `第 ${sess.week} 周 · ${sess.weekday} ${sess.period}`,
+        venue: sess.venue,
+        students,
+        pendingCount,
+        gradedCount: students.length - pendingCount,
+      }
+    })
+    const totalPending = sessionGroups.reduce((s, g) => s + g.pendingCount, 0)
+    const totalGraded = sessionGroups.reduce((s, g) => s + g.gradedCount, 0)
+    return {
+      planId: plan.id,
+      courseName: plan.course,
+      className: plan.name,
+      studentCount: plan.students,
+      sessions: sessionGroups,
+      pendingCount: totalPending,
+      gradedCount: totalGraded,
+    }
+  })
+}
+
+export function HybridGradingDialog({ open, onOpenChange, sessionTitle, className }: HybridGradingDialogProps) {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+
+  const courseGroups = useMemo(() => generateMockSubmissions(), [])
+
+  const filteredGroups = useMemo(() => {
+    if (!searchQuery.trim()) return courseGroups
+    const q = searchQuery.trim().toLowerCase()
+    return courseGroups.filter(
+      g => g.courseName.toLowerCase().includes(q) || g.className.toLowerCase().includes(q)
+    )
+  }, [courseGroups, searchQuery])
+
+  const selectedCourse = useMemo(
+    () => courseGroups.find(g => g.planId === selectedPlanId),
+    [courseGroups, selectedPlanId]
+  )
+
+  const toggleSession = (sessionId: string) => {
+    setExpandedSessions(prev => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) next.delete(sessionId)
+      else next.add(sessionId)
+      return next
+    })
+  }
+
+  const innerOpenChange = (v: boolean) => {
+    if (v) {
+      setSelectedPlanId(courseGroups[0]?.planId || null)
+      setExpandedSessions(new Set())
+    }
+    onOpenChange(v)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={innerOpenChange}>
+      <DialogContent className="sm:max-w-6xl max-h-[95vh] h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-6 pb-0 shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <GraduationCap className="h-5 w-5 text-amber-600" />
+            混合课程评分
+          </DialogTitle>
+          <DialogDescription>
+            {sessionTitle} · {className || "全部学生"}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Left sidebar — Course list */}
+          <div className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col">
+            <div className="p-3 border-b border-gray-100">
+              <div className="relative w-full">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="搜索课程..."
+                  className="pl-9 text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+              {filteredGroups.map((group) => (
+                <button
+                  key={group.planId}
+                  onClick={() => {
+                    setSelectedPlanId(group.planId)
+                    setExpandedSessions(new Set())
+                  }}
+                  className={cn(
+                    "w-full text-left rounded-lg p-2.5 transition-all border",
+                    selectedPlanId === group.planId
+                      ? "bg-amber-50 border-amber-300 shadow-sm"
+                      : "bg-white border-transparent hover:bg-gray-50 hover:border-gray-200"
+                  )}
+                >
+                  <div className="flex items-start gap-2">
+                    <BookOpen className={cn("h-4 w-4 mt-0.5 shrink-0", selectedPlanId === group.planId ? "text-amber-600" : "text-gray-400")} />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-sm font-medium truncate", selectedPlanId === group.planId ? "text-amber-700" : "text-gray-700")}>
+                        {group.courseName}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{group.className} · {group.studentCount}人</p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {group.pendingCount > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">
+                            待评 {group.pendingCount}
+                          </span>
+                        )}
+                        {group.gradedCount > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">
+                            已评 {group.gradedCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right content — Session list with students */}
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            {selectedCourse ? (
+              <div className="p-6 space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">{selectedCourse.courseName}</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="outline" className="text-xs font-normal text-gray-500">{selectedCourse.className}</Badge>
+                    <Badge variant="secondary" className="text-xs font-normal">{selectedCourse.studentCount}人</Badge>
+                  </div>
+                </div>
+
+                {selectedCourse.sessions.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-12 text-center text-gray-400">
+                      <FileText className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">该课程暂无节次数据</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedCourse.sessions.map((session) => {
+                      const isExpanded = expandedSessions.has(session.sessionId)
+                      const groupedByClass = session.students.reduce<Record<string, CourseStudent[]>>((acc, s) => {
+                        if (!acc[s.className]) acc[s.className] = []
+                        acc[s.className].push(s)
+                        return acc
+                      }, {})
+
+                      return (
+                        <Collapsible key={session.sessionId} open={isExpanded} onOpenChange={() => toggleSession(session.sessionId)}>
+                          <Card className="overflow-hidden">
+                            <CollapsibleTrigger asChild>
+                              <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50/50 transition-colors">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100">
+                                    <FileText className="h-4 w-4 text-amber-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-800">{session.sessionLabel}</p>
+                                    <div className="flex items-center gap-3 mt-1">
+                                      <span className="text-xs text-gray-500">{session.venue}</span>
+                                      <span className="text-xs text-gray-400">{session.students.length} 位学生</span>
+                                      {session.pendingCount > 0 && (
+                                        <span className="text-xs text-amber-600 font-medium">待评分 {session.pendingCount}</span>
+                                      )}
+                                      {session.gradedCount > 0 && (
+                                        <span className="text-xs text-green-600 font-medium">已评分 {session.gradedCount}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                                  )}
+                                </div>
+                              </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="px-4 pb-4 border-t border-gray-100">
+                                <div className="space-y-4 pt-3">
+                                  {Object.entries(groupedByClass).map(([cls, students]) => (
+                                    <div key={cls}>
+                                      <div className="flex items-center gap-1.5 mb-1.5 px-1">
+                                        <Users className="h-3 w-3 text-gray-400" />
+                                        <span className="text-xs text-gray-500">{cls}</span>
+                                        <span className="text-[10px] text-gray-400">({students.length}人)</span>
+                                      </div>
+                                      <div className="rounded-lg border border-slate-200 divide-y divide-slate-100">
+                                        {students.map((item) => (
+                                          <div
+                                            key={item.studentId}
+                                            className="flex items-center justify-between p-2.5 hover:bg-slate-50/50 transition-colors"
+                                          >
+                                            <div className="flex items-center gap-3">
+                                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-600 text-xs font-medium">
+                                                {item.studentName.charAt(0)}
+                                              </div>
+                                              <div>
+                                                <div className="flex items-center gap-2">
+                                                  <span className="font-medium text-gray-800 text-sm">{item.studentName}</span>
+                                                  <span className="text-xs text-gray-400">{item.studentNumber}</span>
+                                                  <Badge variant="outline" className={cn("text-[10px]", item.status === "pending" ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-green-50 text-green-600 border-green-200")}>
+                                                    {item.status === "pending" ? "待评分" : "已评分"}
+                                                  </Badge>
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                                                  <Clock className="h-3 w-3" />
+                                                  {item.submittedAt}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <Button variant="outline" size="sm" className="h-7 text-xs">
+                                                <Eye className="mr-1 h-3 w-3" />查看
+                                              </Button>
+                                              {item.status === "pending" ? (
+                                                <Button size="sm" className="h-7 text-xs">
+                                                  <PenLine className="mr-1 h-3 w-3" />评分
+                                                </Button>
+                                              ) : (
+                                                <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600" disabled>
+                                                  <CheckCircle2 className="mr-1 h-3 w-3" />已评分
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </CollapsibleContent>
+                          </Card>
+                        </Collapsible>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                <GraduationCap className="h-12 w-12 mb-3 opacity-50" />
+                <p className="text-sm">请在左侧选择一个课程</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

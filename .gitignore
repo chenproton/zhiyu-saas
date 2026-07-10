@@ -8,6 +8,7 @@ __v0_jsx-dev-runtime.ts
 next.user-config.*
 
 # Environment variables
+.env
 .env*.local
 
 # Common ignores
@@ -15,3 +16,15 @@ node_modules
 .next/
 .DS_Store
 .vercel
+
+# Backend build artifacts
+backend/tmp/
+backend/bin/
+*.exe
+
+# Uploaded files
+data/uploads/
+
+# Database backups
+backups/
+

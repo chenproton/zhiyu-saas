@@ -1,0 +1,124 @@
+export interface CareerPosition {
+  id: string
+  batchId?: string
+  name: string
+  shortName?: string
+  industryId?: string
+  majorIds: string[]
+  positionType: "enterprise" | "teaching"
+  salaryMin?: number
+  salaryMax?: number
+  coverImage?: string
+  description?: string
+  requirements: string[]
+  careerPath?: string
+  version: string
+  status: "draft" | "pending" | "approved" | "rejected" | "published" | "archived"
+  createdBy: string
+  collaborators: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PositionCertificate {
+  id: string
+  careerPositionId: string
+  name: string
+  url?: string
+  description?: string
+  imageUrl?: string
+}
+
+export interface PositionResponsibility {
+  id: string
+  careerPositionId: string
+  name: string
+  description?: string
+  sortOrder: number
+}
+
+export interface AbilityPoint {
+  id: string
+  name: string
+  description?: string
+  category: "knowledge" | "skill" | "quality"
+  isPublic: boolean
+  createdAt: string
+}
+
+export interface PositionAbilityBinding {
+  id: string
+  careerPositionId: string
+  responsibilityId: string
+  abilityPointId: string
+  source: "public" | "custom"
+  domain?: string
+  requiredLevel: string
+  rubricDescription?: string
+  attributes: string[]
+  weight: number
+}
+
+export interface AbilityDomain {
+  id: string
+  careerPositionId: string
+  name: string
+  description?: string
+  bindingIds: string[]
+  sortOrder: number
+}
+
+export interface JobBatch {
+  id: string
+  name: string
+  code?: string
+  orgNodeId?: string
+  major?: string
+  workflowId?: string
+  status: "open" | "closed"
+  positionCount: number
+  publishedCount: number
+  pendingCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PositionRecommendation {
+  id: string
+  major: string
+  careerPositionId: string
+  positionType: string
+  reason?: string
+  sortOrder: number
+  isVisible: boolean
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BannerConfig {
+  id: string
+  title: string
+  imageUrl: string
+  linkUrl?: string
+  sortOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LearnRoadStep {
+  name: string
+  description?: string
+  resourceIds?: string[]
+}
+
+export interface LearnRoad {
+  id: string
+  name: string
+  description?: string
+  positionIds: string[]
+  steps?: LearnRoadStep[]
+  createdAt: string
+  updatedAt: string
+}

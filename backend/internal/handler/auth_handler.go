@@ -1,0 +1,302 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhiyu-saas/backend/internal/domain"
+	"github.com/zhiyu-saas/backend/internal/middleware"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type AuthHandler struct {
+	DB        *pgxpool.Pool
+	JWTSecret string
+}
+
+type LoginRequest struct {
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required"`
+}
+
+type LoginResponse struct {
+	Token string      `json:"token"`
+	User  domain.User `json:"user"`
+}
+
+type MeResponse struct {
+	User         domain.User          `json:"user"`
+	Institution  *domain.Institution  `json:"institution,omitempty"`
+	Tenant       *domain.Tenant       `json:"tenant,omitempty"`
+	IdentityType *domain.IdentityType `json:"identityType,omitempty"`
+	OrgNode      *domain.Organization `json:"orgNode,omitempty"`
+	Major        *domain.Major        `json:"major,omitempty"`
+	Roles        []domain.Role        `json:"roles,omitempty"`
+}
+
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	var user domain.User
+	var tenantID, identityTypeID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
+	var titleIDs []string
+	var oauth domain.JSONMap
+
+	err := h.DB.QueryRow(r.Context(), `
+		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+		       role, login_name, username, password_hash, name, email, phone, avatar_url,
+		       student_no, work_id, id_card, title_ids, oauth, status, created_at, updated_at
+		FROM users WHERE login_name = $1 OR username = $1
+	`, req.Username).Scan(
+		&user.ID, &tenantID, &user.InstitutionID, &identityTypeID, &orgNodeID, &majorID,
+		&user.Role, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
+		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
+		&user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "invalid username or password")
+		return
+	}
+	user.TenantID = tenantID
+	user.IdentityTypeID = identityTypeID
+	user.OrgNodeID = orgNodeID
+	user.MajorID = majorID
+	user.LoginName = loginName
+	user.Phone = phone
+	user.AvatarURL = avatarURL
+	user.StudentNo = studentNo
+	user.WorkID = workID
+	user.IDCard = idCard
+	user.TitleIDs = titleIDs
+	user.Oauth = oauth
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		respondError(w, http.StatusUnauthorized, "invalid username or password")
+		return
+	}
+
+	_, _ = h.DB.Exec(r.Context(), `UPDATE users SET last_login_at = $1 WHERE id = $2`, time.Now(), user.ID)
+
+	token, err := middleware.GenerateToken(h.JWTSecret, &user)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	user.PasswordHash = ""
+	respondJSON(w, http.StatusOK, LoginResponse{Token: token, User: user})
+}
+
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	user, err := h.fetchUserByID(r.Context(), claims.UserID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to fetch user")
+		return
+	}
+
+	resp := MeResponse{User: user}
+
+	if user.InstitutionID != nil {
+		inst, err := h.fetchInstitution(r.Context(), *user.InstitutionID)
+		if err == nil {
+			resp.Institution = inst
+		}
+	}
+	if user.TenantID != nil {
+		resp.Tenant = h.fetchTenantByID(r.Context(), *user.TenantID)
+	}
+	if user.IdentityTypeID != nil {
+		resp.IdentityType = h.fetchIdentityTypeByID(r.Context(), *user.IdentityTypeID)
+	}
+	if user.OrgNodeID != nil {
+		resp.OrgNode = h.fetchOrganizationByID(r.Context(), *user.OrgNodeID)
+	}
+	if user.MajorID != nil {
+		resp.Major = h.fetchMajorByID(r.Context(), *user.MajorID)
+	}
+	resp.Roles = h.fetchUserRoles(r.Context(), user.ID)
+
+	respondJSON(w, http.StatusOK, resp)
+}
+
+func (h *AuthHandler) fetchUserByID(ctx context.Context, id string) (domain.User, error) {
+	var user domain.User
+	var tenantID, identityTypeID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
+	var titleIDs []string
+	var oauth domain.JSONMap
+
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+		       role, login_name, username, password_hash, name, email, phone, avatar_url,
+		       student_no, work_id, id_card, title_ids, oauth, status, last_login_at, created_at, updated_at
+		FROM users WHERE id = $1
+	`, id).Scan(
+		&user.ID, &tenantID, &user.InstitutionID, &identityTypeID, &orgNodeID, &majorID,
+		&user.Role, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
+		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
+		&user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return user, err
+	}
+	user.TenantID = tenantID
+	user.IdentityTypeID = identityTypeID
+	user.OrgNodeID = orgNodeID
+	user.MajorID = majorID
+	user.LoginName = loginName
+	user.Phone = phone
+	user.AvatarURL = avatarURL
+	user.StudentNo = studentNo
+	user.WorkID = workID
+	user.IDCard = idCard
+	user.TitleIDs = titleIDs
+	user.Oauth = oauth
+	return user, nil
+}
+
+func (h *AuthHandler) fetchInstitution(ctx context.Context, id string) (*domain.Institution, error) {
+	var inst domain.Institution
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, type, name, credit_code, logo, intro, contact_name, contact_phone, contact_email,
+		       qualification_file, status, org_code, balance, total_spent, total_income, created_at, updated_at
+		FROM institutions WHERE id = $1
+	`, id).Scan(
+		&inst.ID, &inst.Type, &inst.Name, &inst.CreditCode, &inst.Logo, &inst.Intro,
+		&inst.ContactName, &inst.ContactPhone, &inst.ContactEmail, &inst.QualificationFile,
+		&inst.Status, &inst.OrgCode, &inst.Balance, &inst.TotalSpent, &inst.TotalIncome,
+		&inst.CreatedAt, &inst.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	tags, _ := h.fetchInstitutionTags(ctx, inst.ID)
+	inst.ExpertiseTags = tags
+	return &inst, nil
+}
+
+func (h *AuthHandler) fetchInstitutionTags(ctx context.Context, institutionID string) ([]string, error) {
+	rows, err := h.DB.Query(ctx, `SELECT tag_value FROM institution_expertise_tags WHERE institution_id = $1 ORDER BY tag_value`, institutionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tags []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err == nil {
+			tags = append(tags, t)
+		}
+	}
+	return tags, nil
+}
+
+func (h *AuthHandler) fetchTenantByID(ctx context.Context, id string) *domain.Tenant {
+	var t domain.Tenant
+	var logo, domainVal, enterpriseCode, contact, phone, address, description *string
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, name, code, logo_url, domain, enterprise_code, contact, phone, address, description, admin_ids, status, created_at, updated_at
+		FROM tenants WHERE id = $1
+	`, id).Scan(
+		&t.ID, &t.Name, &t.Code, &logo, &domainVal, &enterpriseCode, &contact, &phone, &address, &description,
+		&t.AdminIDs, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err != nil {
+		return nil
+	}
+	t.LogoURL = logo
+	t.Domain = domainVal
+	t.EnterpriseCode = enterpriseCode
+	t.Contact = contact
+	t.Phone = phone
+	t.Address = address
+	t.Description = description
+	return &t
+}
+
+func (h *AuthHandler) fetchIdentityTypeByID(ctx context.Context, id string) *domain.IdentityType {
+	var it domain.IdentityType
+	var description *string
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, tenant_id, code, name, description, user_count, is_system, created_at
+		FROM identity_types WHERE id = $1
+	`, id).Scan(
+		&it.ID, &it.TenantID, &it.Code, &it.Name, &description, &it.UserCount, &it.IsSystem, &it.CreatedAt,
+	)
+	if err != nil {
+		return nil
+	}
+	it.Description = description
+	return &it
+}
+
+func (h *AuthHandler) fetchOrganizationByID(ctx context.Context, id string) *domain.Organization {
+	var o domain.Organization
+	var parentID *string
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, tenant_id, name, type_id, parent_id, sort_order, member_count, created_at, updated_at
+		FROM organizations WHERE id = $1
+	`, id).Scan(
+		&o.ID, &o.TenantID, &o.Name, &o.TypeID, &parentID, &o.SortOrder, &o.MemberCount, &o.CreatedAt, &o.UpdatedAt,
+	)
+	if err != nil {
+		return nil
+	}
+	o.ParentID = parentID
+	return &o
+}
+
+func (h *AuthHandler) fetchMajorByID(ctx context.Context, id string) *domain.Major {
+	var m domain.Major
+	var orgNodeID, alias *string
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, tenant_id, org_node_id, code, name, alias, enabled, created_at, updated_at
+		FROM majors WHERE id = $1
+	`, id).Scan(
+		&m.ID, &m.TenantID, &orgNodeID, &m.Code, &m.Name, &alias, &m.Enabled, &m.CreatedAt, &m.UpdatedAt,
+	)
+	if err != nil {
+		return nil
+	}
+	m.OrgNodeID = orgNodeID
+	m.Alias = alias
+	return &m
+}
+
+func (h *AuthHandler) fetchUserRoles(ctx context.Context, userID string) []domain.Role {
+	rows, err := h.DB.Query(ctx, `
+		SELECT r.id, r.tenant_id, r.code, r.name, r.description, r.permissions, r.user_count, r.status, r.created_at
+		FROM roles r
+		JOIN user_roles ur ON ur.role_id = r.id
+		WHERE ur.user_id = $1
+	`, userID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var roles []domain.Role
+	for rows.Next() {
+		var r domain.Role
+		var description *string
+		if err := rows.Scan(&r.ID, &r.TenantID, &r.Code, &r.Name, &description, &r.Permissions, &r.UserCount, &r.Status, &r.CreatedAt); err != nil {
+			continue
+		}
+		r.Description = description
+		roles = append(roles, r)
+	}
+	return roles
+}

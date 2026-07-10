@@ -1,0 +1,271 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhiyu-saas/backend/internal/domain"
+	"github.com/zhiyu-saas/backend/internal/middleware"
+)
+
+type TenantHandler struct {
+	DB *pgxpool.Pool
+}
+
+type TenantListResponse struct {
+	Items []domain.Tenant `json:"items"`
+	Total int             `json:"total"`
+}
+
+type CreateTenantRequest struct {
+	Name           string  `json:"name"`
+	Code           string  `json:"code"`
+	LogoURL        *string `json:"logoUrl"`
+	Domain         *string `json:"domain"`
+	EnterpriseCode *string `json:"enterpriseCode"`
+	Contact        *string `json:"contact"`
+	Phone          *string `json:"phone"`
+	Address        *string `json:"address"`
+	Description    *string `json:"description"`
+}
+
+type UpdateTenantRequest struct {
+	Name           string  `json:"name"`
+	LogoURL        *string `json:"logoUrl"`
+	Domain         *string `json:"domain"`
+	EnterpriseCode *string `json:"enterpriseCode"`
+	Contact        *string `json:"contact"`
+	Phone          *string `json:"phone"`
+	Address        *string `json:"address"`
+	Description    *string `json:"description"`
+}
+
+type UpdateTenantStatusRequest struct {
+	Status domain.TenantStatus `json:"status"`
+}
+
+func (h *TenantHandler) List(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	search := r.URL.Query().Get("search")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50
+	offset := 0
+	if v, err := parseInt(limitStr, 50); err == nil && v > 0 {
+		limit = v
+	}
+	if v, err := parseInt(offsetStr, 0); err == nil && v >= 0 {
+		offset = v
+	}
+
+	where := []string{"1=1"}
+	args := []interface{}{}
+	argIdx := 1
+
+	if status != "" {
+		where = append(where, "status = $"+itoa(argIdx))
+		args = append(args, status)
+		argIdx++
+	}
+	if search != "" {
+		where = append(where, "(name ILIKE $"+itoa(argIdx)+" OR code ILIKE $"+itoa(argIdx)+")")
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	countQuery := "SELECT COUNT(*) FROM tenants WHERE " + strings.Join(where, " AND ")
+	var total int
+	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
+
+	query := `
+		SELECT id, name, code, logo_url, domain, enterprise_code, contact, phone, address, description, admin_ids, status, created_at, updated_at
+		FROM tenants
+		WHERE ` + strings.Join(where, " AND ") + `
+		ORDER BY created_at DESC
+		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := h.DB.Query(r.Context(), query, args...)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list tenants")
+		return
+	}
+	defer rows.Close()
+
+	items, err := h.scanTenantRows(rows)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to scan tenants")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, TenantListResponse{Items: items, Total: total})
+}
+
+func (h *TenantHandler) Get(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	tenant, err := h.fetchTenant(r.Context(), id)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "tenant not found")
+		return
+	}
+	respondJSON(w, http.StatusOK, tenant)
+}
+
+func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil || claims.Role != domain.UserRoleOperator {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req CreateTenantRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" || req.Code == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	id := "tenant-" + uuid.NewString()
+
+	_, err := h.DB.Exec(r.Context(), `
+		INSERT INTO tenants (id, name, code, logo_url, domain, enterprise_code, contact, phone, address, description, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active')
+	`, id, req.Name, req.Code, req.LogoURL, req.Domain, req.EnterpriseCode, req.Contact, req.Phone, req.Address, req.Description)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to create tenant")
+		return
+	}
+
+	tenant, _ := h.fetchTenant(r.Context(), id)
+	respondJSON(w, http.StatusCreated, tenant)
+}
+
+func (h *TenantHandler) Update(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil || claims.Role != domain.UserRoleOperator {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchTenant(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "tenant not found")
+		return
+	}
+
+	var req UpdateTenantRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE tenants SET name = $1, logo_url = $2, domain = $3, enterprise_code = $4, contact = $5,
+			phone = $6, address = $7, description = $8, updated_at = NOW()
+		WHERE id = $9
+	`, req.Name, req.LogoURL, req.Domain, req.EnterpriseCode, req.Contact, req.Phone, req.Address, req.Description, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update tenant")
+		return
+	}
+
+	tenant, _ := h.fetchTenant(r.Context(), id)
+	respondJSON(w, http.StatusOK, tenant)
+}
+
+func (h *TenantHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil || claims.Role != domain.UserRoleOperator {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchTenant(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "tenant not found")
+		return
+	}
+
+	var req UpdateTenantStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Status != domain.TenantStatusActive && req.Status != domain.TenantStatusInactive {
+		respondError(w, http.StatusBadRequest, "invalid status")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `UPDATE tenants SET status = $1, updated_at = NOW() WHERE id = $2`, req.Status, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update status")
+		return
+	}
+
+	tenant, _ := h.fetchTenant(r.Context(), id)
+	respondJSON(w, http.StatusOK, tenant)
+}
+
+func (h *TenantHandler) fetchTenant(ctx context.Context, id string) (domain.Tenant, error) {
+	var t domain.Tenant
+	var logo, domainVal, enterpriseCode, contact, phone, address, description *string
+
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, name, code, logo_url, domain, enterprise_code, contact, phone, address, description, admin_ids, status, created_at, updated_at
+		FROM tenants WHERE id = $1
+	`, id).Scan(
+		&t.ID, &t.Name, &t.Code, &logo, &domainVal, &enterpriseCode, &contact, &phone, &address, &description,
+		&t.AdminIDs, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err != nil {
+		return t, err
+	}
+	t.LogoURL = logo
+	t.Domain = domainVal
+	t.EnterpriseCode = enterpriseCode
+	t.Contact = contact
+	t.Phone = phone
+	t.Address = address
+	t.Description = description
+	return t, nil
+}
+
+func (h *TenantHandler) scanTenantRows(rows pgx.Rows) ([]domain.Tenant, error) {
+	items := make([]domain.Tenant, 0)
+	for rows.Next() {
+		var t domain.Tenant
+		var logo, domainVal, enterpriseCode, contact, phone, address, description *string
+		if err := rows.Scan(
+			&t.ID, &t.Name, &t.Code, &logo, &domainVal, &enterpriseCode, &contact, &phone, &address, &description,
+			&t.AdminIDs, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		t.LogoURL = logo
+		t.Domain = domainVal
+		t.EnterpriseCode = enterpriseCode
+		t.Contact = contact
+		t.Phone = phone
+		t.Address = address
+		t.Description = description
+		items = append(items, t)
+	}
+	return items, nil
+}

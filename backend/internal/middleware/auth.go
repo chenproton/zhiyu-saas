@@ -1,0 +1,84 @@
+package middleware
+
+import (
+	"context"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/zhiyu-saas/backend/internal/domain"
+)
+
+type contextKey string
+
+const ContextKeyUser contextKey = "user"
+
+type Claims struct {
+	UserID         string          `json:"userId"`
+	TenantID       *string         `json:"tenantId,omitempty"`
+	InstitutionID  *string         `json:"institutionId,omitempty"`
+	IdentityTypeID *string         `json:"identityTypeId,omitempty"`
+	OrgNodeID      *string         `json:"orgNodeId,omitempty"`
+	Role           domain.UserRole `json:"role"`
+	Username       string          `json:"username"`
+	jwt.RegisteredClaims
+}
+
+func JWT(secret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			auth := r.Header.Get("Authorization")
+			if auth == "" {
+				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+				return
+			}
+
+			tokenStr := strings.TrimPrefix(auth, "Bearer ")
+			if tokenStr == auth {
+				http.Error(w, `{"error":"invalid authorization header"}`, http.StatusUnauthorized)
+				return
+			}
+
+			token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+				return []byte(secret), nil
+			})
+			if err != nil || !token.Valid {
+				http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+				return
+			}
+
+			claims, ok := token.Claims.(*Claims)
+			if !ok {
+				http.Error(w, `{"error":"invalid token claims"}`, http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), ContextKeyUser, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func CurrentUser(r *http.Request) *Claims {
+	u, _ := r.Context().Value(ContextKeyUser).(*Claims)
+	return u
+}
+
+func GenerateToken(secret string, user *domain.User) (string, error) {
+	claims := Claims{
+		UserID:         user.ID,
+		TenantID:       user.TenantID,
+		InstitutionID:  user.InstitutionID,
+		IdentityTypeID: user.IdentityTypeID,
+		OrgNodeID:      user.OrgNodeID,
+		Role:           user.Role,
+		Username:       user.Username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}

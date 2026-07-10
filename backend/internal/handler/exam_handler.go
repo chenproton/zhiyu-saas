@@ -1,0 +1,358 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhiyu-saas/backend/internal/domain"
+	"github.com/zhiyu-saas/backend/internal/middleware"
+)
+
+type ExamHandler struct {
+	DB *pgxpool.Pool
+}
+
+type ExamListResponse struct {
+	Items []domain.Exam `json:"items"`
+	Total int           `json:"total"`
+}
+
+type CreateExamRequest struct {
+	Name                string   `json:"name"`
+	Description         string   `json:"description"`
+	Duration            int      `json:"duration"`
+	CoverURL            *string  `json:"coverUrl"`
+	CollaboratorIDs     []string `json:"collaboratorIds"`
+	CollaboratorDeptIDs []string `json:"collaboratorDeptIds"`
+	BatchID             *string  `json:"batchId"`
+}
+
+type AddExamQuestionRequest struct {
+	QuestionID string  `json:"questionId"`
+	Score      float64 `json:"score"`
+}
+
+func (h *ExamHandler) List(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	status := r.URL.Query().Get("status")
+	search := r.URL.Query().Get("search")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50
+	offset := 0
+	if v, err := parseInt(limitStr, 50); err == nil && v > 0 {
+		limit = v
+	}
+	if v, err := parseInt(offsetStr, 0); err == nil && v >= 0 {
+		offset = v
+	}
+
+	where := []string{"1=1"}
+	args := []interface{}{}
+	argIdx := 1
+
+	if status != "" {
+		where = append(where, "status = $"+itoa(argIdx))
+		args = append(args, status)
+		argIdx++
+	}
+	if search != "" {
+		where = append(where, "(name ILIKE $"+itoa(argIdx)+" OR description ILIKE $"+itoa(argIdx)+")")
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	countQuery := "SELECT COUNT(*) FROM exams WHERE " + strings.Join(where, " AND ")
+	var total int
+	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
+
+	query := `
+		SELECT id, name, description, status, total_score, duration, cover_url,
+			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, creator_id, created_at, updated_at
+		FROM exams
+		WHERE ` + strings.Join(where, " AND ") + `
+		ORDER BY created_at DESC
+		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := h.DB.Query(r.Context(), query, args...)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list exams")
+		return
+	}
+	defer rows.Close()
+
+	items, err := h.scanExamRows(r.Context(), rows)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to scan exams")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, ExamListResponse{Items: items, Total: total})
+}
+
+func (h *ExamHandler) Get(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	exam, err := h.fetchExam(r.Context(), id)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "exam not found")
+		return
+	}
+	respondJSON(w, http.StatusOK, exam)
+}
+
+func (h *ExamHandler) Create(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req CreateExamRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	id := "exam-" + uuid.NewString()
+	_, err := h.DB.Exec(r.Context(), `
+		INSERT INTO exams (id, name, description, status, total_score, duration, cover_url,
+			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, creator_id)
+		VALUES ($1, $2, $3, 'draft', 0, $4, $5, $6, $7, $8, 'v1.0', 'mine', $9)
+	`, id, req.Name, req.Description, req.Duration, req.CoverURL, req.CollaboratorIDs, req.CollaboratorDeptIDs, req.BatchID, claims.UserID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to create exam")
+		return
+	}
+
+	exam, _ := h.fetchExam(r.Context(), id)
+	respondJSON(w, http.StatusCreated, exam)
+}
+
+func (h *ExamHandler) Update(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchExam(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "exam not found")
+		return
+	}
+
+	var req CreateExamRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE exams SET name = $1, description = $2, duration = $3, cover_url = $4,
+			collaborator_ids = $5, collaborator_dept_ids = $6, batch_id = $7, updated_at = NOW()
+		WHERE id = $8
+	`, req.Name, req.Description, req.Duration, req.CoverURL, req.CollaboratorIDs, req.CollaboratorDeptIDs, req.BatchID, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update exam")
+		return
+	}
+
+	exam, _ := h.fetchExam(r.Context(), id)
+	respondJSON(w, http.StatusOK, exam)
+}
+
+func (h *ExamHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchExam(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "exam not found")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM exams WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete exam")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *ExamHandler) AddQuestion(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchExam(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "exam not found")
+		return
+	}
+
+	var req AddExamQuestionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.QuestionID == "" {
+		respondError(w, http.StatusBadRequest, "missing question id")
+		return
+	}
+
+	var q domain.Question
+	err := h.DB.QueryRow(r.Context(), `
+		SELECT id, type, content, options, answer, analysis, score FROM questions WHERE id = $1
+	`, req.QuestionID).Scan(&q.ID, &q.Type, &q.Content, &q.Options, &q.Answer, &q.Analysis, &q.Score)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "question not found")
+		return
+	}
+
+	score := req.Score
+	if score == 0 {
+		score = q.Score
+	}
+
+	_, err = h.DB.Exec(r.Context(), `
+		INSERT INTO exam_questions (id, exam_id, question_id, type, content, options, answer, analysis, score, order_num)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, (SELECT COALESCE(MAX(order_num), 0) + 1 FROM exam_questions WHERE exam_id = $2))
+	`, uuid.NewString(), id, q.ID, q.Type, q.Content, q.Options, q.Answer, q.Analysis, score)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to add question")
+		return
+	}
+
+	_ = h.recalcExamTotal(r.Context(), id)
+	exam, _ := h.fetchExam(r.Context(), id)
+	respondJSON(w, http.StatusOK, exam)
+}
+
+func (h *ExamHandler) RemoveQuestion(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	questionID := chi.URLParam(r, "questionId")
+	if _, err := h.fetchExam(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "exam not found")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM exam_questions WHERE exam_id = $1 AND question_id = $2`, id, questionID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to remove question")
+		return
+	}
+
+	_ = h.recalcExamTotal(r.Context(), id)
+	exam, _ := h.fetchExam(r.Context(), id)
+	respondJSON(w, http.StatusOK, exam)
+}
+
+func (h *ExamHandler) recalcExamTotal(ctx context.Context, examID string) error {
+	_, err := h.DB.Exec(ctx, `
+		UPDATE exams SET total_score = COALESCE((SELECT SUM(score) FROM exam_questions WHERE exam_id = $1), 0), updated_at = NOW()
+		WHERE id = $1
+	`, examID)
+	return err
+}
+
+func (h *ExamHandler) fetchExam(ctx context.Context, id string) (domain.Exam, error) {
+	var e domain.Exam
+	var coverURL, creatorID, batchID *string
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, name, description, status, total_score, duration, cover_url,
+			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, creator_id, created_at, updated_at
+		FROM exams WHERE id = $1
+	`, id).Scan(
+		&e.ID, &e.Name, &e.Description, &e.Status, &e.TotalScore, &e.Duration, &coverURL,
+		&e.CollaboratorIDs, &e.CollaboratorDeptIDs, &batchID, &e.Version, &e.OwnerType, &creatorID, &e.CreatedAt, &e.UpdatedAt,
+	)
+	if err != nil {
+		return e, err
+	}
+	e.CoverURL = coverURL
+	e.CreatorID = creatorID
+	e.BatchID = batchID
+	e.Questions, _ = h.fetchExamQuestions(ctx, id)
+	return e, nil
+}
+
+func (h *ExamHandler) fetchExamQuestions(ctx context.Context, examID string) ([]domain.ExamQuestion, error) {
+	rows, err := h.DB.Query(ctx, `
+		SELECT id, exam_id, question_id, type, content, options, answer, analysis, score, order_num
+		FROM exam_questions WHERE exam_id = $1 ORDER BY order_num
+	`, examID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]domain.ExamQuestion, 0)
+	for rows.Next() {
+		var q domain.ExamQuestion
+		var analysis *string
+		if err := rows.Scan(&q.ID, &q.ExamID, &q.QuestionID, &q.Type, &q.Content, &q.Options, &q.Answer, &analysis, &q.Score, &q.Order); err != nil {
+			return nil, err
+		}
+		q.Analysis = analysis
+		items = append(items, q)
+	}
+	return items, nil
+}
+
+func (h *ExamHandler) scanExamRows(ctx context.Context, rows pgx.Rows) ([]domain.Exam, error) {
+	items := make([]domain.Exam, 0)
+	for rows.Next() {
+		var e domain.Exam
+		var coverURL, creatorID, batchID *string
+		if err := rows.Scan(
+			&e.ID, &e.Name, &e.Description, &e.Status, &e.TotalScore, &e.Duration, &coverURL,
+			&e.CollaboratorIDs, &e.CollaboratorDeptIDs, &batchID, &e.Version, &e.OwnerType, &creatorID, &e.CreatedAt, &e.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		e.CoverURL = coverURL
+		e.CreatorID = creatorID
+		e.BatchID = batchID
+		e.Questions, _ = h.fetchExamQuestions(ctx, e.ID)
+		items = append(items, e)
+	}
+	return items, nil
+}

@@ -1,259 +1,153 @@
-// Mock data for the hybrid architecture tenant management system
+// Mock data for the teaching resource sharing marketplace
 
-export interface PackageQuota {
-  aiModel: string
-  dailyTokenLimit: number
-  maxStudentAccounts: number
-  maxTeacherAccounts: number
-}
+// ==================== Enums & Constants ====================
 
-export interface Package {
+export const RESOURCE_CATEGORIES = [
+  { id: "post", name: "岗位包", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  { id: "scene", name: "场景包", color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
+  { id: "course", name: "课程包", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  { id: "assessment", name: "测评包", color: "bg-amber-100 text-amber-700 border-amber-200" },
+  { id: "material", name: "素材包", color: "bg-rose-100 text-rose-700 border-rose-200" },
+] as const
+
+export const MAJOR_TAGS = [
+  "信息安全",
+  "计算机网络",
+  "软件技术",
+  "大数据技术",
+  "人工智能",
+  "物联网",
+  "云计算",
+  "数字媒体",
+  "电子商务",
+  "智能制造",
+]
+
+export const INDUSTRY_TAGS = [
+  "网络安全",
+  "软件开发",
+  "云计算服务",
+  "数据分析",
+  "智能硬件",
+  "互联网运营",
+  "金融科技",
+  "教育培训",
+]
+
+export const EDUCATION_LEVELS = ["中职", "高职", "本科"] as const
+
+export const DIFFICULTY_LEVELS = ["初级", "中级", "高级"] as const
+
+export type ResourceCategoryId = (typeof RESOURCE_CATEGORIES)[number]["id"]
+export type EducationLevel = (typeof EDUCATION_LEVELS)[number]
+export type DifficultyLevel = (typeof DIFFICULTY_LEVELS)[number]
+
+export type InstitutionType = "school" | "enterprise"
+export type InstitutionStatus = "pending" | "approved" | "disabled"
+export type ResourceStatus = "draft" | "reviewing" | "rejected" | "pending_publish" | "published" | "offlined"
+export type OrderStatus = "pending" | "paid" | "cancelled" | "refunded"
+export type WithdrawalStatus = "pending" | "approved" | "paid" | "rejected"
+
+// ==================== Types ====================
+
+export interface Institution {
   id: string
+  type: InstitutionType
   name: string
-  code: string
-  features: string[]
-  quotas: PackageQuota
-  price: number
-  status: "active" | "inactive"
+  creditCode: string
+  logo?: string
+  intro: string
+  contactName: string
+  contactPhone: string
+  contactEmail: string
+  qualificationFile?: string
+  expertiseTags: string[]
+  status: InstitutionStatus
+  orgCode: string
+  balance: number // 可提现余额（对企业/创作者）
+  totalSpent: number // 累计消费（对学校）
+  totalIncome: number // 累计收益
+  createdAt: string
   updatedAt: string
 }
 
-export interface Tenant {
+export interface ResourceTag {
   id: string
+  resourceId: string
+  tagType: "major" | "industry" | "level" | "difficulty"
+  tagValue: string
+}
+
+export interface Resource {
+  id: string
+  institutionId: string
   name: string
-  orgCode: string // 全局唯一机构码，系统自动生成，不可修改
-  contactName: string
-  contactPhone: string
-  username: string
-  packageId: string
-  packageName: string
-  domain: string
-  address: string
-  enterpriseCode: string // 统一社会信用代码
-  description: string
-  remark: string
-  createdAt: string
-  createdBy: "admin" | "application" // 来源：管理员手工创建 或 申请审核通过
-  applicationId?: string // 如果是申请通过的，关联申请单号
-  operatorName?: string // 如果是申请通过的，申请人姓名
-}
-
-export interface TenantApplication {
-  id: string
-  applicationNo: string // 申请单号
-  orgName: string // 机构名称
-  creditCode: string // 统一社会信用代码
-  contactName: string
-  contactPhone: string
-  packageId: string
-  packageName: string
-  orgType: "trial" | "formal" // 试用/正式
-  description: string
-  attachments: string[] // 附件路径
-  applicantId: string // 申请人ID
-  applicantName: string // 申请人姓名
-  applicationTime: string
-  status: "pending" | "approved" | "rejected"
-  reviewerId?: string
-  reviewerName?: string
-  reviewTime?: string
+  intro: string
+  category: ResourceCategoryId
+  coverImage?: string
+  attachment?: string
+  attachmentName?: string
+  price: number
+  version: string
+  status: ResourceStatus
   rejectReason?: string
-  createdTenantId?: string // 审核通过后创建的租户ID
-  createdOrgCode?: string // 审核通过后生成的机构码
-}
-
-export interface ResourceTypeCode {
-  id: string
-  objectName: string // 系统对象名称
-  code: string // 资源类型编码 (1字母+1数字)
-  description: string
-  updatedBy: string
+  salesCount: number
+  viewCount: number
+  createdAt: string
   updatedAt: string
 }
 
 export interface Order {
   id: string
-  orderNumber: string
-  tenantId: string
-  tenantName: string
-  packageId: string
-  packageName: string
-  orderType: "new" | "renewal" | "expansion" | "upgrade"
-  amount: number
-  paymentStatus: "pending" | "completed" | "cancelled"
-  duration: string
+  orderNo: string
+  buyerId: string
+  sellerId: string
+  resourceId: string
+  price: number
+  platformFee: number
+  sellerIncome: number
+  status: OrderStatus
+  paidAt?: string
   createdAt: string
 }
 
-export interface License {
+export interface Authorization {
   id: string
-  serialNumber: string
-  tenantId: string
-  tenantName: string
-  tenantOrgCode: string // 租户机构码
   orderId: string
-  orderNumber: string
-  machineCode: string
-  startDate: string
-  endDate: string
-  status: "active" | "expiring" | "expired" | "revoked"
-  daysUntilExpiry: number
+  buyerId: string
+  resourceId: string
+  authCode: string
+  status: 1 | 2 // 1=有效
+  createdAt: string
 }
 
-// Feature configuration - hierarchical structure
-export interface FeatureModule {
+export interface Withdrawal {
   id: string
-  name: string
-  children: { id: string; name: string }[]
+  institutionId: string
+  amount: number
+  accountType: "bank" | "alipay"
+  accountInfo: string
+  status: WithdrawalStatus
+  handledAt?: string
+  createdAt: string
 }
 
-export const featureModules: FeatureModule[] = [
-  {
-    id: "teacher",
-    name: "教师",
-    children: [
-      { id: "teacher-scene-center", name: "场景应用中心" },
-      { id: "teacher-hot-jobs", name: "热门岗位" },
-      { id: "teacher-knowledge-graph", name: "知识图谱" },
-      { id: "teacher-job-center", name: "行岗中心" },
-      { id: "teacher-file-info", name: "教师获取文件信息" },
-      { id: "teacher-training-review", name: "训练审核" },
-      { id: "teacher-teaching-overview", name: "教学概况" },
-      { id: "teacher-digital-transform", name: "数字化转型提升" },
-    ],
-  },
-  {
-    id: "student",
-    name: "学生",
-    children: [
-      { id: "student-personal-info", name: "获取学生个人信息" },
-      { id: "student-scene-list", name: "查询我的场景列表" },
-      { id: "student-job-center", name: "岗位中心" },
-      { id: "student-general-jobs", name: "岗位中心-通用岗位库" },
-      { id: "student-digital-ability", name: "学生点亮的数智化能力" },
-      { id: "student-task-pass-rate", name: "场景任务通过率" },
-      { id: "student-related-scenes", name: "查询学生关联的场景" },
-      { id: "student-ability-portrait", name: "能力画像-学生个人信息" },
-    ],
-  },
-  {
-    id: "system-mgmt",
-    name: "系统管理",
-    children: [
-      { id: "sys-user-mgmt", name: "用户管理" },
-      { id: "sys-role-mgmt", name: "角色管理" },
-      { id: "sys-menu-mgmt", name: "菜单管理" },
-      { id: "sys-dept-mgmt", name: "部门管理" },
-      { id: "sys-post-mgmt", name: "岗位管理" },
-      { id: "sys-dict-mgmt", name: "字典管理" },
-      { id: "sys-tree-dict", name: "树形字典" },
-      { id: "sys-param-config", name: "参数设置" },
-    ],
-  },
-  {
-    id: "platform-panel",
-    name: "平台面板",
-    children: [
-      { id: "platform-teacher-workbench", name: "教师工作台" },
-    ],
-  },
-  {
-    id: "system-monitor",
-    name: "系统监控",
-    children: [
-      { id: "monitor-online-users", name: "在线用户" },
-      { id: "monitor-cache", name: "缓存监控" },
-      { id: "monitor-admin", name: "Admin监控" },
-      { id: "monitor-task-schedule", name: "任务调度" },
-    ],
-  },
-  {
-    id: "system-tools",
-    name: "系统工具",
-    children: [
-      { id: "tools-send-msg", name: "发送消息" },
-      { id: "tools-receive-msg", name: "接受消息" },
-      { id: "tools-code-gen", name: "代码生成" },
-    ],
-  },
-  {
-    id: "test-menu",
-    name: "测试菜单",
-    children: [
-      { id: "test-single-table", name: "测试单表" },
-      { id: "test-tree-table", name: "测试树表" },
-    ],
-  },
-  {
-    id: "edu-admin",
-    name: "教务管理",
-    children: [
-      { id: "edu-faculty-info", name: "院系信息" },
-      { id: "edu-major-info", name: "专业信息" },
-      { id: "edu-class-info", name: "班级信息" },
-      { id: "edu-staff-info", name: "员工信息" },
-      { id: "edu-student-info", name: "学生信息" },
-      { id: "edu-code-rules", name: "编码规则" },
-      { id: "edu-guide-config", name: "指南配置" },
-      { id: "edu-teaching-plan", name: "教学计划" },
-    ],
-  },
-  {
-    id: "teaching-resource",
-    name: "教学资源建设",
-    children: [
-      { id: "resource-course-mgmt", name: "课程资源管理" },
-      { id: "resource-course-config", name: "课程设置1" },
-      { id: "resource-learning-path", name: "学习路径搭建" },
-      { id: "resource-course-res", name: "课程资源" },
-      { id: "resource-course-mgmt2", name: "课程管理" },
-      { id: "resource-knowledge-graph", name: "知识图谱" },
-      { id: "resource-knowledge-points", name: "知识点" },
-      { id: "resource-teaching-scene", name: "教学场景" },
-    ],
-  },
-  {
-    id: "teaching-mgmt",
-    name: "教学管理",
-    children: [
-      { id: "teach-graph-mgmt", name: "图谱管理" },
-      { id: "teach-class-data", name: "随堂数据" },
-      { id: "teach-my-class", name: "我的班级" },
-      { id: "teach-learning-path", name: "学习路径" },
-      { id: "teach-task-eval", name: "任务评价" },
-      { id: "teach-study-analysis", name: "学情分析" },
-      { id: "teach-tags", name: "教学标签" },
-    ],
-  },
-  {
-    id: "job-enterprise",
-    name: "岗位与企业服务",
-    children: [
-      { id: "job-partners", name: "合作企业" },
-      { id: "job-industry-category", name: "行业类目" },
-      { id: "job-standards", name: "岗位标准" },
-      { id: "job-ability-model", name: "能力模型" },
-      { id: "job-enterprise-jobs", name: "企业岗位" },
-      { id: "job-abilities", name: "岗位能力" },
-      { id: "job-intentions", name: "就业意向" },
-      { id: "job-order-class", name: "订单班培养" },
-    ],
-  },
-]
+export interface Banner {
+  id: string
+  title: string
+  image: string
+  link?: string
+  sort: number
+  enabled: boolean
+}
 
-// AI Models available for packages
-export const aiModels = [
-  { id: "gpt-4o", name: "GPT-4o" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-  { id: "claude-3-opus", name: "Claude 3 Opus" },
-  { id: "claude-3-sonnet", name: "Claude 3 Sonnet" },
-  { id: "deepseek-v3", name: "DeepSeek V3" },
-  { id: "qwen-max", name: "通义千问 Max" },
-  { id: "glm-4", name: "智谱 GLM-4" },
-  { id: "ernie-4", name: "文心一言 4.0" },
-]
+export interface PlatformConfig {
+  platformFeeRate: number // 0.15 = 15%
+  minWithdrawalAmount: number
+}
 
-// 生成机构码: ORG-XXXXXX (6位随机字母数字)
+// ==================== Helper Functions ====================
+
 export function generateOrgCode(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
   let code = "ORG-"
@@ -263,541 +157,610 @@ export function generateOrgCode(): string {
   return code
 }
 
-// 生成资源类型编码: 1字母+1数字
-export function generateResourceTypeCode(): string {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  const numbers = "0123456789"
-  return letters.charAt(Math.floor(Math.random() * letters.length)) + 
-         numbers.charAt(Math.floor(Math.random() * numbers.length))
+export function generateOrderNo(): string {
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "")
+  const random = Math.floor(1000 + Math.random() * 9000)
+  return `ORD-${date}-${random}`
 }
 
-export const packages: Package[] = [
+export function generateAuthCode(): string {
+  const segments = 4
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  let code = "AUTH-"
+  for (let i = 0; i < segments; i++) {
+    for (let j = 0; j < 4; j++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    if (i < segments - 1) code += "-"
+  }
+  return code
+}
+
+export function getCategoryName(categoryId: string): string {
+  return RESOURCE_CATEGORIES.find((c) => c.id === categoryId)?.name || categoryId
+}
+
+export function getCategoryColor(categoryId: string): string {
+  return RESOURCE_CATEGORIES.find((c) => c.id === categoryId)?.color || "bg-secondary"
+}
+
+export function getInstitutionById(id: string): Institution | undefined {
+  return institutions.find((i) => i.id === id)
+}
+
+export function getResourceById(id: string): Resource | undefined {
+  return resources.find((r) => r.id === id)
+}
+
+export function getResourceTags(resourceId: string): ResourceTag[] {
+  return resourceTags.filter((t) => t.resourceId === resourceId)
+}
+
+export function isResourcePurchased(buyerId: string, resourceId: string): boolean {
+  return authorizations.some((a) => a.buyerId === buyerId && a.resourceId === resourceId)
+}
+
+export function getResourceOrders(resourceId: string): Order[] {
+  return orders.filter((o) => o.resourceId === resourceId && o.status === "paid")
+}
+
+// ==================== Mock Data: Institutions ====================
+
+export const institutions: Institution[] = [
   {
-    id: "pkg-001",
-    name: "基础版",
-    code: "BASIC-2024",
-    features: ["sys-user-mgmt", "sys-role-mgmt", "sys-menu-mgmt", "edu-student-info", "edu-class-info", "student-personal-info", "student-scene-list"],
-    quotas: { aiModel: "gpt-4o-mini", dailyTokenLimit: 10000, maxStudentAccounts: 100, maxTeacherAccounts: 10 },
-    price: 9800,
-    status: "active",
+    id: "inst-001",
+    type: "enterprise",
+    name: "网络安全科技股份有限公司",
+    creditCode: "91110108MA01ABCD1X",
+    logo: "/placeholder-logo.png",
+    intro: "专注于网络安全人才培养与教学资源开发的高新技术企业。",
+    contactName: "张明",
+    contactPhone: "138****1234",
+    contactEmail: "zhangming@cybersec.com",
+    qualificationFile: "营业执照.pdf",
+    expertiseTags: ["信息安全", "网络安全"],
+    status: "approved",
+    orgCode: "ORG-ENT001",
+    balance: 12850.0,
+    totalSpent: 0,
+    totalIncome: 23500.0,
+    createdAt: "2024-01-10",
     updatedAt: "2024-03-15",
   },
   {
-    id: "pkg-002",
-    name: "高级版",
-    code: "PRO-2024",
-    features: ["sys-user-mgmt", "sys-role-mgmt", "sys-menu-mgmt", "sys-dept-mgmt", "sys-post-mgmt", "edu-student-info", "edu-class-info", "edu-faculty-info", "edu-major-info", "student-personal-info", "student-scene-list", "student-job-center", "teacher-scene-center", "teacher-teaching-overview", "teach-my-class", "teach-learning-path"],
-    quotas: { aiModel: "gpt-4o", dailyTokenLimit: 50000, maxStudentAccounts: 500, maxTeacherAccounts: 50 },
-    price: 29800,
-    status: "active",
+    id: "inst-002",
+    type: "school",
+    name: "北京信息职业技术学院",
+    creditCode: "12110000400999999X",
+    logo: "/placeholder-logo.png",
+    intro: "北京市示范性高等职业院校，重点建设信息技术类专业群。",
+    contactName: "李华",
+    contactPhone: "139****5678",
+    contactEmail: "lihua@bitc.edu.cn",
+    qualificationFile: "办学许可证.pdf",
+    expertiseTags: ["计算机网络", "软件技术"],
+    status: "approved",
+    orgCode: "ORG-SCH001",
+    balance: 0,
+    totalSpent: 15800.0,
+    totalIncome: 0,
+    createdAt: "2024-02-15",
+    updatedAt: "2024-03-20",
+  },
+  {
+    id: "inst-003",
+    type: "enterprise",
+    name: "云智教育科技（深圳）有限公司",
+    creditCode: "91440300MA5E6789CD",
+    logo: "/placeholder-logo.png",
+    intro: "聚焦云计算与大数据领域的职业教育内容服务商。",
+    contactName: "王芳",
+    contactPhone: "137****9012",
+    contactEmail: "wangfang@yunzhi.com",
+    qualificationFile: "营业执照.pdf",
+    expertiseTags: ["云计算", "大数据技术"],
+    status: "approved",
+    orgCode: "ORG-ENT002",
+    balance: 5200.0,
+    totalSpent: 0,
+    totalIncome: 9800.0,
+    createdAt: "2024-03-05",
+    updatedAt: "2024-03-18",
+  },
+  {
+    id: "inst-004",
+    type: "school",
+    name: "上海电子信息职业技术学院",
+    creditCode: "12110000400998888X",
+    logo: "/placeholder-logo.png",
+    intro: "上海市特色高职院校，电子信息类专业优势明显。",
+    contactName: "陈伟",
+    contactPhone: "136****3456",
+    contactEmail: "chenwei@shie.edu.cn",
+    qualificationFile: "办学许可证.pdf",
+    expertiseTags: ["物联网", "人工智能"],
+    status: "approved",
+    orgCode: "ORG-SCH002",
+    balance: 0,
+    totalSpent: 7600.0,
+    totalIncome: 0,
+    createdAt: "2024-01-22",
     updatedAt: "2024-03-10",
   },
   {
-    id: "pkg-003",
-    name: "全能旗舰版",
-    code: "ENTERPRISE-2024",
-    features: ["sys-user-mgmt", "sys-role-mgmt", "sys-menu-mgmt", "sys-dept-mgmt", "sys-post-mgmt", "sys-dict-mgmt", "sys-tree-dict", "sys-param-config", "platform-teacher-workbench", "monitor-online-users", "monitor-cache", "edu-faculty-info", "edu-major-info", "edu-class-info", "edu-staff-info", "edu-student-info", "edu-code-rules", "edu-guide-config", "edu-teaching-plan", "resource-course-mgmt", "resource-learning-path", "resource-knowledge-graph", "resource-teaching-scene", "teach-graph-mgmt", "teach-class-data", "teach-my-class", "teach-learning-path", "teach-task-eval", "teach-study-analysis", "teach-tags", "teacher-scene-center", "teacher-hot-jobs", "teacher-knowledge-graph", "teacher-job-center", "teacher-training-review", "teacher-teaching-overview", "teacher-digital-transform", "student-personal-info", "student-scene-list", "student-job-center", "student-general-jobs", "student-digital-ability", "student-task-pass-rate", "student-related-scenes", "student-ability-portrait", "job-partners", "job-industry-category", "job-standards", "job-ability-model", "job-enterprise-jobs"],
-    quotas: { aiModel: "claude-3-opus", dailyTokenLimit: 200000, maxStudentAccounts: 2000, maxTeacherAccounts: 200 },
-    price: 98000,
-    status: "active",
-    updatedAt: "2024-03-01",
-  },
-  {
-    id: "pkg-004",
-    name: "试用版",
-    code: "TRIAL-2024",
-    features: ["sys-user-mgmt", "sys-role-mgmt", "edu-student-info", "student-personal-info"],
-    quotas: { aiModel: "gpt-4o-mini", dailyTokenLimit: 1000, maxStudentAccounts: 20, maxTeacherAccounts: 5 },
-    price: 0,
-    status: "active",
-    updatedAt: "2024-02-20",
-  },
-  {
-    id: "pkg-005",
-    name: "定制版",
-    code: "CUSTOM-2024",
-    features: [],
-    quotas: { aiModel: "claude-3-opus", dailyTokenLimit: 999999, maxStudentAccounts: 9999, maxTeacherAccounts: 999 },
-    price: 298000,
-    status: "inactive",
-    updatedAt: "2024-01-15",
-  },
-]
-
-export const tenants: Tenant[] = [
-  {
-    id: "tenant-001",
-    name: "北京智慧科技有限公司",
-    orgCode: "ORG-BJ2401",
-    contactName: "张明",
-    contactPhone: "138****1234",
-    username: "admin_zhihui",
-    packageId: "pkg-002",
-    packageName: "高级版",
-    domain: "zhihuitech.example.com",
-    address: "北京市海淀区中关村大街1号",
-    enterpriseCode: "91110108MA01ABCD1X",
-    description: "专注于智慧教育解决方案的科技公司",
-    remark: "重点客户，需要定期回访",
-    createdAt: "2024-01-10",
-    createdBy: "admin",
-  },
-  {
-    id: "tenant-002",
-    name: "上海数字创新集团",
-    orgCode: "ORG-SH2402",
-    contactName: "李华",
-    contactPhone: "139****5678",
-    username: "admin_digital",
-    packageId: "pkg-003",
-    packageName: "全能旗舰版",
-    domain: "digitalinno.example.com",
-    address: "上海市浦东新区张江高科技园区",
-    enterpriseCode: "91310115MA1K2345AB",
-    description: "大型教育集团，覆盖多个校区",
-    remark: "",
-    createdAt: "2024-02-15",
-    createdBy: "application",
-    applicationId: "APP-2024021001",
-    operatorName: "运营专员王某",
-  },
-  {
-    id: "tenant-003",
-    name: "深圳前沿技术有限公司",
-    orgCode: "ORG-SZ2403",
-    contactName: "王芳",
-    contactPhone: "137****9012",
-    username: "admin_qianyan",
-    packageId: "pkg-004",
-    packageName: "试用版",
-    domain: "qianyan.example.com",
-    address: "深圳市南山区科技园",
-    enterpriseCode: "91440300MA5E6789CD",
-    description: "新兴职业教育培训机构",
-    remark: "试用期内，关注转化",
-    createdAt: "2024-03-20",
-    createdBy: "admin",
-  },
-  {
-    id: "tenant-004",
-    name: "杭州云端网络科技",
-    orgCode: "ORG-HZ2404",
-    contactName: "陈伟",
-    contactPhone: "136****3456",
-    username: "admin_yunduan",
-    packageId: "pkg-002",
-    packageName: "高级版",
-    domain: "yunduan.example.com",
-    address: "杭州市滨江区网商路699号",
-    enterpriseCode: "91330106MA2B3456EF",
-    description: "在线教育平台提供商",
-    remark: "即将到期，需要续约跟进",
-    createdAt: "2023-11-05",
-    createdBy: "application",
-    applicationId: "APP-2023110101",
-    operatorName: "运营专员李某",
-  },
-  {
-    id: "tenant-005",
-    name: "广州智联信息技术",
-    orgCode: "ORG-GZ2405",
+    id: "inst-005",
+    type: "school",
+    name: "杭州职业技术学院",
+    creditCode: "12330000470088888X",
+    logo: "/placeholder-logo.png",
+    intro: "浙江省示范性高职院校，数字媒体专业为省级特色专业。",
     contactName: "刘洋",
     contactPhone: "135****7890",
-    username: "admin_zhilian",
-    packageId: "pkg-001",
-    packageName: "基础版",
-    domain: "zhilian-tech.example.com",
-    address: "广州市天河区天河路385号",
-    enterpriseCode: "91440106MA5C7890GH",
-    description: "中小型培训机构",
-    remark: "已暂停服务，欠费未缴",
-    createdAt: "2023-08-22",
-    createdBy: "admin",
+    contactEmail: "liuyang@hzvtc.edu.cn",
+    qualificationFile: "办学许可证.pdf",
+    expertiseTags: ["数字媒体", "电子商务"],
+    status: "pending",
+    orgCode: "ORG-SCH003",
+    balance: 0,
+    totalSpent: 0,
+    totalIncome: 0,
+    createdAt: "2024-04-01",
+    updatedAt: "2024-04-01",
   },
   {
-    id: "tenant-006",
-    name: "成都天府软件园区",
-    orgCode: "ORG-CD2406",
+    id: "inst-006",
+    type: "enterprise",
+    name: "智能制造解决方案有限公司",
+    creditCode: "91330106MA2B3456EF",
+    logo: "/placeholder-logo.png",
+    intro: "面向职业院校提供智能制造实训资源与课程服务。",
     contactName: "赵静",
     contactPhone: "158****2345",
-    username: "admin_tianfu",
-    packageId: "pkg-001",
-    packageName: "基础版",
-    domain: "tianfupark.example.com",
-    address: "成都市高新区天府大道1700号",
-    enterpriseCode: "91510107MA6D2345IJ",
-    description: "职业技术培训中心",
-    remark: "",
-    createdAt: "2024-01-28",
-    createdBy: "admin",
-  },
-  {
-    id: "tenant-007",
-    name: "武汉光谷科技发展",
-    orgCode: "ORG-WH2407",
-    contactName: "孙磊",
-    contactPhone: "159****6789",
-    username: "admin_guanggu",
-    packageId: "pkg-002",
-    packageName: "高级版",
-    domain: "guanggu-dev.example.com",
-    address: "武汉市东湖高新区光谷大道",
-    enterpriseCode: "91420114MA4E5678KL",
-    description: "高校合作项目",
-    remark: "已流失客户",
-    createdAt: "2022-06-15",
-    createdBy: "admin",
-  },
-  {
-    id: "tenant-008",
-    name: "南京紫金山实验室",
-    orgCode: "ORG-NJ2408",
-    contactName: "周敏",
-    contactPhone: "151****0123",
-    username: "admin_zijinshan",
-    packageId: "pkg-004",
-    packageName: "试用版",
-    domain: "zijinshan-lab.example.com",
-    address: "南京市玄武区紫金山路",
-    enterpriseCode: "91320105MA1F9012MN",
-    description: "科研教育机构",
-    remark: "试用中，有升级意向",
-    createdAt: "2024-03-25",
-    createdBy: "application",
-    applicationId: "APP-2024032001",
-    operatorName: "运营专员张某",
-  },
-]
-
-// 租户申请数据
-export const tenantApplications: TenantApplication[] = [
-  {
-    id: "app-001",
-    applicationNo: "APP-2024040101",
-    orgName: "西安交大教育科技有限公司",
-    creditCode: "91610104MA7B1234AB",
-    contactName: "马强",
-    contactPhone: "189****5678",
-    packageId: "pkg-002",
-    packageName: "高级版",
-    orgType: "formal",
-    description: "西安交通大学合作项目，计划部署职业教育平台",
-    attachments: ["营业执照.pdf", "合作协议.pdf"],
-    applicantId: "op-001",
-    applicantName: "运营专员刘某",
-    applicationTime: "2024-04-01 09:30:00",
-    status: "pending",
-  },
-  {
-    id: "app-002",
-    applicationNo: "APP-2024040102",
-    orgName: "郑州智慧职教中心",
-    creditCode: "91410105MA9C2345CD",
-    contactName: "赵丽",
-    contactPhone: "177****4321",
-    packageId: "pkg-004",
-    packageName: "试用版",
-    orgType: "trial",
-    description: "地方职业技术学院，希望试用平台功能",
-    attachments: ["营业执照.pdf"],
-    applicantId: "op-002",
-    applicantName: "运营专员王某",
-    applicationTime: "2024-04-01 14:20:00",
-    status: "pending",
-  },
-  {
-    id: "app-003",
-    applicationNo: "APP-2024032001",
-    orgName: "南京紫金山实验室",
-    creditCode: "91320105MA1F9012MN",
-    contactName: "周敏",
-    contactPhone: "151****0123",
-    packageId: "pkg-004",
-    packageName: "试用版",
-    orgType: "trial",
-    description: "科研教育机构，测试AI教学功能",
-    attachments: ["营业执照.pdf", "科研资质证明.pdf"],
-    applicantId: "op-001",
-    applicantName: "运营专员张某",
-    applicationTime: "2024-03-20 10:00:00",
+    contactEmail: "zhaojing@imfg.com",
+    qualificationFile: "营业执照.pdf",
+    expertiseTags: ["智能制造", "物联网"],
     status: "approved",
-    reviewerId: "admin-001",
-    reviewerName: "管理员",
-    reviewTime: "2024-03-20 15:30:00",
-    createdTenantId: "tenant-008",
-    createdOrgCode: "ORG-NJ2408",
-  },
-  {
-    id: "app-004",
-    applicationNo: "APP-2024031501",
-    orgName: "长沙星城培训学校",
-    creditCode: "91430104MA8D3456EF",
-    contactName: "黄涛",
-    contactPhone: "186****7890",
-    packageId: "pkg-001",
-    packageName: "基础版",
-    orgType: "formal",
-    description: "中小型培训学校，预算有限",
-    attachments: ["营业执照.pdf"],
-    applicantId: "op-002",
-    applicantName: "运营专员王某",
-    applicationTime: "2024-03-15 11:00:00",
-    status: "rejected",
-    reviewerId: "admin-001",
-    reviewerName: "管理员",
-    reviewTime: "2024-03-16 09:00:00",
-    rejectReason: "企业资质材料不完整，请补充办学许可证",
+    orgCode: "ORG-ENT003",
+    balance: 3200.0,
+    totalSpent: 0,
+    totalIncome: 5600.0,
+    createdAt: "2024-02-28",
+    updatedAt: "2024-03-22",
   },
 ]
 
-// 资源类型编码配置
-export const resourceTypeCodes: ResourceTypeCode[] = [
-  { id: "rtc-001", objectName: "岗位", code: "A1", description: "岗位类型资源标识", updatedBy: "管理员", updatedAt: "2024-03-01" },
-  { id: "rtc-002", objectName: "场景", code: "B2", description: "教学场景资源标识", updatedBy: "管理员", updatedAt: "2024-03-01" },
-  { id: "rtc-003", objectName: "课程", code: "C3", description: "课程类型资源标识", updatedBy: "管理员", updatedAt: "2024-03-01" },
-  { id: "rtc-004", objectName: "能力", code: "D4", description: "能力模型资源标识", updatedBy: "管理员", updatedAt: "2024-03-01" },
-  { id: "rtc-005", objectName: "任务", code: "E5", description: "学习任务资源标识", updatedBy: "管理员", updatedAt: "2024-03-01" },
-  { id: "rtc-006", objectName: "知识点", code: "F6", description: "知识点资源标识", updatedBy: "管理员", updatedAt: "2024-03-01" },
-  { id: "rtc-007", objectName: "题目", code: "G7", description: "题库题目资源标识", updatedBy: "管理员", updatedAt: "2024-03-05" },
-  { id: "rtc-008", objectName: "教材", code: "H8", description: "教材资源标识", updatedBy: "管理员", updatedAt: "2024-03-05" },
+// ==================== Mock Data: Resources ====================
+
+export const resources: Resource[] = [
+  {
+    id: "res-001",
+    institutionId: "inst-001",
+    name: "网络安全运维岗位能力包",
+    intro:
+      "本资源包面向高职信息安全专业，包含网络安全运维岗位能力模型、胜任标准、典型工作任务及评价量规。配套课件、实训指导书及考核题库，支持院校开展岗位导向教学。",
+    category: "post",
+    coverImage: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&q=80&auto=format&fit=crop",
+    attachment: "#",
+    attachmentName: "网络安全运维岗位能力包_v1.0.zip",
+    price: 5800.0,
+    version: "v1.0",
+    status: "published",
+    salesCount: 12,
+    viewCount: 356,
+    createdAt: "2024-02-10",
+    updatedAt: "2024-03-15",
+  },
+  {
+    id: "res-002",
+    institutionId: "inst-003",
+    name: "云计算平台搭建与运维课程包",
+    intro:
+      "涵盖 OpenStack、Docker、Kubernetes 等主流云平台的搭建与运维内容。包含完整课程大纲、PPT课件、实验手册、视频微课及期末试卷，适合高职云计算专业核心课程使用。",
+    category: "course",
+    coverImage: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&q=80&auto=format&fit=crop",
+    attachment: "#",
+    attachmentName: "云计算课程包_v1.0.zip",
+    price: 4200.0,
+    version: "v1.0",
+    status: "published",
+    salesCount: 8,
+    viewCount: 218,
+    createdAt: "2024-02-18",
+    updatedAt: "2024-03-12",
+  },
+  {
+    id: "res-003",
+    institutionId: "inst-001",
+    name: "渗透测试实战场景包",
+    intro:
+      "基于真实企业网络安全事件改编的渗透测试实战场景，包含任务链、漏洞利用说明、防御方案及评价标准。适用于信息安全专业高年级学生综合实训。",
+    category: "scene",
+    coverImage: "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=800&q=80&auto=format&fit=crop",
+    attachment: "#",
+    attachmentName: "渗透测试场景包_v1.0.zip",
+    price: 3600.0,
+    version: "v1.0",
+    status: "published",
+    salesCount: 5,
+    viewCount: 189,
+    createdAt: "2024-03-01",
+    updatedAt: "2024-03-18",
+  },
+  {
+    id: "res-004",
+    institutionId: "inst-006",
+    name: "工业互联网安全测评包",
+    intro:
+      "针对工业互联网安全领域的测评资源包，包含风险评估量规、测试用例库、安全检查表及报告模板。可用于课程考核、技能竞赛训练等场景。",
+    category: "assessment",
+    coverImage: "https://images.unsplash.com/photo-1581092919535-7146ff1a590b?w=800&q=80&auto=format&fit=crop",
+    attachment: "#",
+    attachmentName: "工控安全测评包_v1.0.zip",
+    price: 2800.0,
+    version: "v1.0",
+    status: "published",
+    salesCount: 3,
+    viewCount: 96,
+    createdAt: "2024-03-05",
+    updatedAt: "2024-03-20",
+  },
+  {
+    id: "res-005",
+    institutionId: "inst-003",
+    name: "Python 数据分析素材包",
+    intro:
+      "包含数据分析典型案例数据集、Jupyter Notebook 源码、可视化模板及教学视频。适用于大数据技术专业课程辅助教学。",
+    category: "material",
+    coverImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80&auto=format&fit=crop",
+    attachment: "#",
+    attachmentName: "Python数据分析素材包_v1.0.zip",
+    price: 1500.0,
+    version: "v1.0",
+    status: "published",
+    salesCount: 15,
+    viewCount: 412,
+    createdAt: "2024-03-08",
+    updatedAt: "2024-03-22",
+  },
+  {
+    id: "res-006",
+    institutionId: "inst-001",
+    name: "Web 应用安全开发课程包",
+    intro:
+      "覆盖 OWASP Top 10、安全编码规范、代码审计方法等内容。包含课程课件、案例源码、实验环境配置指南及考核试卷。",
+    category: "course",
+    coverImage: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&q=80&auto=format&fit=crop",
+    attachment: "#",
+    attachmentName: "Web安全开发课程包_v1.0.zip",
+    price: 4800.0,
+    version: "v1.0",
+    status: "reviewing",
+    salesCount: 0,
+    viewCount: 0,
+    createdAt: "2024-03-25",
+    updatedAt: "2024-03-25",
+  },
+  {
+    id: "res-007",
+    institutionId: "inst-006",
+    name: "智能制造数字孪生场景包",
+    intro:
+      "基于数字孪生技术的智能制造实训场景，包含产线建模、虚拟调试、数据分析等任务模块及评价标准。",
+    category: "scene",
+    coverImage: "https://images.unsplash.com/photo-1529074963764-98f45c47344b?w=800&q=80&auto=format&fit=crop",
+    attachment: "#",
+    attachmentName: "数字孪生场景包_v1.0.zip",
+    price: 6500.0,
+    version: "v1.0",
+    status: "pending_publish",
+    salesCount: 0,
+    viewCount: 0,
+    createdAt: "2024-03-20",
+    updatedAt: "2024-03-28",
+  },
+  {
+    id: "res-008",
+    institutionId: "inst-003",
+    name: "人工智能基础岗位包",
+    intro:
+      "面向人工智能应用开发岗位的能力模型与教学资源，包含机器学习基础、深度学习入门、模型部署等内容。",
+    category: "post",
+    coverImage: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&q=80&auto=format&fit=crop",
+    attachment: "#",
+    attachmentName: "AI基础岗位包_v1.0.zip",
+    price: 5200.0,
+    version: "v1.0",
+    status: "draft",
+    salesCount: 0,
+    viewCount: 0,
+    createdAt: "2024-03-28",
+    updatedAt: "2024-03-28",
+  },
 ]
+
+// ==================== Mock Data: Resource Tags ====================
+
+export const resourceTags: ResourceTag[] = [
+  { id: "rt-001", resourceId: "res-001", tagType: "major", tagValue: "信息安全" },
+  { id: "rt-002", resourceId: "res-001", tagType: "industry", tagValue: "网络安全" },
+  { id: "rt-003", resourceId: "res-001", tagType: "level", tagValue: "高职" },
+  { id: "rt-004", resourceId: "res-001", tagType: "difficulty", tagValue: "中级" },
+
+  { id: "rt-005", resourceId: "res-002", tagType: "major", tagValue: "云计算" },
+  { id: "rt-006", resourceId: "res-002", tagType: "industry", tagValue: "云计算服务" },
+  { id: "rt-007", resourceId: "res-002", tagType: "level", tagValue: "高职" },
+  { id: "rt-008", resourceId: "res-002", tagType: "difficulty", tagValue: "中级" },
+
+  { id: "rt-009", resourceId: "res-003", tagType: "major", tagValue: "信息安全" },
+  { id: "rt-010", resourceId: "res-003", tagType: "industry", tagValue: "网络安全" },
+  { id: "rt-011", resourceId: "res-003", tagType: "level", tagValue: "高职" },
+  { id: "rt-012", resourceId: "res-003", tagType: "difficulty", tagValue: "高级" },
+
+  { id: "rt-013", resourceId: "res-004", tagType: "major", tagValue: "智能制造" },
+  { id: "rt-014", resourceId: "res-004", tagType: "industry", tagValue: "智能硬件" },
+  { id: "rt-015", resourceId: "res-004", tagType: "level", tagValue: "高职" },
+  { id: "rt-016", resourceId: "res-004", tagType: "difficulty", tagValue: "高级" },
+
+  { id: "rt-017", resourceId: "res-005", tagType: "major", tagValue: "大数据技术" },
+  { id: "rt-018", resourceId: "res-005", tagType: "industry", tagValue: "数据分析" },
+  { id: "rt-019", resourceId: "res-005", tagType: "level", tagValue: "高职" },
+  { id: "rt-020", resourceId: "res-005", tagType: "difficulty", tagValue: "初级" },
+
+  { id: "rt-021", resourceId: "res-006", tagType: "major", tagValue: "信息安全" },
+  { id: "rt-022", resourceId: "res-006", tagType: "industry", tagValue: "软件开发" },
+  { id: "rt-023", resourceId: "res-006", tagType: "level", tagValue: "高职" },
+  { id: "rt-024", resourceId: "res-006", tagType: "difficulty", tagValue: "中级" },
+
+  { id: "rt-025", resourceId: "res-007", tagType: "major", tagValue: "智能制造" },
+  { id: "rt-026", resourceId: "res-007", tagType: "industry", tagValue: "智能制造" },
+  { id: "rt-027", resourceId: "res-007", tagType: "level", tagValue: "高职" },
+  { id: "rt-028", resourceId: "res-007", tagType: "difficulty", tagValue: "高级" },
+
+  { id: "rt-029", resourceId: "res-008", tagType: "major", tagValue: "人工智能" },
+  { id: "rt-030", resourceId: "res-008", tagType: "industry", tagValue: "数据分析" },
+  { id: "rt-031", resourceId: "res-008", tagType: "level", tagValue: "高职" },
+  { id: "rt-032", resourceId: "res-008", tagType: "difficulty", tagValue: "初级" },
+]
+
+// ==================== Mock Data: Orders ====================
 
 export const orders: Order[] = [
   {
     id: "order-001",
-    orderNumber: "ORD-2024031501",
-    tenantId: "tenant-001",
-    tenantName: "北京智慧科技有限公司",
-    packageId: "pkg-002",
-    packageName: "高级版",
-    orderType: "new",
-    amount: 29800,
-    paymentStatus: "completed",
-    duration: "1年",
-    createdAt: "2024-03-15",
+    orderNo: "ORD-20240315-1001",
+    buyerId: "inst-002",
+    sellerId: "inst-001",
+    resourceId: "res-001",
+    price: 5800.0,
+    platformFee: 870.0,
+    sellerIncome: 4930.0,
+    status: "paid",
+    paidAt: "2024-03-15 10:30:00",
+    createdAt: "2024-03-15 10:28:00",
   },
   {
     id: "order-002",
-    orderNumber: "ORD-2024031502",
-    tenantId: "tenant-002",
-    tenantName: "上海数字创新集团",
-    packageId: "pkg-003",
-    packageName: "全能旗舰版",
-    orderType: "upgrade",
-    amount: 98000,
-    paymentStatus: "completed",
-    duration: "3年",
-    createdAt: "2024-03-15",
+    orderNo: "ORD-20240318-1002",
+    buyerId: "inst-004",
+    sellerId: "inst-001",
+    resourceId: "res-001",
+    price: 5800.0,
+    platformFee: 870.0,
+    sellerIncome: 4930.0,
+    status: "paid",
+    paidAt: "2024-03-18 14:20:00",
+    createdAt: "2024-03-18 14:18:00",
   },
   {
     id: "order-003",
-    orderNumber: "ORD-2024031801",
-    tenantId: "tenant-004",
-    tenantName: "杭州云端网络科技",
-    packageId: "pkg-002",
-    packageName: "高级版",
-    orderType: "renewal",
-    amount: 29800,
-    paymentStatus: "pending",
-    duration: "1年",
-    createdAt: "2024-03-18",
+    orderNo: "ORD-20240320-1003",
+    buyerId: "inst-002",
+    sellerId: "inst-003",
+    resourceId: "res-002",
+    price: 4200.0,
+    platformFee: 630.0,
+    sellerIncome: 3570.0,
+    status: "paid",
+    paidAt: "2024-03-20 09:15:00",
+    createdAt: "2024-03-20 09:12:00",
   },
   {
     id: "order-004",
-    orderNumber: "ORD-2024032001",
-    tenantId: "tenant-003",
-    tenantName: "深圳前沿技术有限公司",
-    packageId: "pkg-004",
-    packageName: "试用版",
-    orderType: "new",
-    amount: 0,
-    paymentStatus: "completed",
-    duration: "30天",
-    createdAt: "2024-03-20",
+    orderNo: "ORD-20240322-1004",
+    buyerId: "inst-004",
+    sellerId: "inst-003",
+    resourceId: "res-005",
+    price: 1500.0,
+    platformFee: 225.0,
+    sellerIncome: 1275.0,
+    status: "paid",
+    paidAt: "2024-03-22 16:45:00",
+    createdAt: "2024-03-22 16:42:00",
   },
   {
     id: "order-005",
-    orderNumber: "ORD-2024032201",
-    tenantId: "tenant-006",
-    tenantName: "成都天府软件园区",
-    packageId: "pkg-001",
-    packageName: "基础版",
-    orderType: "expansion",
-    amount: 4900,
-    paymentStatus: "completed",
-    duration: "6个月",
-    createdAt: "2024-03-22",
+    orderNo: "ORD-20240325-1005",
+    buyerId: "inst-002",
+    sellerId: "inst-001",
+    resourceId: "res-003",
+    price: 3600.0,
+    platformFee: 540.0,
+    sellerIncome: 3060.0,
+    status: "paid",
+    paidAt: "2024-03-25 11:00:00",
+    createdAt: "2024-03-25 10:58:00",
   },
   {
     id: "order-006",
-    orderNumber: "ORD-2024032501",
-    tenantId: "tenant-008",
-    tenantName: "南京紫金山实验室",
-    packageId: "pkg-004",
-    packageName: "试用版",
-    orderType: "new",
-    amount: 0,
-    paymentStatus: "completed",
-    duration: "30天",
-    createdAt: "2024-03-25",
-  },
-  {
-    id: "order-007",
-    orderNumber: "ORD-2024032801",
-    tenantId: "tenant-001",
-    tenantName: "北京智慧科技有限公司",
-    packageId: "pkg-003",
-    packageName: "全能旗舰版",
-    orderType: "upgrade",
-    amount: 68200,
-    paymentStatus: "pending",
-    duration: "1年",
-    createdAt: "2024-03-28",
+    orderNo: "ORD-20240328-1006",
+    buyerId: "inst-004",
+    sellerId: "inst-006",
+    resourceId: "res-004",
+    price: 2800.0,
+    platformFee: 420.0,
+    sellerIncome: 2380.0,
+    status: "paid",
+    paidAt: "2024-03-28 13:30:00",
+    createdAt: "2024-03-28 13:28:00",
   },
 ]
 
-export const licenses: License[] = [
+// ==================== Mock Data: Authorizations ====================
+
+export const authorizations: Authorization[] = [
   {
-    id: "lic-001",
-    serialNumber: "ABCD-1234-EFGH-5678",
-    tenantId: "tenant-001",
-    tenantName: "北京智慧科技有限公司",
-    tenantOrgCode: "ORG-BJ2401",
+    id: "auth-001",
     orderId: "order-001",
-    orderNumber: "ORD-2024031501",
-    machineCode: "8C:85:90:A1:B2:C3",
-    startDate: "2024-03-15",
-    endDate: "2025-03-15",
-    status: "active",
-    daysUntilExpiry: 350,
+    buyerId: "inst-002",
+    resourceId: "res-001",
+    authCode: "AUTH-A3B7-C9D2-E4F1",
+    status: 1,
+    createdAt: "2024-03-15 10:30:00",
   },
   {
-    id: "lic-002",
-    serialNumber: "IJKL-5678-MNOP-9012",
-    tenantId: "tenant-002",
-    tenantName: "上海数字创新集团",
-    tenantOrgCode: "ORG-SH2402",
+    id: "auth-002",
     orderId: "order-002",
-    orderNumber: "ORD-2024031502",
-    machineCode: "00:1A:2B:3C:4D:5E",
-    startDate: "2024-03-15",
-    endDate: "2027-03-15",
-    status: "active",
-    daysUntilExpiry: 1095,
+    buyerId: "inst-004",
+    resourceId: "res-001",
+    authCode: "AUTH-B5C1-D7E3-F9A2",
+    status: 1,
+    createdAt: "2024-03-18 14:20:00",
   },
   {
-    id: "lic-003",
-    serialNumber: "QRST-9012-UVWX-3456",
-    tenantId: "tenant-004",
-    tenantName: "杭州云端网络科技",
-    tenantOrgCode: "ORG-HZ2404",
+    id: "auth-003",
     orderId: "order-003",
-    orderNumber: "ORD-2024031801",
-    machineCode: "F0:E1:D2:C3:B4:A5",
-    startDate: "2023-04-01",
-    endDate: "2024-04-01",
-    status: "expiring",
-    daysUntilExpiry: 15,
+    buyerId: "inst-002",
+    resourceId: "res-002",
+    authCode: "AUTH-C2D8-E1F4-A6B3",
+    status: 1,
+    createdAt: "2024-03-20 09:15:00",
   },
   {
-    id: "lic-004",
-    serialNumber: "YZAB-3456-CDEF-7890",
-    tenantId: "tenant-006",
-    tenantName: "成都天府软件园区",
-    tenantOrgCode: "ORG-CD2406",
-    orderId: "order-005",
-    orderNumber: "ORD-2024032201",
-    machineCode: "96:87:78:69:5A:4B",
-    startDate: "2024-03-22",
-    endDate: "2024-09-22",
-    status: "active",
-    daysUntilExpiry: 180,
-  },
-  {
-    id: "lic-005",
-    serialNumber: "GHIJ-7890-KLMN-1234",
-    tenantId: "tenant-005",
-    tenantName: "广州智联信息技术",
-    tenantOrgCode: "ORG-GZ2405",
-    orderId: "order-old-001",
-    orderNumber: "ORD-2023082201",
-    machineCode: "3C:2D:1E:0F:A0:B1",
-    startDate: "2023-08-22",
-    endDate: "2024-02-22",
-    status: "expired",
-    daysUntilExpiry: -35,
-  },
-  {
-    id: "lic-006",
-    serialNumber: "OPQR-1234-STUV-5678",
-    tenantId: "tenant-007",
-    tenantName: "武汉光谷科技发展",
-    tenantOrgCode: "ORG-WH2407",
-    orderId: "order-old-002",
-    orderNumber: "ORD-2022061501",
-    machineCode: "C2:D3:E4:F5:06:17",
-    startDate: "2022-06-15",
-    endDate: "2023-06-15",
-    status: "revoked",
-    daysUntilExpiry: -280,
-  },
-  {
-    id: "lic-007",
-    serialNumber: "WXYZ-5678-ABCD-9012",
-    tenantId: "tenant-003",
-    tenantName: "深圳前沿技术有限公司",
-    tenantOrgCode: "ORG-SZ2403",
+    id: "auth-004",
     orderId: "order-004",
-    orderNumber: "ORD-2024032001",
-    machineCode: "28:39:4A:5B:6C:7D",
-    startDate: "2024-03-20",
-    endDate: "2024-04-19",
-    status: "expiring",
-    daysUntilExpiry: 22,
+    buyerId: "inst-004",
+    resourceId: "res-005",
+    authCode: "AUTH-D9E2-F5A1-B7C4",
+    status: 1,
+    createdAt: "2024-03-22 16:45:00",
   },
   {
-    id: "lic-008",
-    serialNumber: "EFGH-9012-IJKL-3456",
-    tenantId: "tenant-008",
-    tenantName: "南京紫金山实验室",
-    tenantOrgCode: "ORG-NJ2408",
+    id: "auth-005",
+    orderId: "order-005",
+    buyerId: "inst-002",
+    resourceId: "res-003",
+    authCode: "AUTH-E4F9-A2B6-C8D1",
+    status: 1,
+    createdAt: "2024-03-25 11:00:00",
+  },
+  {
+    id: "auth-006",
     orderId: "order-006",
-    orderNumber: "ORD-2024032501",
-    machineCode: "8E:9F:A0:B1:C2:D3",
-    startDate: "2024-03-25",
-    endDate: "2024-04-24",
-    status: "expiring",
-    daysUntilExpiry: 27,
+    buyerId: "inst-004",
+    resourceId: "res-004",
+    authCode: "AUTH-F1A5-B9C3-D7E2",
+    status: 1,
+    createdAt: "2024-03-28 13:30:00",
   },
 ]
 
-// Helper function to get feature name by id
-export function getFeatureName(featureId: string): string {
-  for (const module of featureModules) {
-    const found = module.children.find(c => c.id === featureId)
-    if (found) return found.name
-  }
-  return featureId
+// ==================== Mock Data: Withdrawals ====================
+
+export const withdrawals: Withdrawal[] = [
+  {
+    id: "wd-001",
+    institutionId: "inst-001",
+    amount: 5000.0,
+    accountType: "bank",
+    accountInfo: "中国工商银行 6222************8888",
+    status: "paid",
+    handledAt: "2024-03-10 15:00:00",
+    createdAt: "2024-03-05 09:00:00",
+  },
+  {
+    id: "wd-002",
+    institutionId: "inst-003",
+    amount: 3000.0,
+    accountType: "alipay",
+    accountInfo: "wangfang@yunzhi.com",
+    status: "approved",
+    handledAt: "2024-03-20 10:00:00",
+    createdAt: "2024-03-18 14:00:00",
+  },
+  {
+    id: "wd-003",
+    institutionId: "inst-006",
+    amount: 2000.0,
+    accountType: "bank",
+    accountInfo: "招商银行 6225************6666",
+    status: "pending",
+    createdAt: "2024-03-28 11:00:00",
+  },
+]
+
+// ==================== Mock Data: Banners ====================
+
+export const banners: Banner[] = [
+  {
+    id: "bn-001",
+    title: "春季教学资源采购节",
+    image: "https://images.unsplash.com/photo-1573164713714-d95e436ab8d6?w=1200&q=80&auto=format&fit=crop",
+    link: "/",
+    sort: 1,
+    enabled: true,
+  },
+  {
+    id: "bn-002",
+    title: "网络安全精品资源推荐",
+    image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&q=80&auto=format&fit=crop",
+    link: "/",
+    sort: 2,
+    enabled: true,
+  },
+  {
+    id: "bn-003",
+    title: "新入驻企业资源上线",
+    image: "https://images.unsplash.com/photo-1507146815454-9faa99d579aa?w=1200&q=80&auto=format&fit=crop",
+    link: "/",
+    sort: 3,
+    enabled: true,
+  },
+]
+
+// ==================== Mock Data: Platform Config ====================
+
+export const platformConfig: PlatformConfig = {
+  platformFeeRate: 0.15,
+  minWithdrawalAmount: 100,
 }
 
-// Helper function to get package by id
-export function getPackageById(packageId: string): Package | undefined {
-  return packages.find(p => p.id === packageId)
-}
+// ==================== Dashboard Stats ====================
 
-// Helper function to get tenant by id
-export function getTenantById(tenantId: string): Tenant | undefined {
-  return tenants.find(t => t.id === tenantId)
-}
-
-// Dashboard statistics
 export const dashboardStats = {
-  totalTenants: 8,
-  activeTenants: 4,
-  trialTenants: 2,
-  totalRevenue: 230700,
-  monthlyRevenue: 98000,
-  expiringLicenses: 3,
-  pendingOrders: 2,
-  pendingApplications: 2,
+  totalInstitutions: institutions.length,
+  schoolCount: institutions.filter((i) => i.type === "school" && i.status === "approved").length,
+  enterpriseCount: institutions.filter((i) => i.type === "enterprise" && i.status === "approved").length,
+  pendingInstitutions: institutions.filter((i) => i.status === "pending").length,
+  totalResources: resources.length,
+  publishedResources: resources.filter((r) => r.status === "published").length,
+  reviewingResources: resources.filter((r) => r.status === "reviewing").length,
+  totalGMV: orders.filter((o) => o.status === "paid").reduce((sum, o) => sum + o.price, 0),
+  monthlyGMV: 20900.0,
+  totalOrders: orders.filter((o) => o.status === "paid").length,
+  pendingWithdrawals: withdrawals.filter((w) => w.status === "pending").length,
+}
+
+// ==================== Role Management Helpers ====================
+
+export type UserRole = "school" | "enterprise" | "operator"
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  school: "学校管理员",
+  enterprise: "企业",
+  operator: "平台运营方",
+}
+
+export const ROLE_INSTITUTION: Record<Exclude<UserRole, "operator">, string> = {
+  school: "inst-002",
+  enterprise: "inst-001",
 }

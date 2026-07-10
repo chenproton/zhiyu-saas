@@ -1,0 +1,125 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhiyu-saas/backend/internal/domain"
+	"github.com/zhiyu-saas/backend/internal/middleware"
+)
+
+type TaskKnowledgeAbilityHandler struct {
+	DB *pgxpool.Pool
+}
+
+type BindTaskKnowledgeRequest struct {
+	TaskID           string `json:"taskId"`
+	KnowledgePointID string `json:"knowledgePointId"`
+}
+
+type BindTaskAbilityRequest struct {
+	TaskID         string `json:"taskId"`
+	AbilityPointID string `json:"abilityPointId"`
+}
+
+func (h *TaskKnowledgeAbilityHandler) BindKnowledge(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req BindTaskKnowledgeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.TaskID == "" || req.KnowledgePointID == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	var id string
+	err := h.DB.QueryRow(r.Context(), `
+		INSERT INTO task_knowledge_bindings (task_id, knowledge_point_id)
+		VALUES ($1, $2)
+		ON CONFLICT (task_id, knowledge_point_id) DO UPDATE SET task_id = EXCLUDED.task_id
+		RETURNING id
+	`, req.TaskID, req.KnowledgePointID).Scan(&id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to bind knowledge")
+		return
+	}
+
+	var binding domain.TaskKnowledgeBinding
+	_ = h.DB.QueryRow(r.Context(), `SELECT id, task_id, knowledge_point_id FROM task_knowledge_bindings WHERE id = $1`, id).Scan(
+		&binding.ID, &binding.TaskID, &binding.KnowledgePointID,
+	)
+	respondJSON(w, http.StatusOK, binding)
+}
+
+func (h *TaskKnowledgeAbilityHandler) UnbindKnowledge(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM task_knowledge_bindings WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to unbind knowledge")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *TaskKnowledgeAbilityHandler) BindAbility(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req BindTaskAbilityRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.TaskID == "" || req.AbilityPointID == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	var id string
+	err := h.DB.QueryRow(r.Context(), `
+		INSERT INTO task_ability_bindings (task_id, ability_point_id)
+		VALUES ($1, $2)
+		ON CONFLICT (task_id, ability_point_id) DO UPDATE SET task_id = EXCLUDED.task_id
+		RETURNING id
+	`, req.TaskID, req.AbilityPointID).Scan(&id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to bind ability")
+		return
+	}
+
+	var binding domain.TaskAbilityBinding
+	_ = h.DB.QueryRow(r.Context(), `SELECT id, task_id, ability_point_id FROM task_ability_bindings WHERE id = $1`, id).Scan(
+		&binding.ID, &binding.TaskID, &binding.AbilityPointID,
+	)
+	respondJSON(w, http.StatusOK, binding)
+}
+
+func (h *TaskKnowledgeAbilityHandler) UnbindAbility(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM task_ability_bindings WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to unbind ability")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}

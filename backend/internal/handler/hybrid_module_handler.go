@@ -1,0 +1,159 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhiyu-saas/backend/internal/domain"
+	"github.com/zhiyu-saas/backend/internal/middleware"
+)
+
+type HybridModuleHandler struct {
+	DB *pgxpool.Pool
+}
+
+type HybridModuleListResponse struct {
+	Items []domain.HybridNodeModule `json:"items"`
+	Total int                       `json:"total"`
+}
+
+type UpsertHybridModuleRequest struct {
+	ID        string         `json:"id"`
+	NodeID    string         `json:"nodeId"`
+	ModuleKey string         `json:"moduleKey"`
+	Mode      string         `json:"mode"`
+	Data      domain.JSONMap `json:"data"`
+}
+
+func (h *HybridModuleHandler) ListModules(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	nodeID := r.URL.Query().Get("nodeId")
+	where := []string{"1=1"}
+	args := []interface{}{}
+	argIdx := 1
+	if nodeID != "" {
+		where = append(where, "node_id = $"+itoa(argIdx))
+		args = append(args, nodeID)
+		argIdx++
+	}
+
+	countQuery := "SELECT COUNT(*) FROM hybrid_node_modules WHERE " + strings.Join(where, " AND ")
+	var total int
+	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
+
+	query := `
+		SELECT id, node_id, module_key, mode, data
+		FROM hybrid_node_modules
+		WHERE ` + strings.Join(where, " AND ") + `
+		ORDER BY module_key ASC
+	`
+	rows, err := h.DB.Query(r.Context(), query, args...)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list hybrid modules")
+		return
+	}
+	defer rows.Close()
+
+	items, err := h.scanHybridModuleRows(rows)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to scan hybrid modules")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, HybridModuleListResponse{Items: items, Total: total})
+}
+
+func (h *HybridModuleHandler) UpsertModule(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req UpsertHybridModuleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.NodeID == "" || req.ModuleKey == "" || req.Mode == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	id := req.ID
+	if id == "" {
+		id = "hm-" + uuid.NewString()
+		_, err := h.DB.Exec(r.Context(), `
+			INSERT INTO hybrid_node_modules (id, node_id, module_key, mode, data)
+			VALUES ($1, $2, $3, $4, $5)
+		`, id, req.NodeID, req.ModuleKey, req.Mode, req.Data)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to create hybrid module")
+			return
+		}
+	} else {
+		_, err := h.DB.Exec(r.Context(), `
+			UPDATE hybrid_node_modules SET node_id = $1, module_key = $2, mode = $3, data = $4
+			WHERE id = $5
+		`, req.NodeID, req.ModuleKey, req.Mode, req.Data, id)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to update hybrid module")
+			return
+		}
+	}
+
+	module, _ := h.fetchHybridModule(r.Context(), id)
+	respondJSON(w, http.StatusOK, module)
+}
+
+func (h *HybridModuleHandler) DeleteModule(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchHybridModule(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "hybrid module not found")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM hybrid_node_modules WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete hybrid module")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *HybridModuleHandler) fetchHybridModule(ctx context.Context, id string) (*domain.HybridNodeModule, error) {
+	var m domain.HybridNodeModule
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, node_id, module_key, mode, data FROM hybrid_node_modules WHERE id = $1
+	`, id).Scan(&m.ID, &m.NodeID, &m.ModuleKey, &m.Mode, &m.Data)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+func (h *HybridModuleHandler) scanHybridModuleRows(rows pgx.Rows) ([]domain.HybridNodeModule, error) {
+	items := make([]domain.HybridNodeModule, 0)
+	for rows.Next() {
+		var m domain.HybridNodeModule
+		if err := rows.Scan(&m.ID, &m.NodeID, &m.ModuleKey, &m.Mode, &m.Data); err != nil {
+			return nil, err
+		}
+		items = append(items, m)
+	}
+	return items, nil
+}
