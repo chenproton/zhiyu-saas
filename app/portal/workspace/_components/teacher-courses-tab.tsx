@@ -107,7 +107,11 @@ function TrackingView() {
             <ClipboardList className="h-4 w-4 text-purple-600" />
             <div>
               <p className="text-xs text-gray-500">随堂测验均分</p>
-              <p className="text-lg font-bold">{Math.round(mockQuizResults.reduce((s, q) => s + q.avgScore, 0) / mockQuizResults.length)}</p>
+              <p className="text-lg font-bold">
+                {mockQuizResults.length > 0
+                  ? Math.round(mockQuizResults.reduce((s, q) => s + q.avgScore, 0) / mockQuizResults.length)
+                  : 0}
+              </p>
             </div>
           </div>
         </div>
@@ -496,7 +500,7 @@ interface TeacherCoursesTabProps {
 export function TeacherCoursesTab({ prepAssociations = {}, onAssociate }: TeacherCoursesTabProps = {}) {
   const [activeSubTab, setActiveSubTab] = useState("plans")
   const [courseFilter, setCourseFilter] = useState("all")
-  const [selectedTerm, setSelectedTerm] = useState(semesters[2])
+  const [selectedTerm, setSelectedTerm] = useState(semesters[2] || "")
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<SelectedCourse | null>(null)

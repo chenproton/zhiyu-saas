@@ -9,18 +9,11 @@ interface KnowledgePoint {
   linked: boolean
 }
 
-const MOCK_GRAPH_NODES = [
-  "SQL注入", "XSS攻击", "CSRF防护", "密码学", "渗透测试",
-  "缓冲区溢出", "逆向工程", "恶意代码", "安全编码", "漏洞挖掘",
-  "P值与显著性", "假设检验", "T检验", "Z检验", "A/B测试",
-]
+// 知识图谱节点应由后端知识图谱 API 提供，默认空状态
+const GRAPH_NODES: string[] = []
 
 export default function KnowledgeEditor() {
-  const [points, setPoints] = useState<KnowledgePoint[]>([
-    { id: "1", name: "SQL注入", linked: true },
-    { id: "2", name: "P值与显著性", linked: true },
-    { id: "3", name: "自定义概念A", linked: false },
-  ])
+  const [points, setPoints] = useState<KnowledgePoint[]>([])
   const [input, setInput] = useState("")
   const [showSuggest, setShowSuggest] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -38,7 +31,7 @@ export default function KnowledgeEditor() {
   }
 
   const suggestions = input.trim()
-    ? MOCK_GRAPH_NODES.filter((n) => n.toLowerCase().includes(input.toLowerCase()) && !points.some((p) => p.name === n))
+    ? GRAPH_NODES.filter((n) => n.toLowerCase().includes(input.toLowerCase()) && !points.some((p) => p.name === n))
     : []
 
   return (
@@ -76,7 +69,7 @@ export default function KnowledgeEditor() {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault()
-                const matched = MOCK_GRAPH_NODES.find((n) => n.toLowerCase() === input.toLowerCase())
+                const matched = GRAPH_NODES.find((n) => n.toLowerCase() === input.toLowerCase())
                 addPoint(input, !!matched)
               }
             }}

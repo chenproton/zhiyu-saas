@@ -7,16 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Search, Download, RefreshCw } from "lucide-react"
 
-const mockLogs = [
-  { id: "1", user: "张三", module: "用户管理", action: "新增用户", target: "李明", ip: "192.168.1.100", status: "success", time: "2026-04-14 10:30:15" },
-  { id: "2", user: "李四", module: "角色管理", action: "编辑角色", target: "管理员", ip: "192.168.1.101", status: "success", time: "2026-04-14 10:25:30" },
-  { id: "3", user: "王五", module: "组织架构", action: "删除节点", target: "测试部门", ip: "192.168.1.102", status: "failed", time: "2026-04-14 10:20:45" },
-  { id: "4", user: "赵六", module: "资源管理", action: "上传文件", target: "课程资料.pdf", ip: "192.168.1.103", status: "success", time: "2026-04-14 10:15:00" },
-  { id: "5", user: "钱七", module: "审批流程", action: "新增流程", target: "请假审批", ip: "192.168.1.104", status: "success", time: "2026-04-14 10:10:15" },
-  { id: "6", user: "张三", module: "系统设置", action: "修改配置", target: "邮件服务", ip: "192.168.1.100", status: "success", time: "2026-04-14 09:55:30" },
-  { id: "7", user: "孙八", module: "用户管理", action: "停用用户", target: "测试账号", ip: "192.168.1.105", status: "success", time: "2026-04-14 09:45:45" },
-  { id: "8", user: "周九", module: "权限管理", action: "分配权限", target: "编辑角色", ip: "192.168.1.106", status: "success", time: "2026-04-14 09:30:00" },
-]
+const mockLogs: { id: string; user: string; module: string; action: string; target: string; ip: string; status: string; time: string }[] = []
 
 export default function OperationLogsPage() {
   const [searchTerm, setSearchTerm] = useState("")

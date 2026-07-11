@@ -47,6 +47,9 @@ export function DashboardTab({ onTabChange }: DashboardTabProps) {
           >
             <ScrollArea className="h-[260px]">
               <div className="space-y-2 pr-2">
+                {mockTodos.length === 0 && (
+                  <div className="py-8 text-center text-xs text-gray-400">暂无待办事项</div>
+                )}
                 {mockTodos.map((item) => {
                   const Icon = typeIconMap[item.type]
                   return (
@@ -88,6 +91,9 @@ export function DashboardTab({ onTabChange }: DashboardTabProps) {
           <SectionCard title="通知公告" icon={Bell} iconColor="blue" action={{ label: "查看全部" }}>
             <ScrollArea className="h-[220px]">
               <div className="space-y-2 pr-2">
+                {mockAnnouncements.length === 0 && (
+                  <div className="py-8 text-center text-xs text-gray-400">暂无通知公告</div>
+                )}
                 {mockAnnouncements.map((item) => (
                   <div
                     key={item.id}

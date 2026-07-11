@@ -50,13 +50,7 @@ const relationTypes = [
   { value: "external", label: "外部合作" },
 ]
 
-const mockUsers = [
-  { id: "1", name: "张三", department: "信息工程学院" },
-  { id: "2", name: "李四", department: "计算机系" },
-  { id: "3", name: "王五", department: "教务处" },
-  { id: "4", name: "赵六", department: "学生处" },
-  { id: "5", name: "钱七", department: "财务处" },
-]
+const mockUsers: { id: string; name: string; department: string }[] = []
 
 const relations = [
   { id: 1, initiator: "张三", initiatorDept: "信息工程学院", target: "李四", targetDept: "计算机系", type: "上下级", createdAt: "2024-01-15" },

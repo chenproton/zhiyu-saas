@@ -38,28 +38,8 @@ const examStatusMap: Record<string, { bg: string; color: string; label: string }
   pending: { bg: "#dbeafe", color: "#2563eb", label: "审核中" },
 }
 
-const MOCK_POSITIONS = [
-  "全部",
-  "前端开发工程师",
-  "后端开发工程师",
-  "全栈开发工程师",
-  "算法工程师",
-  "网络安全工程师",
-  "UI设计师",
-  "Java开发工程师",
-  "Python开发工程师",
-  "移动端开发工程师",
-  "测试工程师",
-  "运维工程师",
-  "产品经理",
-  "数据分析师",
-  "嵌入式开发工程师",
-  "云计算工程师",
-  "DevOps工程师",
-  "架构师",
-  "技术经理",
-  "数据库管理员",
-]
+// 岗位筛选数据应由 positionApi 提供，当前默认仅保留"全部"
+const POSITION_OPTIONS = ["全部"]
 
 function PositionFilter({
   selected,
@@ -69,7 +49,7 @@ function PositionFilter({
   onChange: (next: string[]) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const visible = expanded ? MOCK_POSITIONS : MOCK_POSITIONS.slice(0, 8)
+  const visible = expanded ? POSITION_OPTIONS : POSITION_OPTIONS.slice(0, 8)
 
   const toggle = (pos: string) => {
     if (pos === "全部") {
@@ -101,7 +81,7 @@ function PositionFilter({
             {pos}
           </button>
         ))}
-        {MOCK_POSITIONS.length > 8 && (
+        {POSITION_OPTIONS.length > 8 && (
           <button
             onClick={() => setExpanded(!expanded)}
             style={{

@@ -64,6 +64,9 @@ export function TeacherFinalTab() {
           </Tabs>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {filteredDimensions.length === 0 && (
+            <div className="col-span-full py-6 text-center text-xs text-gray-400">暂无考核维度数据</div>
+          )}
           {filteredDimensions.map((dim) => (
             <div key={dim.id} className="p-4 rounded-xl border border-gray-100 bg-white hover:shadow-sm transition-shadow">
               <div className="flex items-center justify-between mb-2">
@@ -119,6 +122,13 @@ export function TeacherFinalTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {mockSessionSummary.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-xs text-gray-400 py-8">
+                      暂无课程节次明细
+                    </TableCell>
+                  </TableRow>
+                )}
                 {mockSessionSummary.map((session, i) => (
                   <TableRow key={i}>
                     <TableCell className="text-xs text-gray-500">第{session.week}周 {session.day}</TableCell>
@@ -153,6 +163,13 @@ export function TeacherFinalTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {mockStudentRanking.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-xs text-gray-400 py-8">
+                    暂无学生排名数据
+                  </TableCell>
+                </TableRow>
+              )}
               {mockStudentRanking.map((student) => (
                 <TableRow key={student.rank} className={student.rank <= 3 ? "bg-blue-50/30" : ""}>
                   <TableCell className="text-sm font-bold text-center">

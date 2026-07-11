@@ -24,60 +24,8 @@ interface PositionAssessment {
   details: { name: string; score: number; level: string; required: string; passed: boolean }[]
 }
 
-const mockPositionAssessments: PositionAssessment[] = [
-  {
-    id: "pa1",
-    positionName: "网络运维工程师",
-    indicators: [
-      { label: "岗位能力达标率", value: "89%" },
-      { label: "岗位胜任度", value: "32%" },
-      { label: "岗位能力认定得分", value: "87" },
-      { label: "毕业标准", value: "A" },
-    ],
-    details: [
-      { name: "网络故障诊断", score: 78, level: "L4", required: "L5", passed: true },
-      { name: "交换机配置", score: 85, level: "L5", required: "L5", passed: true },
-      { name: "路由协议", score: 72, level: "L4", required: "L5", passed: true },
-      { name: "网络监控工具", score: 90, level: "L5", required: "L5", passed: true },
-      { name: "故障排查流程", score: 68, level: "L4", required: "L5", passed: false },
-      { name: "客户沟通能力", score: 82, level: "L5", required: "L5", passed: true },
-    ],
-  },
-  {
-    id: "pa2",
-    positionName: "网络安全工程师",
-    indicators: [
-      { label: "岗位能力达标率", value: "78%" },
-      { label: "岗位胜任度", value: "28%" },
-      { label: "岗位能力认定得分", value: "76" },
-      { label: "毕业标准", value: "B+" },
-    ],
-    details: [
-      { name: "防火墙策略配置", score: 82, level: "L5", required: "L5", passed: true },
-      { name: "入侵检测系统", score: 70, level: "L4", required: "L5", passed: true },
-      { name: "安全审计", score: 65, level: "L4", required: "L5", passed: false },
-      { name: "漏洞扫描", score: 88, level: "L5", required: "L5", passed: true },
-      { name: "应急响应", score: 74, level: "L4", required: "L5", passed: true },
-    ],
-  },
-  {
-    id: "pa3",
-    positionName: "系统运维工程师",
-    indicators: [
-      { label: "岗位能力达标率", value: "72%" },
-      { label: "岗位胜任度", value: "18%" },
-      { label: "岗位能力认定得分", value: "72" },
-      { label: "毕业标准", value: "B" },
-    ],
-    details: [
-      { name: "Linux操作", score: 85, level: "L5", required: "L5", passed: true },
-      { name: "Shell脚本", score: 68, level: "L4", required: "L5", passed: false },
-      { name: "Docker容器", score: 76, level: "L4", required: "L5", passed: true },
-      { name: "监控告警", score: 80, level: "L5", required: "L5", passed: true },
-      { name: "自动化部署", score: 62, level: "L4", required: "L5", passed: false },
-    ],
-  },
-]
+// 岗位能力认定数据应由后端测评结果 API 提供，默认空状态
+const mockPositionAssessments: PositionAssessment[] = []
 
 const statusVariantMap: Record<string, string> = {
   待考: "bg-amber-50 text-amber-600",
@@ -104,6 +52,9 @@ export function AssessmentTab() {
       {/* ===== 岗位能力认定结果 ===== */}
       <SectionCard title="岗位能力认定结果" icon={Award} iconColor="amber">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {mockPositionAssessments.length === 0 && (
+            <div className="col-span-full py-8 text-center text-xs text-gray-400">暂无岗位能力认定结果</div>
+          )}
           {mockPositionAssessments.map((pa) => (
             <div key={pa.id} className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
               {/* 岗位头 */}

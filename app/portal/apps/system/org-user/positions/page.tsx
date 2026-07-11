@@ -18,16 +18,7 @@ interface Position {
   createdAt: string
 }
 
-const mockPositions: Position[] = [
-  { id: "1", name: "系主任", userCount: 8, status: "active", createdAt: "2024-01-01" },
-  { id: "2", name: "教授", userCount: 45, status: "active", createdAt: "2024-01-01" },
-  { id: "3", name: "副教授", userCount: 78, status: "active", createdAt: "2024-01-01" },
-  { id: "4", name: "讲师", userCount: 120, status: "active", createdAt: "2024-01-01" },
-  { id: "5", name: "企业导师", userCount: 35, status: "active", createdAt: "2024-02-15" },
-  { id: "6", name: "辅导员", userCount: 25, status: "active", createdAt: "2024-03-01" },
-  { id: "7", name: "班主任", userCount: 60, status: "active", createdAt: "2024-03-01" },
-  { id: "8", name: "实验员", userCount: 15, status: "inactive", createdAt: "2024-04-01" },
-]
+const mockPositions: Position[] = []
 
 export default function PositionsPage() {
   const [positions, setPositions] = useState<Position[]>(mockPositions)

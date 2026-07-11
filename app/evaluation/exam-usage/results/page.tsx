@@ -45,49 +45,8 @@ interface ExamStudentResult {
   rank: number
 }
 
-// 模拟学生数据（考试结果接口尚未对接，保留占位数据）
-const mockStudentNames = [
-  "张小明", "李华", "王芳", "赵强", "孙丽",
-  "周杰", "吴敏", "郑伟", "钱红", "冯刚",
-  "陈静", "刘洋", "杨帆", "黄磊", "林娜",
-  "徐峰", "马云", "朱婷", "曹操", "孙权",
-]
-
-const mockClassNames = ['前端开发1班', '前端开发2班', '后端开发1班', '全栈开发班']
-const mockGrades = ['2024级', '2023级']
-const mockMajors = ['计算机科学与技术', '软件工程', '网络工程']
-
-function generateMockResults(usage: ExamUsage): ExamStudentResult[] {
-  const count = 0
-  if (count === 0) return []
-  const totalScore = 100
-  const passScore = 60
-  const examStartTime = usage.startTime ? new Date(usage.startTime) : new Date()
-  const examEndTime = usage.endTime
-    ? new Date(usage.endTime)
-    : new Date(examStartTime.getTime() + 120 * 60000)
-  const timeRange = examEndTime.getTime() - examStartTime.getTime()
-  const results: ExamStudentResult[] = []
-  for (let i = 0; i < count; i++) {
-    const score = Math.floor(Math.random() * 55) + 45
-    results.push({
-      id: `result-${usage.id}-${i}`,
-      studentName: mockStudentNames[i % mockStudentNames.length],
-      studentId: `2024010${i + 1}`,
-      className: mockClassNames[Math.floor(Math.random() * mockClassNames.length)],
-      grade: mockGrades[Math.floor(Math.random() * mockGrades.length)],
-      major: mockMajors[Math.floor(Math.random() * mockMajors.length)],
-      score,
-      totalScore,
-      submitTime: new Date(examStartTime.getTime() + Math.random() * timeRange),
-      isPass: score >= passScore,
-      rank: 0,
-    })
-  }
-  const sorted = results.sort((a, b) => b.score - a.score)
-  sorted.forEach((r, idx) => { r.rank = idx + 1 })
-  return sorted
-}
+// 考试结果列表待后端接口支持，目前展示为空
+const results: ExamStudentResult[] = []
 
 function ExamResultsContent() {
   const searchParams = useSearchParams()
@@ -109,8 +68,6 @@ function ExamResultsContent() {
       .catch(() => setUsage(null))
       .finally(() => setLoading(false))
   }, [usageId])
-
-  const results: ExamStudentResult[] = usage ? generateMockResults(usage) : []
 
   const filteredResults = results.filter((r) => {
     if (passFilter !== "all") {
@@ -184,7 +141,7 @@ function ExamResultsContent() {
             </Badge>
           </div>
           <PrdAnnotation data={getAnnotation("eur-btn-export")}>
-            <Button variant="outline">
+            <Button variant="outline" disabled>
               <Download className="mr-2 size-4" />
               导出数据
             </Button>

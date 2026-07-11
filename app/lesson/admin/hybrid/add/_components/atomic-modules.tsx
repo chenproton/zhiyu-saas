@@ -796,14 +796,7 @@ const RESOURCE_TYPE_LABELS: Record<ResourceItem["type"], string> = {
   custom: "自定义",
 }
 
-const MOCK_RESOURCES: ResourceItem[] = [
-  { id: "mock-1", name: "Web前端开发体系课", type: "system", source: "体系课资源库" },
-  { id: "mock-2", name: "CSS选择器颗粒微课", type: "granular", source: "颗粒微课库" },
-  { id: "mock-3", name: "企业官网实战场景任务", type: "case", source: "产业案例库" },
-  { id: "mock-4", name: "前端基础测试题库", type: "question", source: "题库资源库" },
-  { id: "mock-5", name: "课程教案模板", type: "material", source: "课件教案库" },
-  { id: "mock-6", name: "响应式布局虚拟仿真", type: "simulation", source: "虚拟仿真库" },
-]
+const MOCK_RESOURCES: ResourceItem[] = []
 
 function ResourceListEditor({
   items,
@@ -879,20 +872,28 @@ function ResourceListEditor({
             <DialogTitle>从资源库关联</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            {MOCK_RESOURCES.map((res) => (
-              <div
-                key={res.id}
-                className="flex items-center justify-between border rounded-lg p-3"
-              >
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{RESOURCE_TYPE_LABELS[res.type]}</Badge>
-                  <span className="text-sm">{res.name}</span>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => addResource(res)}>
-                  关联
-                </Button>
+            {MOCK_RESOURCES.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-gray-400 py-12">
+                <Database className="h-12 w-12 mb-3 opacity-50" />
+                <p className="text-sm">暂无资源数据</p>
+                <p className="text-xs mt-1">请通过其他入口创建资源后再关联</p>
               </div>
-            ))}
+            ) : (
+              MOCK_RESOURCES.map((res) => (
+                <div
+                  key={res.id}
+                  className="flex items-center justify-between border rounded-lg p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{RESOURCE_TYPE_LABELS[res.type]}</Badge>
+                    <span className="text-sm">{res.name}</span>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => addResource(res)}>
+                    关联
+                  </Button>
+                </div>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -1275,14 +1276,7 @@ function InClassQuizzesModule({ data, onChange }: AtomicModuleProps) {
   )
 }
 
-const MOCK_QUESTION_BANK = [
-  { id: "qb-1", title: "什么是闭包？", type: "简答题" },
-  { id: "qb-2", title: "CSS 中 display: flex 与 display: grid 的区别是什么？", type: "简答题" },
-  { id: "qb-3", title: "React 中 useEffect 的依赖数组作用是什么？", type: "简答题" },
-  { id: "qb-4", title: "HTTP 状态码 404 和 500 分别代表什么？", type: "简答题" },
-  { id: "qb-5", title: "TypeScript 中 interface 和 type 有什么区别？", type: "简答题" },
-  { id: "qb-6", title: "请简述事件委托的原理。", type: "简答题" },
-]
+const MOCK_QUESTION_BANK: { id: string; title: string; type: string }[] = []
 
 function ClassQuestionsModule({ data, onChange }: AtomicModuleProps) {
   const questions = data.classQuestions || []
@@ -1461,15 +1455,7 @@ function ClassQuestionsModule({ data, onChange }: AtomicModuleProps) {
   )
 }
 
-const MOCK_SCENARIOS = [
-  { id: "sc-1", title: "企业官网响应式布局实战", desc: "完成一个企业官网的响应式页面开发，包含首页、产品页、关于我们等模块。", post: "前端开发工程师", batch: "2026春", scope: "mine" as const },
-  { id: "sc-2", title: "电商商品详情页开发", desc: "实现电商平台的商品详情页，包含轮播图、规格选择、评价展示等。", post: "前端开发工程师", batch: "2026春", scope: "shared" as const },
-  { id: "sc-3", title: "个人博客前端开发", desc: "使用 React 搭建个人博客，包含文章列表、文章详情、评论功能。", post: "全栈工程师", batch: "2026秋", scope: "public" as const },
-  { id: "sc-4", title: "数据可视化大屏", desc: "使用 ECharts 实现数据可视化大屏，包含多种图表类型和实时数据刷新。", post: "数据可视化工程师", batch: "2026春", scope: "public" as const },
-  { id: "sc-5", title: "后台管理系统界面", desc: "实现常见后台管理系统的页面布局与交互，包含表格、表单、权限菜单。", post: "前端开发工程师", batch: "2026秋", scope: "mine" as const },
-  { id: "sc-6", title: "微服务网关配置实战", desc: "完成微服务网关的配置与限流策略实现。", post: "后端开发工程师", batch: "2026春", scope: "shared" as const },
-  { id: "sc-7", title: "用户画像分析平台", desc: "基于用户行为数据进行画像标签体系搭建与可视化。", post: "数据分析师", batch: "2026秋", scope: "public" as const },
-]
+const MOCK_SCENARIOS: { id: string; title: string; desc: string; post: string; batch: string; scope: "mine" | "shared" | "public" }[] = []
 
 function PracticeTasksModule({ data, onChange }: AtomicModuleProps) {
   const tasks = data.practiceTasks || []

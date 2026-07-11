@@ -25,13 +25,7 @@ interface Role {
 
 let roleCounter = 5
 
-const mockRoles: Role[] = [
-  { id: "1", code: "ROLE001", name: "超级管理员", userCount: 2, status: "active", createdAt: "2024-01-01" },
-  { id: "2", code: "ROLE002", name: "学校管理员", userCount: 5, status: "active", createdAt: "2024-01-15" },
-  { id: "3", code: "ROLE003", name: "教师", userCount: 156, status: "active", createdAt: "2024-02-01" },
-  { id: "4", code: "ROLE004", name: "学生", userCount: 1200, status: "active", createdAt: "2024-02-15" },
-  { id: "5", code: "ROLE005", name: "企业用户", userCount: 45, status: "inactive", createdAt: "2024-03-01" },
-]
+const mockRoles: Role[] = []
 
 const permissionTree = [
   {

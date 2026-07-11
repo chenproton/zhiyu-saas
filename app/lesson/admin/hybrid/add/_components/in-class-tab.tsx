@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "sonner"
 import {
   Users,
   CheckCircle2,
@@ -34,35 +33,14 @@ import {
 
 // ==================== Mock Data ====================
 
-export const MOCK_STUDENTS = [
-  { id: "s1", name: "李明", status: "present" },
-  { id: "s2", name: "王芳", status: "present" },
-  { id: "s3", name: "张伟", status: "absent" },
-  { id: "s4", name: "刘洋", status: "present" },
-  { id: "s5", name: "陈静", status: "present" },
-  { id: "s6", name: "杨强", status: "present" },
-  { id: "s7", name: "赵敏", status: "late" },
-  { id: "s8", name: "黄磊", status: "present" },
-  { id: "s9", name: "周杰", status: "present" },
-  { id: "s10", name: "吴倩", status: "absent" },
-  { id: "s11", name: "徐磊", status: "present" },
-  { id: "s12", name: "孙丽", status: "present" },
-  { id: "s13", name: "马超", status: "present" },
-  { id: "s14", name: "朱琳", status: "late" },
-  { id: "s15", name: "胡军", status: "present" },
-]
+export const MOCK_STUDENTS: { id: string; name: string; status: "present" | "late" | "absent" }[] = []
 
-export const VOTE_RESULTS = [
-  { option: "选项 A：支持", count: 8, percent: 53 },
-  { option: "选项 B：反对", count: 3, percent: 20 },
-  { option: "选项 C：弃权", count: 4, percent: 27 },
-]
+export const VOTE_RESULTS: { option: string; count: number; percent: number }[] = []
 
-export const SURVEY_RESULTS = [
-  { question: "本节课内容是否理解？", type: "radio", options: ["完全理解", "基本理解", "不太理解", "完全不懂"], counts: [6, 7, 2, 0] },
-  { question: "课堂节奏是否合适？", type: "radio", options: ["太快", "适中", "太慢"], counts: [2, 11, 2] },
-  { question: "对教师的建议", type: "text", sampleAnswers: ["希望多举例", "讲解很清晰", "可以增加互动"] },
-]
+export const SURVEY_RESULTS: (
+  | { question: string; type: "radio"; options: string[]; counts: number[] }
+  | { question: string; type: "text"; sampleAnswers: string[] }
+)[] = []
 
 // ==================== Feature Card ====================
 
@@ -144,7 +122,7 @@ export function RollCallPanel({ onBack }: { onBack?: () => void }) {
             {isActive ? (
               <Button variant="destructive" onClick={() => setIsActive(false)}><Square className="h-4 w-4 mr-1" />结束点名</Button>
             ) : (
-              <Button onClick={() => { setIsActive(true); toast.success("课堂点名已开始") }}><Play className="h-4 w-4 mr-1" />开始点名</Button>
+              <Button onClick={() => setIsActive(true)}><Play className="h-4 w-4 mr-1" />开始点名</Button>
             )}
           </div>
         </CardContent>
@@ -238,7 +216,7 @@ export function CheckInPanel({ onBack }: { onBack?: () => void }) {
             {isActive ? (
               <Button variant="destructive" onClick={() => setIsActive(false)}><Square className="h-4 w-4 mr-1" />结束签到</Button>
             ) : (
-              <Button onClick={() => { setIsActive(true); toast.success("签到已开启") }}><Play className="h-4 w-4 mr-1" />开始签到</Button>
+              <Button onClick={() => setIsActive(true)}><Play className="h-4 w-4 mr-1" />开始签到</Button>
             )}
           </div>
         </CardContent>
@@ -317,7 +295,7 @@ export function VotePanel({ onBack }: { onBack?: () => void }) {
             {isActive ? (
               <Button variant="destructive" onClick={() => setIsActive(false)}><Square className="h-4 w-4 mr-1" />结束投票</Button>
             ) : (
-              <Button onClick={() => { setIsActive(true); toast.success("投票已发布") }}><Play className="h-4 w-4 mr-1" />发布投票</Button>
+              <Button onClick={() => setIsActive(true)}><Play className="h-4 w-4 mr-1" />发布投票</Button>
             )}
           </div>
         </CardContent>
@@ -326,17 +304,21 @@ export function VotePanel({ onBack }: { onBack?: () => void }) {
       <Card>
         <CardHeader><CardTitle className="text-base">投票结果</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          {VOTE_RESULTS.map((r, i) => (
-            <div key={i}>
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span>{r.option}</span>
-                <span className="text-muted-foreground">{r.count} 票 ({r.percent}%)</span>
+          {VOTE_RESULTS.length === 0 ? (
+            <div className="text-center text-sm text-gray-400 py-6">暂无投票数据</div>
+          ) : (
+            VOTE_RESULTS.map((r, i) => (
+              <div key={i}>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span>{r.option}</span>
+                  <span className="text-muted-foreground">{r.count} 票 ({r.percent}%)</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full" style={{ width: `${r.percent}%` }} />
+                </div>
               </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: `${r.percent}%` }} />
-              </div>
-            </div>
-          ))}
+            ))
+          )}
           <p className="text-xs text-muted-foreground pt-1">共 {VOTE_RESULTS.reduce((s, r) => s + r.count, 0)} 人参与投票</p>
         </CardContent>
       </Card>
@@ -369,7 +351,7 @@ export function SurveyPanel({ onBack }: { onBack?: () => void }) {
             {isActive ? (
               <Button variant="destructive" onClick={() => setIsActive(false)}><Square className="h-4 w-4 mr-1" />结束问卷</Button>
             ) : (
-              <Button onClick={() => { setIsActive(true); toast.success("问卷已发布") }}><Play className="h-4 w-4 mr-1" />发布问卷</Button>
+              <Button onClick={() => setIsActive(true)}><Play className="h-4 w-4 mr-1" />发布问卷</Button>
             )}
           </div>
         </CardContent>
@@ -378,35 +360,39 @@ export function SurveyPanel({ onBack }: { onBack?: () => void }) {
       <Card>
         <CardHeader><CardTitle className="text-base">问卷统计</CardTitle></CardHeader>
         <CardContent className="space-y-5">
-          {SURVEY_RESULTS.map((q, qi) => (
-            <div key={qi} className="space-y-2">
-              <p className="text-sm font-medium">{qi + 1}. {q.question}</p>
-              {q.type === "radio" && q.options && q.counts && (
-                <div className="space-y-1.5 pl-2">
-                  {q.options.map((opt, oi) => (
-                    <div key={oi} className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between text-xs mb-0.5">
-                          <span className="text-gray-600">{opt}</span>
-                          <span className="text-gray-400">{q.counts[oi]} 人</span>
-                        </div>
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-primary/70 rounded-full" style={{ width: `${(q.counts[oi] / (q.counts.reduce((a, b) => a + b, 0) || 1)) * 100}%` }} />
+          {SURVEY_RESULTS.length === 0 ? (
+            <div className="text-center text-sm text-gray-400 py-6">暂无问卷数据</div>
+          ) : (
+            SURVEY_RESULTS.map((q, qi) => (
+              <div key={qi} className="space-y-2">
+                <p className="text-sm font-medium">{qi + 1}. {q.question}</p>
+                {q.type === "radio" && q.options && q.counts && (
+                  <div className="space-y-1.5 pl-2">
+                    {q.options.map((opt, oi) => (
+                      <div key={oi} className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between text-xs mb-0.5">
+                            <span className="text-gray-600">{opt}</span>
+                            <span className="text-gray-400">{q.counts[oi]} 人</span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-primary/70 rounded-full" style={{ width: `${(q.counts[oi] / (q.counts.reduce((a, b) => a + b, 0) || 1)) * 100}%` }} />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {q.type === "text" && q.sampleAnswers && (
-                <div className="pl-2 space-y-1">
-                  {q.sampleAnswers.map((ans, ai) => (
-                    <div key={ai} className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">{ans}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                    ))}
+                  </div>
+                )}
+                {q.type === "text" && q.sampleAnswers && (
+                  <div className="pl-2 space-y-1">
+                    {q.sampleAnswers.map((ans, ai) => (
+                      <div key={ai} className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">{ans}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
     </div>
@@ -416,10 +402,7 @@ export function SurveyPanel({ onBack }: { onBack?: () => void }) {
 // ==================== Quick Quiz (Rush Answer) Panel ====================
 
 export function QuickQuizPanel({ onBack }: { onBack?: () => void }) {
-  const [questions, setQuestions] = useState([
-    { id: "qq-1", content: "Java中interface和abstract class的区别是什么？", timeLimit: 60 },
-    { id: "qq-2", content: "什么是RESTful API设计原则？", timeLimit: 90 },
-  ])
+  const [questions, setQuestions] = useState<{ id: string; content: string; timeLimit: number }[]>([])
   const [isActive, setIsActive] = useState(false)
 
   return (
@@ -437,17 +420,21 @@ export function QuickQuizPanel({ onBack }: { onBack?: () => void }) {
             {isActive ? (
               <Button variant="destructive" onClick={() => setIsActive(false)}><Square className="h-4 w-4 mr-1" />结束抢答</Button>
             ) : (
-              <Button onClick={() => { setIsActive(true); toast.success("抢答已开始") }}><Zap className="h-4 w-4 mr-1" />开始抢答</Button>
+              <Button onClick={() => setIsActive(true)}><Zap className="h-4 w-4 mr-1" />开始抢答</Button>
             )}
           </div>
           <div className="space-y-2">
-            {questions.map((q, idx) => (
-              <div key={q.id} className="flex items-center gap-2 border rounded-lg p-3">
-                <span className="text-xs font-medium text-primary shrink-0">Q{idx + 1}</span>
-                <span className="text-sm flex-1">{q.content}</span>
-                <span className="text-xs text-muted-foreground shrink-0"><Timer className="h-3 w-3 inline mr-0.5" />{q.timeLimit}s</span>
-              </div>
-            ))}
+            {questions.length === 0 ? (
+              <div className="text-center text-sm text-gray-400 py-4 border border-dashed rounded-lg">暂无抢答题目</div>
+            ) : (
+              questions.map((q, idx) => (
+                <div key={q.id} className="flex items-center gap-2 border rounded-lg p-3">
+                  <span className="text-xs font-medium text-primary shrink-0">Q{idx + 1}</span>
+                  <span className="text-sm flex-1">{q.content}</span>
+                  <span className="text-xs text-muted-foreground shrink-0"><Timer className="h-3 w-3 inline mr-0.5" />{q.timeLimit}s</span>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -456,23 +443,7 @@ export function QuickQuizPanel({ onBack }: { onBack?: () => void }) {
         <CardHeader><CardTitle className="text-base">抢答排行</CardTitle></CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {[
-              { name: "李明", score: 3, time: "0.8s" },
-              { name: "王芳", score: 2, time: "1.2s" },
-              { name: "张伟", score: 2, time: "1.5s" },
-              { name: "刘洋", score: 1, time: "2.1s" },
-            ].map((r, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-bold w-5 text-center ${i < 3 ? "text-primary" : "text-gray-400"}`}>{i + 1}</span>
-                  <span className="text-sm">{r.name}</span>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span>{r.score} 分</span>
-                  <span>平均 {r.time}</span>
-                </div>
-              </div>
-            ))}
+            <div className="text-center text-sm text-gray-400 py-6">暂无抢答记录</div>
           </div>
         </CardContent>
       </Card>
@@ -494,7 +465,6 @@ export function GroupingPanel({ onBack }: { onBack?: () => void }) {
       result.push({ id: result.length + 1, members: shuffled.slice(i, i + groupSize).map((s) => s.name) })
     }
     setGroups(result)
-    toast.success(`已生成 ${result.length} 个小组`)
   }
 
   return (
@@ -563,18 +533,13 @@ export function GroupingPanel({ onBack }: { onBack?: () => void }) {
 // ==================== Discussion Panel ====================
 
 export function DiscussionPanel({ onBack }: { onBack?: () => void }) {
-  const [topics, setTopics] = useState([
-    { id: "d-1", title: "面向对象设计在实际项目中的应用", author: "周建国", replies: 8, likes: 12, time: "10分钟前" },
-    { id: "d-2", title: "如何优化数据库查询性能？", author: "李明", replies: 5, likes: 7, time: "25分钟前" },
-    { id: "d-3", title: "微服务架构的优缺点讨论", author: "王芳", replies: 3, likes: 4, time: "40分钟前" },
-  ])
+  const [topics, setTopics] = useState<{ id: string; title: string; author: string; replies: number; likes: number; time: string }[]>([])
   const [newTopic, setNewTopic] = useState("")
 
   const addTopic = () => {
     if (!newTopic.trim()) return
     setTopics([{ id: `d-${Date.now()}`, title: newTopic, author: "教师", replies: 0, likes: 0, time: "刚刚" }, ...topics])
     setNewTopic("")
-    toast.success("话题已发布")
   }
 
   return (
@@ -602,19 +567,23 @@ export function DiscussionPanel({ onBack }: { onBack?: () => void }) {
       </Card>
 
       <div className="space-y-2">
-        {topics.map((t) => (
-          <Card key={t.id} className="cursor-pointer hover:bg-muted/30 transition-colors">
-            <CardContent className="p-4">
-              <p className="text-sm font-medium">{t.title}</p>
-              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                <span>{t.author}</span>
-                <span>{t.time}</span>
-                <span>{t.replies} 回复</span>
-                <span>{t.likes} 赞</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {topics.length === 0 ? (
+          <div className="text-center text-sm text-gray-400 py-8 border border-dashed rounded-lg">暂无讨论话题</div>
+        ) : (
+          topics.map((t) => (
+            <Card key={t.id} className="cursor-pointer hover:bg-muted/30 transition-colors">
+              <CardContent className="p-4">
+                <p className="text-sm font-medium">{t.title}</p>
+                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                  <span>{t.author}</span>
+                  <span>{t.time}</span>
+                  <span>{t.replies} 回复</span>
+                  <span>{t.likes} 赞</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   )
@@ -636,8 +605,8 @@ export function InClassTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button variant="outline" onClick={() => toast("前往上课（演示）")}>
-          前往上课
+        <Button variant="outline" disabled>
+          暂无上课数据
         </Button>
       </div>
 
@@ -671,7 +640,11 @@ export function InClassTab() {
               <p className="text-xs text-muted-foreground">迟到人数</p>
             </div>
             <div className="space-y-1">
-              <p className="text-2xl font-bold text-blue-600">{Math.round((MOCK_STUDENTS.filter((s) => s.status === "present").length / MOCK_STUDENTS.length) * 100)}%</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {MOCK_STUDENTS.length === 0
+                  ? "0%"
+                  : `${Math.round((MOCK_STUDENTS.filter((s) => s.status === "present").length / MOCK_STUDENTS.length) * 100)}%`}
+              </p>
               <p className="text-xs text-muted-foreground">出勤率</p>
             </div>
           </div>

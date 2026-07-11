@@ -332,7 +332,7 @@ export default function QuestionBankDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <PrdAnnotation data={getAnnotation("qbd-btn-import")}>
-            <Button variant="outline" size="sm" onClick={() => alert("此处参考 1.0 版本页面功能即可")}>
+            <Button variant="outline" size="sm" disabled title="题目导入功能开发中">
               <Upload className="mr-1 size-3.5" />
               导入题目
             </Button>

@@ -47,14 +47,7 @@ interface Graduate {
   className: string
 }
 
-const mockGraduates: Graduate[] = [
-  { id: "1", name: "陈小明", studentId: "2020010001", idCard: "330102200201010011", graduateYear: "2024", enrollYear: "2020", major: "软件工程", className: "软件2001班" },
-  { id: "2", name: "王小红", studentId: "2020010002", idCard: "330102200202020022", graduateYear: "2024", enrollYear: "2020", major: "计算机科学", className: "计科2001班" },
-  { id: "3", name: "李小华", studentId: "2020010003", idCard: "330102200203030033", graduateYear: "2024", enrollYear: "2020", major: "人工智能", className: "智能2001班" },
-  { id: "4", name: "张小强", studentId: "2019010001", idCard: "330102200104040044", graduateYear: "2023", enrollYear: "2019", major: "软件工程", className: "软件1901班" },
-  { id: "5", name: "刘小丽", studentId: "2019010002", idCard: "330102200105050055", graduateYear: "2023", enrollYear: "2019", major: "数据科学", className: "数科1901班" },
-  { id: "6", name: "赵小军", studentId: "2018010001", idCard: "330102200006060066", graduateYear: "2022", enrollYear: "2018", major: "网络工程", className: "网络1801班" },
-]
+const mockGraduates: Graduate[] = []
 
 export default function GraduatesPage() {
   const [graduates, setGraduates] = useState<Graduate[]>(mockGraduates)
@@ -94,11 +87,10 @@ export default function GraduatesPage() {
       setGraduates(prev => prev.filter(g => g.id !== graduateToReEnroll.id))
       setIsReEnrollDialogOpen(false)
       setGraduateToReEnroll(null)
-      alert(`已将 ${graduateToReEnroll.name} 恢复到学生管理`)
     }
   }
 
-  const graduateYears = [...new Set(mockGraduates.map(g => g.graduateYear))].sort((a, b) => Number(b) - Number(a))
+  const graduateYears = [...new Set(graduates.map(g => g.graduateYear))].sort((a, b) => Number(b) - Number(a))
 
   return (
     <div className="p-6 bg-[#f5f7fa] min-h-full">

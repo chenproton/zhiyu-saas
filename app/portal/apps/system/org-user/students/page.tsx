@@ -116,18 +116,7 @@ const statusColor: Record<string, string> = {
   "结业": "secondary",
 }
 
-const mockStudents: Student[] = [
-  { id: "1", name: "王五", studentNo: "S2024001", className: "计算机2401班", major: "计算机系", department: "信息学院", status: "在籍" },
-  { id: "2", name: "赵六", studentNo: "S2024002", className: "计算机2401班", major: "计算机系", department: "信息学院", status: "在籍" },
-  { id: "3", name: "钱七", studentNo: "S2024003", className: "计算机2301班", major: "计算机系", department: "信息学院", status: "在籍" },
-  { id: "4", name: "孙八", studentNo: "S2024004", className: "软件2301班", major: "软件工程系", department: "信息学院", status: "在籍" },
-  { id: "5", name: "周九", studentNo: "S2023005", className: "2024级软件班", major: "软件工程系", department: "信息学院", status: "在籍" },
-  { id: "6", name: "吴十", studentNo: "S2023006", className: "2024级软件班", major: "软件工程系", department: "信息学院", status: "在籍" },
-  { id: "7", name: "郑十一", studentNo: "S2022007", className: "计算机2201班", major: "计算机系", department: "信息学院", status: "在籍" },
-  { id: "8", name: "冯十二", studentNo: "S2022008", className: "计算机2201班", major: "计算机系", department: "信息学院", status: "退学" },
-  { id: "9", name: "陈十三", studentNo: "S2025001", className: "会计2401班", major: "会计系", department: "经济管理学院", status: "休学" },
-  { id: "10", name: "刘十四", studentNo: "S2024009", className: "金融2401班", major: "金融系", department: "经济管理学院", status: "在籍" },
-]
+const mockStudents: Student[] = []
 
 function classBadge(variant: string) {
   if (variant === "destructive") return "destructive" as const

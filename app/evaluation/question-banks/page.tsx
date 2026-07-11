@@ -1177,7 +1177,7 @@ export default function QuestionBanksPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => { alert("导入功能演示：文件已上传，正在解析..."); setIsImportDialogOpen(false) }}>开始导入</Button>
+            <Button disabled title="批量导入功能开发中">开始导入</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1202,7 +1202,7 @@ export default function QuestionBanksPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => { alert(`已导出 ${selectedIds.length} 个题库数据`); setIsExportDialogOpen(false); setSelectedIds([]) }}>确认导出</Button>
+            <Button disabled title="批量导出功能开发中">确认导出</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

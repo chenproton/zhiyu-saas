@@ -17,17 +17,7 @@ interface OrgType {
   createdAt: string
 }
 
-const mockOrgTypes: OrgType[] = [
-  { id: "1", name: "行政部门", category: "internal", createdAt: "2024-01-01" },
-  { id: "2", name: "二级学院", category: "internal", createdAt: "2024-01-01" },
-  { id: "3", name: "教研室", category: "internal", createdAt: "2024-01-01" },
-  { id: "4", name: "专业群", category: "business", createdAt: "2024-01-01" },
-  { id: "5", name: "专业系", category: "business", createdAt: "2024-01-01" },
-  { id: "6", name: "班级", category: "business", createdAt: "2024-01-01" },
-  { id: "7", name: "产业学院", category: "business", createdAt: "2024-01-01" },
-  { id: "8", name: "订单班", category: "business", createdAt: "2024-01-01" },
-  { id: "9", name: "企业", category: "external", createdAt: "2024-01-01" },
-]
+const mockOrgTypes: OrgType[] = []
 
 const categoryLabels = { internal: "内部组织", business: "业务组织", external: "外部协作组织" }
 const categoryColors = { internal: "bg-blue-100 text-blue-700", business: "bg-green-100 text-green-700", external: "bg-orange-100 text-orange-700" }

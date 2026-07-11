@@ -14,18 +14,7 @@ interface ResourceCode {
   createdAt: string
 }
 
-const mockCodes: ResourceCode[] = [
-  { id: "1", code: "SCENE", name: "场景", description: "实践场景类型编码", createdAt: "2024-01-01" },
-  { id: "2", code: "KNOWLEDGE", name: "知识点", description: "课程知识点类型编码", createdAt: "2024-01-01" },
-  { id: "3", code: "POSITION", name: "岗位", description: "职业岗位类型编码", createdAt: "2024-01-01" },
-  { id: "4", code: "COURSE", name: "课程", description: "数字课程类型编码", createdAt: "2024-01-01" },
-  { id: "5", code: "TASK", name: "任务", description: "场景任务编码", createdAt: "2024-01-01" },
-  { id: "6", code: "RESOURCE", name: "资源", description: "教学资源编码", createdAt: "2024-01-01" },
-  { id: "7", code: "ABILITY", name: "能力", description: "能力评估编码", createdAt: "2024-01-01" },
-  { id: "8", code: "CERTIFICATE", name: "证书", description: "技能证书编码", createdAt: "2024-01-01" },
-  { id: "9", code: "PROJECT", name: "项目", description: "实践项目编码", createdAt: "2024-01-01" },
-  { id: "10", code: "ASSESSMENT", name: "测评", description: "能力测评编码", createdAt: "2024-01-01" },
-]
+const mockCodes: ResourceCode[] = []
 
 export default function ResourceCodesPage() {
   const [searchTerm, setSearchTerm] = useState("")

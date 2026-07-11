@@ -20,13 +20,7 @@ interface ApprovalFlow {
   status: "active" | "inactive"
 }
 
-const mockFlows: ApprovalFlow[] = [
-  { id: "1", name: "请假审批流程", scene: "人事管理", usageCount: 156, createdAt: "2024-01-15", status: "active" },
-  { id: "2", name: "报销审批流程", scene: "财务管理", usageCount: 89, createdAt: "2024-02-20", status: "active" },
-  { id: "3", name: "课程发布审批", scene: "教学管理", usageCount: 45, createdAt: "2024-03-10", status: "active" },
-  { id: "4", name: "资源上传审批", scene: "资源管理", usageCount: 234, createdAt: "2024-04-05", status: "active" },
-  { id: "5", name: "用户注册审批", scene: "用户管理", usageCount: 12, createdAt: "2024-05-12", status: "inactive" },
-]
+const mockFlows: ApprovalFlow[] = []
 
 const scenes = ["人事管理", "财务管理", "教学管理", "资源管理", "用户管理", "系统设置"]
 

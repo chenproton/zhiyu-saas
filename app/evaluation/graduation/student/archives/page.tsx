@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useData } from "@/components/providers/data-provider"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/auth-context"
 import type { GraduationProjectArchive, RectificationDetail } from "@/lib/types"
 
 const PHASE_LABELS: Record<GraduationProjectArchive['phase'], string> = {
@@ -56,26 +57,17 @@ const CATEGORY_META: Record<DocCategory, { label: string; icon: React.ReactNode 
 const PROCESS_CATS: DocCategory[] = ['proposal','midterm','process','guide']
 const OUTPUT_CATS: DocCategory[] = ['product','thesis','demo','source']
 
-const MOCK_STUDENT_ID = '2021001'
-
-const INITIAL_STUDENT_DOCS: StudentDoc[] = [
-  { id:'s1', name:'开题报告v1.pdf', category:'proposal', status:'reviewed', uploadTime:new Date('2024-03-10'), feedback:'结构完整，技术路线清晰，建议在性能测试部分补充压测方案。', feedbackBy:'张教授' },
-  { id:'s2', name:'开题报告v2.pdf', category:'proposal', status:'reviewed', uploadTime:new Date('2024-03-18'), feedback:'已按意见修改，通过。', feedbackBy:'张教授' },
-  { id:'s3', name:'中期检查表.docx', category:'midterm', status:'reviewed', uploadTime:new Date('2024-04-15'), feedback:'进展良好，核心模块已完成开发，建议开始集成测试。', feedbackBy:'张教授' },
-  { id:'s4', name:'周进展记录-第1周.md', category:'process', status:'reviewed', uploadTime:new Date('2024-03-20'), feedback:'记录详细，继续保持。', feedbackBy:'张教授' },
-  { id:'s5', name:'周进展记录-第2周.md', category:'process', status:'reviewed', uploadTime:new Date('2024-03-27'), feedback:'OK', feedbackBy:'张教授' },
-  { id:'s6', name:'指导记录-3月.pdf', category:'guide', status:'reviewed', uploadTime:new Date('2024-03-25'), feedback:'问题分析到位，下一步重点解决并发处理。', feedbackBy:'张教授' },
-  { id:'s7', name:'在线教育平台演示.mp4', category:'demo', status:'submitted', uploadTime:new Date('2024-05-20') },
-  { id:'s8', name:'毕业设计论文.pdf', category:'thesis', status:'submitted', uploadTime:new Date('2024-05-25') },
-  { id:'s9', name:'项目源代码.zip', category:'source', status:'submitted', uploadTime:new Date('2024-05-26') },
-]
+// 学生文档数据应由后端档案 API 提供，默认空状态
+const INITIAL_STUDENT_DOCS: StudentDoc[] = []
 
 export default function StudentArchivesPage() {
   const { graduationProjectArchives, rectificationDetails, updateRectificationDetail } = useData()
   const { toast } = useToast()
+  const { user } = useAuth()
+  const studentId = user?.id || ''
 
-  const myArchive = useMemo(() => graduationProjectArchives.find((a) => a.studentId === MOCK_STUDENT_ID), [graduationProjectArchives])
-  const myRects = useMemo(() => rectificationDetails.filter((r) => r.studentId === MOCK_STUDENT_ID), [rectificationDetails])
+  const myArchive = useMemo(() => graduationProjectArchives.find((a) => a.studentId === studentId), [graduationProjectArchives, studentId])
+  const myRects = useMemo(() => rectificationDetails.filter((r) => r.studentId === studentId), [rectificationDetails, studentId])
 
   const [docs, setDocs] = useState<StudentDoc[]>(INITIAL_STUDENT_DOCS)
   const [addOpen, setAddOpen] = useState(false)

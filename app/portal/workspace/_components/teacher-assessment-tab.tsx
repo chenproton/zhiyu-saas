@@ -37,6 +37,9 @@ export function TeacherAssessmentTab() {
         {/* 课后作业提交 */}
         <SectionCard title="课后作业提交" icon={BookOpen} iconColor="blue">
           <div className="space-y-4">
+            {mockHomeworkSubmissions.length === 0 && (
+              <div className="py-6 text-center text-xs text-gray-400">暂无课后作业数据</div>
+            )}
             {mockHomeworkSubmissions.map((hw) => (
               <div key={hw.id}>
                 <div className="flex items-center justify-between mb-1.5">
@@ -151,6 +154,9 @@ export function TeacherAssessmentTab() {
           </div>
         </div>
         <div className="space-y-3">
+          {mockPeerReviewStats.steps.length === 0 && (
+            <div className="py-4 text-center text-xs text-gray-400">暂无互评互判数据</div>
+          )}
           {mockPeerReviewStats.steps.map((step) => (
             <div key={step.name} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
@@ -177,6 +183,13 @@ export function TeacherAssessmentTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {mockTrainingReports.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-xs text-gray-400 py-8">
+                    暂无实训报告数据
+                  </TableCell>
+                </TableRow>
+              )}
               {mockTrainingReports.map((report) => (
                 <TableRow key={report.name}>
                   <TableCell className="text-sm font-medium">{report.name}</TableCell>

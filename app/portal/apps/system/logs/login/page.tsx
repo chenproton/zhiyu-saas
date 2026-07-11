@@ -7,16 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Search, Download, RefreshCw } from "lucide-react"
 
-const mockLogs = [
-  { id: "1", user: "张三", ip: "192.168.1.100", location: "浙江省杭州市", device: "Chrome/Windows", status: "success", time: "2026-04-14 09:30:15" },
-  { id: "2", user: "李四", ip: "192.168.1.101", location: "北京市海淀区", device: "Safari/MacOS", status: "success", time: "2026-04-14 09:25:30" },
-  { id: "3", user: "王五", ip: "192.168.1.102", location: "上海市浦东新区", device: "Firefox/Windows", status: "failed", time: "2026-04-14 09:20:45" },
-  { id: "4", user: "赵六", ip: "192.168.1.103", location: "广东省深圳市", device: "Chrome/Android", status: "success", time: "2026-04-14 09:15:00" },
-  { id: "5", user: "钱七", ip: "192.168.1.104", location: "江苏省南京市", device: "Edge/Windows", status: "success", time: "2026-04-14 09:10:15" },
-  { id: "6", user: "张三", ip: "192.168.1.100", location: "浙江省杭州市", device: "Chrome/Windows", status: "failed", time: "2026-04-14 08:55:30" },
-  { id: "7", user: "孙八", ip: "192.168.1.105", location: "四川省成都市", device: "Safari/iOS", status: "success", time: "2026-04-14 08:45:45" },
-  { id: "8", user: "周九", ip: "192.168.1.106", location: "湖北省武汉市", device: "Chrome/MacOS", status: "success", time: "2026-04-14 08:30:00" },
-]
+const mockLogs: { id: string; user: string; ip: string; location: string; device: string; status: string; time: string }[] = []
 
 export default function LoginLogsPage() {
   const [searchTerm, setSearchTerm] = useState("")

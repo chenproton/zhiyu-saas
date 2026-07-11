@@ -18,33 +18,7 @@ interface Major {
   enabled: boolean
 }
 
-const mockMajors: Major[] = [
-  { id: "1", code: "510201", name: "计算机应用技术", alias: "", enabled: true },
-  { id: "2", code: "510202", name: "计算机网络技术", alias: "", enabled: true },
-  { id: "3", code: "510203", name: "软件技术", alias: "软件开发", enabled: true },
-  { id: "4", code: "510204", name: "数字媒体技术", alias: "", enabled: true },
-  { id: "5", code: "510205", name: "大数据技术", alias: "大数据分析", enabled: true },
-  { id: "6", code: "510206", name: "云计算技术应用", alias: "", enabled: true },
-  { id: "7", code: "510207", name: "信息安全技术应用", alias: "网络安全", enabled: true },
-  { id: "8", code: "510208", name: "虚拟现实技术应用", alias: "VR技术", enabled: false },
-  { id: "9", code: "510209", name: "人工智能技术应用", alias: "AI技术", enabled: true },
-  { id: "10", code: "510210", name: "嵌入式技术应用", alias: "", enabled: false },
-  { id: "11", code: "510211", name: "工业互联网技术", alias: "", enabled: true },
-  { id: "12", code: "510212", name: "区块链技术应用", alias: "", enabled: false },
-  { id: "13", code: "530301", name: "大数据与财务管理", alias: "智能财务", enabled: true },
-  { id: "14", code: "530302", name: "大数据与会计", alias: "智能会计", enabled: true },
-  { id: "15", code: "530501", name: "国际经济与贸易", alias: "", enabled: true },
-  { id: "16", code: "530601", name: "工商企业管理", alias: "", enabled: true },
-  { id: "17", code: "530701", name: "电子商务", alias: "跨境电商", enabled: true },
-  { id: "18", code: "530801", name: "物流管理", alias: "智慧物流", enabled: true },
-  { id: "19", code: "540101", name: "旅游管理", alias: "", enabled: false },
-  { id: "20", code: "550101", name: "艺术设计", alias: "数字艺术", enabled: true },
-  { id: "21", code: "560102", name: "机械制造与自动化", alias: "智能制造", enabled: true },
-  { id: "22", code: "560103", name: "数控技术", alias: "", enabled: true },
-  { id: "23", code: "560110", name: "焊接技术与自动化", alias: "", enabled: false },
-  { id: "24", code: "560113", name: "模具设计与制造", alias: "", enabled: true },
-  { id: "25", code: "560301", name: "机电一体化技术", alias: "", enabled: true },
-]
+const mockMajors: Major[] = []
 
 export default function MajorsPage() {
   const [majors, setMajors] = useState<Major[]>(mockMajors)

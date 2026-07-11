@@ -32,25 +32,11 @@ import { TaskEvaluationConfig } from "../_types/registrar-adapted"
 
 export const INITIAL_CONFIG: TaskEvaluationConfig = {
   enabledMethods: ["random_quiz", "peer_review", "homework", "classwork"],
-  randomDrawQuestions: [
-    { id: "rq-1", name: "随机抽题一", description: "简述 Spring Boot 自动配置的原理", answer: "通过 @EnableAutoConfiguration 与 spring.factories 加载自动配置类...", major: "软件工程" },
-    { id: "rq-2", name: "随机抽题二", description: "RESTful API 设计应遵循哪些原则？", answer: "资源导向、使用 HTTP 动词、无状态、统一接口等", major: "软件工程" },
-    { id: "rq-3", name: "随机抽题三", description: "什么是数据库事务的 ACID 特性？", answer: "原子性、一致性、隔离性、持久性", major: "软件工程" },
-    { id: "rq-4", name: "随机抽题四", description: "解释 MVC 架构模式", answer: "Model-View-Controller，将数据、视图、控制分离", major: "软件工程" },
-  ],
-  reviewSteps: [
-    { id: "rs-1", label: "学生自评", desc: "学生对照评分标准进行自我评价", enabled: true, subjectType: "student", weight: 20 },
-    { id: "rs-2", label: "小组互评", desc: "小组成员相互评价贡献度", enabled: true, subjectType: "group", weight: 30 },
-    { id: "rs-3", label: "教师评价", desc: "教师根据作品与过程表现评分", enabled: true, subjectType: "teacher", weight: 50 },
-  ],
+  randomDrawQuestions: [],
+  reviewSteps: [],
 }
 
-const EVAL_POINT_TEMPLATES = [
-  { id: "ep-1", name: "知识掌握", desc: "对课程核心概念与原理的理解程度", weight: 30, maxScore: 100 },
-  { id: "ep-2", name: "实践能力", desc: "动手实验、项目开发与工具使用能力", weight: 30, maxScore: 100 },
-  { id: "ep-3", name: "团队协作", desc: "在小组任务中的沟通与贡献", weight: 20, maxScore: 100 },
-  { id: "ep-4", name: "课堂表现", desc: "出勤、发言、互动参与情况", weight: 20, maxScore: 100 },
-]
+const EVAL_POINT_TEMPLATES: Array<{ id: string; name: string; desc: string; weight: number; maxScore: number }> = []
 
 // ==================== Helper Components ====================
 
@@ -272,10 +258,10 @@ function OutcomeArchivePanel() {
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card><CardContent className="p-3 text-center"><p className="text-lg font-bold">18</p><p className="text-xs text-muted-foreground">总课时</p></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><p className="text-lg font-bold">86</p><p className="text-xs text-muted-foreground">参与学生</p></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><p className="text-lg font-bold">12</p><p className="text-xs text-muted-foreground">作业/测验</p></CardContent></Card>
-            <Card><CardContent className="p-3 text-center"><p className="text-lg font-bold">3</p><p className="text-xs text-muted-foreground">互评活动</p></CardContent></Card>
+            <Card><CardContent className="p-3 text-center"><p className="text-lg font-bold">—</p><p className="text-xs text-muted-foreground">总课时</p></CardContent></Card>
+            <Card><CardContent className="p-3 text-center"><p className="text-lg font-bold">—</p><p className="text-xs text-muted-foreground">参与学生</p></CardContent></Card>
+            <Card><CardContent className="p-3 text-center"><p className="text-lg font-bold">—</p><p className="text-xs text-muted-foreground">作业/测验</p></CardContent></Card>
+            <Card><CardContent className="p-3 text-center"><p className="text-lg font-bold">—</p><p className="text-xs text-muted-foreground">互评活动</p></CardContent></Card>
           </div>
           <Button onClick={() => { setArchived(true); toast.success("过程性考核归档完成") }} disabled={archived}>
             {archived ? <CheckCircle2 className="h-4 w-4 mr-1" /> : <Save className="h-4 w-4 mr-1" />}

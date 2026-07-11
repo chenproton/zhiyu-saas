@@ -153,15 +153,8 @@ const defaultGradeMapping: GradeMapping[] = [
   { id: "grade-4", grade: "D", minScore: 0, maxScore: 59, color: "bg-red-500", remark: "未达标准，核心要求未完成，需要重新学习或训练" },
 ]
 
-const MOCK_ABILITY_POINTS: AbilityPointItem[] = [
-  { id: "ab-1", name: "代码阅读能力", code: "AB-001", description: "阅读并理解代码逻辑" },
-  { id: "ab-2", name: "漏洞分析能力", code: "AB-002", description: "分析安全漏洞成因" },
-  { id: "ab-3", name: "渗透测试能力", code: "AB-003", description: "执行渗透测试流程" },
-  { id: "ab-4", name: "安全防护能力", code: "AB-004", description: "设计安全防护方案" },
-  { id: "ab-5", name: "报告编写能力", code: "AB-005", description: "编写规范测试报告" },
-  { id: "ab-6", name: "团队协作能力", code: "AB-006", description: "与他人协作完成任务" },
-  { id: "ab-7", name: "沟通表达能力", code: "AB-007", description: "清晰表达技术观点" },
-]
+// 能力点数据应由父组件通过 abilityPoints 属性传入，默认空状态
+const DEFAULT_ABILITY_POINTS: AbilityPointItem[] = []
 
 type EvalSubType = "knowledge_mastery" | "operation_standard" | "task_completion" | "result_quality" | "communication" | "collaboration" | "professionalism" | "innovation" | "adaptability"
 
@@ -198,20 +191,10 @@ const defaultEvalSubjects: EvalSubjectConfig[] = [
   { type: "service_target", enabled: false, params: { serviceMethod: "满意度问卷", sampleSize: 20, weightPercent: 5 } },
 ]
 
-const mockDefaultEvalPoints: EvalPoint[] = [
-  { id: "ep-mock-1", name: "能够理解SQL注入的基本原理", desc: "", subType: "knowledge_mastery", knowledgePointIds: ["kp-1"], abilityPointIds: ["ab-1"], scoringMethod: "level", gradeMapping: JSON.parse(JSON.stringify(defaultGradeMapping)), weight: 10 },
-  { id: "ep-mock-2", name: "能够使用工具进行注入点检测", desc: "", subType: "operation_standard", knowledgePointIds: ["kp-1"], abilityPointIds: ["ab-2"], scoringMethod: "level", gradeMapping: JSON.parse(JSON.stringify(defaultGradeMapping)), weight: 10 },
-  { id: "ep-mock-3", name: "能够编写防护代码", desc: "", subType: "result_quality", knowledgePointIds: ["kp-9"], abilityPointIds: ["ab-4"], scoringMethod: "level", gradeMapping: JSON.parse(JSON.stringify(defaultGradeMapping)), weight: 10 },
-  { id: "ep-mock-4", name: "能够完成渗透测试报告", desc: "", subType: "task_completion", knowledgePointIds: ["kp-5"], abilityPointIds: ["ab-5"], scoringMethod: "level", gradeMapping: JSON.parse(JSON.stringify(defaultGradeMapping)), weight: 10 },
-  { id: "ep-mock-5", name: "团队协作配合积极", desc: "", subType: "collaboration", abilityPointIds: ["ab-6"], scoringMethod: "level", gradeMapping: JSON.parse(JSON.stringify(defaultGradeMapping)), weight: 10 },
-  { id: "ep-mock-6", name: "技术表达清晰准确", desc: "", subType: "communication", abilityPointIds: ["ab-7"], scoringMethod: "level", gradeMapping: JSON.parse(JSON.stringify(defaultGradeMapping)), weight: 10 },
-]
+// 默认评价点与试卷数据应由真实题库/试卷 API 提供，默认空状态
+const defaultEvalPoints: EvalPoint[] = []
 
-const paperMocks = [
-  { id: "paper-1", name: "Web安全基础综合试卷", questionCount: 20, totalScore: 100 },
-  { id: "paper-2", name: "渗透测试进阶测试", questionCount: 15, totalScore: 100 },
-  { id: "paper-3", name: "代码审计规范测验", questionCount: 10, totalScore: 100 },
-]
+const paperMocks: { id: string; name: string; questionCount: number; totalScore: number }[] = []
 
 const questionBankLabels: Record<string, string> = {
   frontend: "前端开发题库",
@@ -221,22 +204,24 @@ const questionBankLabels: Record<string, string> = {
   professional: "专业技能题库",
 }
 
-const allQuestions = [
-  { id: "q-1", name: "什么是SQL注入？", type: "short_answer", difficulty: "medium", score: 10, questionBank: "professional", source: "public", content: "简述SQL注入的原理" },
-  { id: "q-2", name: "XSS攻击分类有哪些？", type: "short_answer", difficulty: "medium", score: 10, questionBank: "professional", source: "public", content: "列举XSS攻击类型" },
-  { id: "q-3", name: "CSRF防护常用方法", type: "short_answer", difficulty: "easy", score: 10, questionBank: "professional", source: "public", content: "说明CSRF防护方法" },
-  { id: "q-4", name: "密码学中对称加密与非对称加密的区别", type: "short_answer", difficulty: "hard", score: 15, questionBank: "public", source: "public", content: "对比两种加密方式" },
-  { id: "q-5", name: "缓冲区溢出攻击原理", type: "short_answer", difficulty: "hard", score: 15, questionBank: "professional", source: "public", content: "解释缓冲区溢出" },
-  { id: "q-6", name: "安全编码的基本原则", type: "short_answer", difficulty: "easy", score: 10, questionBank: "public", source: "public", content: "列举安全编码原则" },
-]
+type QuestionItem = {
+  id: string
+  name: string
+  type: string
+  difficulty: string
+  score: number
+  questionBank: string
+  source: string
+  content: string
+}
+
+// 题目数据应由真实题库 API 提供，默认空状态
+const allQuestions: QuestionItem[] = []
 
 type ScoreRuleItem = { id: string; name: string; desc: string; rule: string; weight: number }
 type RubricScheme = { id: string; name: string; types: EvalSubType[]; desc: string; points: EvalPoint[]; mode: "rubric" | "score_rule"; scoreRuleItems?: ScoreRuleItem[] }
 
-const initialRubricLibrary: RubricScheme[] = [
-  { id: "scheme-fe", name: "Web安全能力评价量规", types: ["knowledge_mastery", "operation_standard", "task_completion", "result_quality"], desc: "涵盖Web安全知识、操作规范、任务完成度和成果质量", points: mockDefaultEvalPoints.slice(0, 4).map((p, i) => ({ ...p, id: `ep-scheme-1-${i}` })), mode: "rubric" },
-  { id: "scheme-review", name: "通用评审量规", types: ["knowledge_mastery", "communication", "collaboration", "professionalism"], desc: "适用于项目评审，关注知识掌握、沟通协作与职业素养", points: mockDefaultEvalPoints.slice(2).map((p, i) => ({ ...p, id: `ep-scheme-2-${i}` })), mode: "rubric" },
-]
+const initialRubricLibrary: RubricScheme[] = []
 
 function uid(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
@@ -257,25 +242,25 @@ function makeDefaultConfig(methods: string[]): CourseEvalRulesConfig {
     randomDrawQuestions: allQuestions.slice(0, 2).map(q => q.id),
     randomDrawCustomQuestions: [],
     randomDrawSelectedIds: [],
-    randomDrawEvalPoints: [mockDefaultEvalPoints[0], mockDefaultEvalPoints[1]],
+    randomDrawEvalPoints: [],
     randomDrawScoreType: "eval_points",
     randomDrawRubricId: null,
-    reviewEvalPoints: [mockDefaultEvalPoints[2], mockDefaultEvalPoints[3]],
+    reviewEvalPoints: [],
     reviewScoreType: "eval_points",
     reviewRubricId: null,
-    paperIds: methods.includes("paper") ? [paperMocks[0].id] : [],
-    paperWeights: methods.includes("paper") ? { [paperMocks[0].id]: 100 } : {},
-    paperEvalPoints: [mockDefaultEvalPoints[2], mockDefaultEvalPoints[3]],
-    questionBankQuestions: methods.includes("question_bank") ? allQuestions.slice(0, 2).map(q => q.id) : [],
-    questionBankEvalPoints: [mockDefaultEvalPoints[4], mockDefaultEvalPoints[5]],
-    outcomeEvalPoints: [mockDefaultEvalPoints[2], mockDefaultEvalPoints[3]],
+    paperIds: [],
+    paperWeights: {},
+    paperEvalPoints: [],
+    questionBankQuestions: [],
+    questionBankEvalPoints: [],
+    outcomeEvalPoints: [],
     outcomeScoreType: "eval_points",
     outcomeRubricId: null,
-    homeworkEvalPoints: [mockDefaultEvalPoints[3], mockDefaultEvalPoints[4]],
+    homeworkEvalPoints: [],
     homeworkScoreType: "eval_points",
     homeworkRubricId: null,
-    quizQuestions: methods.includes("quiz") ? allQuestions.slice(0, 2).map(q => q.id) : [],
-    quizEvalPoints: [mockDefaultEvalPoints[4], mockDefaultEvalPoints[5]],
+    quizQuestions: [],
+    quizEvalPoints: [],
     gradeMapping: JSON.parse(JSON.stringify(defaultGradeMapping)),
   }
 }
@@ -293,7 +278,7 @@ export function CourseEvaluationRulesDialog({
   abilityPoints: abProp,
 }: CourseEvaluationRulesDialogProps) {
   const knowledgePoints = useMemo(() => kpProp || [], [kpProp])
-  const abilityPoints = useMemo(() => abProp || MOCK_ABILITY_POINTS, [abProp])
+  const abilityPoints = useMemo(() => abProp || DEFAULT_ABILITY_POINTS, [abProp])
 
   // Map "exam" (used by EvaluationMethodSelector in this project) to internal "homework" representation
   const normalizedEvalMethods = useMemo(() => evaluationMethods.map(m => m === "exam" ? "homework" : m), [evaluationMethods])
@@ -925,7 +910,7 @@ export function CourseEvaluationRulesDialog({
         <div className="w-2/5 border rounded-xl p-3 flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-gray-700">已选择题目 ({selectedIds.length}{maxCount ? `/${maxCount}` : ""})</p>
-            {showAutoSelect && <Button variant="outline" size="sm" className="h-7 text-[11px] px-2" onClick={() => alert("参考测评认证中心-试卷管理-自动抽题功能即可")}>自动选择</Button>}
+            {showAutoSelect && <Button variant="outline" size="sm" className="h-7 text-[11px] px-2" disabled title="自动抽题功能开发中">自动选择</Button>}
           </div>
           <div className="flex-1 overflow-y-auto">
             {selectedIds.length === 0 ? (
@@ -1864,7 +1849,7 @@ export function CourseEvaluationRulesDialog({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>题目详情</DialogTitle></DialogHeader>
           {(() => {
-            const q = allQuestions.find(aq => aq.id === selectedQuestionForDetail) as any
+            const q = allQuestions.find(aq => aq.id === selectedQuestionForDetail)
             if (!q) return null
             return (
               <div className="space-y-3 py-2">
@@ -1881,7 +1866,7 @@ export function CourseEvaluationRulesDialog({
       <Dialog open={showAddQuestion} onOpenChange={setShowAddQuestion}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>新增题目</DialogTitle></DialogHeader>
-          <div className="py-8 text-center text-gray-500">此处参考题库管理功能即可</div>
+          <div className="py-8 text-center text-gray-500">请前往题库管理添加题目</div>
           <DialogFooter><Button onClick={() => setShowAddQuestion(false)}>知道了</Button></DialogFooter>
         </DialogContent>
       </Dialog>

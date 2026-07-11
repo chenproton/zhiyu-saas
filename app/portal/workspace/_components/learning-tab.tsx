@@ -59,6 +59,9 @@ export function LearningTab() {
               </TabsList>
             </Tabs>
             <div className="space-y-3">
+              {filteredScenes.length === 0 && (
+                <div className="py-8 text-center text-xs text-gray-400">暂无实践场景</div>
+              )}
               {filteredScenes.map((task) => (
                 <div
                   key={task.id}
@@ -123,6 +126,9 @@ export function LearningTab() {
               </TabsList>
             </Tabs>
             <div className="space-y-3">
+              {filteredCourses.length === 0 && (
+                <div className="py-8 text-center text-xs text-gray-400">暂无课程</div>
+              )}
               {filteredCourses.map((course) => (
                 <div
                   key={course.id}

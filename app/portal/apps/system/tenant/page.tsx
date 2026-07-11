@@ -73,62 +73,7 @@ interface Tenant {
   createdAt: string
 }
 
-const mockTenants: Tenant[] = [
-  { 
-    id: "1", 
-    code: "QHDX0001", 
-    enterpriseName: "清华大学", 
-    contact: "张三", 
-    phone: "13800138001",
-    admins: [
-      { id: "a1", name: "张管理", account: "admin_qh", phone: "13800138001" },
-      { id: "a2", name: "李副管", account: "admin_qh2", phone: "13800138002" },
-    ],
-    userCount: 1500,
-    domain: "qinghua.edu.cn",
-    address: "北京市海淀区清华园1号",
-    enterpriseCode: "12100000400000624X",
-    description: "国内顶尖高等学府",
-    status: "active", 
-    createdAt: "2024-01-15" 
-  },
-  { 
-    id: "2", 
-    code: "QHDX0002", 
-    enterpriseName: "北京大学", 
-    contact: "李四", 
-    phone: "13800138003",
-    admins: [
-      { id: "a3", name: "王管理", account: "admin_bd", phone: "13800138003" },
-    ],
-    userCount: 1200,
-    domain: "pku.edu.cn",
-    address: "北京市海淀区颐和园路5号",
-    enterpriseCode: "12100000400000789Y",
-    description: "综合性研究型大学",
-    status: "active", 
-    createdAt: "2024-02-20" 
-  },
-  { 
-    id: "3", 
-    code: "QHDX0003", 
-    enterpriseName: "复旦大学", 
-    contact: "王五", 
-    phone: "13800138004",
-    admins: [
-      { id: "a4", name: "赵管理", account: "admin_fd", phone: "13800138004" },
-      { id: "a5", name: "孙副管", account: "admin_fd2", phone: "13800138005" },
-      { id: "a6", name: "周副管", account: "admin_fd3", phone: "13800138006" },
-    ],
-    userCount: 800,
-    domain: "fudan.edu.cn",
-    address: "上海市杨浦区邯郸路220号",
-    enterpriseCode: "12310000400000456Z",
-    description: "华东地区重点高校",
-    status: "inactive", 
-    createdAt: "2024-03-10" 
-  },
-]
+const mockTenants: Tenant[] = []
 
 export default function TenantPage() {
   const [tenants, setTenants] = useState<Tenant[]>(mockTenants)

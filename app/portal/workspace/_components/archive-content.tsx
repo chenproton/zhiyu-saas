@@ -101,6 +101,9 @@ export function ArchiveContent() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {mockStudyTime.length === 0 && (
+              <div className="py-6 text-center text-xs text-gray-400">暂无学习时长数据</div>
+            )}
             {mockStudyTime.map((item) => (
               <div key={item.label} className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">{item.label}</span>
@@ -120,6 +123,9 @@ export function ArchiveContent() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {mockActivityItems.length === 0 && (
+              <div className="py-6 text-center text-xs text-gray-400">暂无学习活跃度数据</div>
+            )}
             {mockActivityItems.map((item) => (
               <div key={item.label} className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">{item.label}</span>
@@ -138,6 +144,9 @@ export function ArchiveContent() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {mockEvaluations.length === 0 && (
+            <div className="py-6 text-center text-xs text-gray-400">暂无教师评价</div>
+          )}
           {mockEvaluations.map((ev, i) => (
             <div key={i} className={`p-3 rounded-lg ${ev.bgColor} border ${ev.borderColor}`}>
               <p className={`text-xs ${ev.color} font-medium mb-1`}>{ev.typeLabel}</p>

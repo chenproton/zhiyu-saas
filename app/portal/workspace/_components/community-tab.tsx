@@ -64,6 +64,12 @@ export function CommunityTab() {
             </TabsList>
 
             <TabsContent value="hot" className="mt-0 space-y-3">
+              {mockTopics.length === 0 && (
+                <div className="p-8 rounded-xl border border-gray-100 bg-white text-center text-gray-400">
+                  <Flame className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                  <p>暂无热门话题</p>
+                </div>
+              )}
               {mockTopics.map((topic) => (
                 <div
                   key={topic.id}

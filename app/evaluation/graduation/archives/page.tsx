@@ -50,69 +50,12 @@ const CATEGORY_META: Record<string, { label: string; icon: React.ReactNode }> = 
 const PROCESS_CATS = ['proposal', 'midterm', 'process', 'guide']
 const OUTPUT_CATS = ['product', 'thesis', 'demo', 'source']
 
-// 模拟文档数据生成器
-function generateMockDocs(archive: GraduationProjectArchive) {
+// 文档数据待后端接口/真实附件系统支持，目前返回空列表
+function generateMockDocs(_archive: GraduationProjectArchive) {
   const docs: Array<{
     id: string; name: string; category: string; status: 'draft' | 'submitted' | 'reviewed' | 'returned';
     uploadTime: Date; size: string; feedback?: string; feedbackBy?: string;
   }> = []
-  const baseDate = new Date(archive.lastUpdated)
-  // 过程性文档
-  const processNames: Record<string, string[]> = {
-    proposal: [`${archive.topicName}-开题报告.pdf`, `${archive.topicName}-文献综述.docx`],
-    midterm: [`${archive.topicName}-中期检查表.pdf`, `${archive.topicName}-进度汇报.pptx`],
-    process: [`${archive.topicName}-周进展记录-第1周.md`, `${archive.topicName}-周进展记录-第2周.md`, `${archive.topicName}-周进展记录-第3周.md`],
-    guide: [`${archive.topicName}-指导记录-3月.pdf`, `${archive.topicName}-指导记录-4月.pdf`],
-  }
-  PROCESS_CATS.forEach((cat, ci) => {
-    const names = processNames[cat] || [`${archive.topicName}-${CATEGORY_META[cat].label}.pdf`]
-    names.forEach((name, ni) => {
-      const statusPool: Array<'draft' | 'submitted' | 'reviewed' | 'returned'> =
-        archive.docStatus === 'making' ? ['draft', 'submitted'] :
-        archive.docStatus === 'reviewing' ? ['submitted', 'reviewed'] :
-        archive.docStatus === 'returned' ? ['returned', 'submitted'] :
-        ['reviewed', 'reviewed']
-      const st = statusPool[(ci + ni) % statusPool.length]
-      docs.push({
-        id: `doc-${archive.id}-${cat}-${ni}`,
-        name,
-        category: cat,
-        status: st,
-        uploadTime: new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() - (ci * 7 + ni * 2)),
-        size: `${(Math.random() * 10 + 0.5).toFixed(1)} MB`,
-        feedback: st === 'returned' ? '请补充实验数据与性能测试结果' : st === 'reviewed' ? '文档结构完整，内容符合要求' : undefined,
-        feedbackBy: st === 'returned' || st === 'reviewed' ? archive.advisorName : undefined,
-      })
-    })
-  })
-  // 成果性文档
-  const outputNames: Record<string, string[]> = {
-    product: [`${archive.topicName}-系统部署包.zip`, `${archive.topicName}-使用说明书.pdf`],
-    thesis: [`${archive.topicName}-毕业设计论文.pdf`, `${archive.topicName}-查重报告.pdf`],
-    demo: [`${archive.topicName}-演示视频.mp4`, `${archive.topicName}-答辩PPT.pptx`],
-    source: [`${archive.topicName}-源代码.zip`, `${archive.topicName}-数据库脚本.sql`],
-  }
-  OUTPUT_CATS.forEach((cat, ci) => {
-    const names = outputNames[cat] || [`${archive.topicName}-${CATEGORY_META[cat].label}.pdf`]
-    names.forEach((name, ni) => {
-      const statusPool: Array<'draft' | 'submitted' | 'reviewed' | 'returned'> =
-        archive.docStatus === 'making' ? ['draft'] :
-        archive.docStatus === 'reviewing' ? ['submitted'] :
-        archive.docStatus === 'returned' ? ['returned'] :
-        ['reviewed']
-      const st = statusPool[(ci + ni) % statusPool.length]
-      docs.push({
-        id: `doc-${archive.id}-${cat}-${ni}`,
-        name,
-        category: cat,
-        status: st,
-        uploadTime: new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() - (ci * 3 + ni)),
-        size: `${(Math.random() * 50 + 2).toFixed(1)} MB`,
-        feedback: st === 'returned' ? '格式不规范，请按模板重新整理' : st === 'reviewed' ? '成果完整，达到毕设要求' : undefined,
-        feedbackBy: st === 'returned' || st === 'reviewed' ? archive.advisorName : undefined,
-      })
-    })
-  })
   return docs
 }
 

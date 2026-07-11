@@ -56,7 +56,11 @@ export function TeacherTrackingTab() {
               <div className="p-2.5 rounded-lg bg-purple-100 text-purple-600"><ClipboardList className="h-5 w-5" /></div>
               <div>
                 <p className="text-xs text-gray-500">随堂测验均分</p>
-                <p className="text-2xl font-bold">{Math.round(mockQuizResults.reduce((s, q) => s + q.avgScore, 0) / mockQuizResults.length)}</p>
+                <p className="text-2xl font-bold">
+                  {mockQuizResults.length > 0
+                    ? Math.round(mockQuizResults.reduce((s, q) => s + q.avgScore, 0) / mockQuizResults.length)
+                    : 0}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -103,6 +107,9 @@ export function TeacherTrackingTab() {
 
         <SectionCard title="随堂测验成绩" icon={ClipboardList} iconColor="purple">
           <div className="space-y-4">
+            {mockQuizResults.length === 0 && (
+              <div className="py-6 text-center text-xs text-gray-400">暂无随堂测验数据</div>
+            )}
             {mockQuizResults.map((q) => (
               <div key={q.id}>
                 <div className="flex items-center justify-between mb-1.5">
@@ -124,6 +131,9 @@ export function TeacherTrackingTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <SectionCard title="课堂抢答排行" icon={Zap} iconColor="amber">
           <div className="space-y-2">
+            {mockRushAnswerRanking.length === 0 && (
+              <div className="py-6 text-center text-xs text-gray-400">暂无抢答排行数据</div>
+            )}
             {mockRushAnswerRanking.map((r) => (
               <div key={r.rank} className="flex items-center justify-between py-2 border-b last:border-0">
                 <div className="flex items-center gap-3">
@@ -158,6 +168,9 @@ export function TeacherTrackingTab() {
       {/* 课堂互动参与度 */}
       <SectionCard title="课堂互动参与度" icon={MessageSquare} iconColor="cyan">
         <div className="space-y-3">
+          {mockClassInteraction.length === 0 && (
+            <div className="py-6 text-center text-xs text-gray-400">暂无课堂互动数据</div>
+          )}
           {mockClassInteraction.map((item) => (
             <div key={item.name} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
@@ -185,6 +198,13 @@ export function TeacherTrackingTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {mockStudentDetails.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-xs text-gray-400 py-8">
+                    暂无学生明细
+                  </TableCell>
+                </TableRow>
+              )}
               {mockStudentDetails.map((s) => (
                 <TableRow key={s.name}>
                   <TableCell className="text-sm font-medium">{s.name}</TableCell>

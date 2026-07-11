@@ -65,24 +65,10 @@ interface ClassItem {
   status: "pending" | "active"
 }
 
-const MOCK_TEACHERS = ["张教授", "李讲师", "王老师", "赵副教授", "陈老师", "刘老师", "周老师"]
+// 班级、课节数据应由教务 API 提供，默认空状态
+const initialClasses: ClassItem[] = []
 
-const initialClasses: ClassItem[] = [
-  { id: "cls-1", name: "软件工程2026级1班", course: "Web前端开发混合课程", term: "2025 年第一学期", students: 42, teacher: "张教授", status: "pending" },
-  { id: "cls-2", name: "软件工程2026级2班", course: "软件测试技术混合课程", term: "2025 年第一学期", students: 40, teacher: "李讲师", status: "active" },
-  { id: "cls-3", name: "人工智能2026级1班", course: "机器学习混合课程", term: "2025 年第一学期", students: 38, teacher: "王老师", status: "pending" },
-  { id: "cls-4", name: "大数据技术2026级1班", course: "数据分析与可视化混合课程", term: "2025 年第二学期", students: 36, teacher: "赵副教授", status: "pending" },
-  { id: "cls-5", name: "云计算2026级1班", course: "云原生应用开发混合课程", term: "2025 年第二学期", students: 35, teacher: "陈老师", status: "active" },
-  { id: "cls-6", name: "物联网2026级1班", course: "嵌入式系统开发混合课程", term: "2026 年第一学期", students: 33, teacher: "刘老师", status: "pending" },
-]
-
-const initialSessions: ClassSession[] = [
-  { id: "s-1-1", classId: "cls-1", venue: "教学楼 A-101", week: 1, weekday: "周一", period: "上午 1", status: "pending" },
-  { id: "s-1-2", classId: "cls-1", venue: "教学楼 A-101", week: 2, weekday: "周三", period: "上午 2", status: "pending" },
-  { id: "s-1-3", classId: "cls-1", venue: "实训楼 B-202", week: 4, weekday: "周五", period: "下午 1", status: "pending" },
-  { id: "s-2-1", classId: "cls-2", venue: "教学楼 A-102", week: 1, weekday: "周二", period: "上午 1", status: "associated", hybridCourseId: "hybrid-2" },
-  { id: "s-2-2", classId: "cls-2", venue: "实训楼 B-203", week: 3, weekday: "周四", period: "上午 2", status: "pending" },
-]
+const initialSessions: ClassSession[] = []
 
 const weekdayOrder = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 
@@ -146,7 +132,7 @@ export default function ClassClaimPage() {
   const associatedCount = termSessions.filter((s) => s.status === "associated").length
 
   const handleOpenHybridAdd = (courseName: string, className: string, classSessions: ClassSession[]) => {
-    const teacher = MOCK_TEACHERS[className.length % MOCK_TEACHERS.length]
+    const teacher = ""
     const payload = {
       course: courseName,
       teacher,

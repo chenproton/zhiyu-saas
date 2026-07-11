@@ -107,6 +107,9 @@ export function TeacherDashboardTab({ onTabChange, prepAssociations = {}, onAsso
           >
             <ScrollArea className="h-[260px]">
               <div className="space-y-2 pr-2">
+                {mockTeacherTodos.length === 0 && (
+                  <div className="py-8 text-center text-xs text-gray-400">暂无待办事项</div>
+                )}
                 {mockTeacherTodos.map((item) => {
                   const Icon = typeIconMap[item.type]
                   return (
@@ -148,6 +151,9 @@ export function TeacherDashboardTab({ onTabChange, prepAssociations = {}, onAsso
           <SectionCard title="通知公告" icon={Bell} iconColor="blue" action={{ label: "全部通知" }}>
             <ScrollArea className="h-[240px]">
               <div className="space-y-2 pr-2">
+                {mockTeacherAnnouncements.length === 0 && (
+                  <div className="py-8 text-center text-xs text-gray-400">暂无通知公告</div>
+                )}
                 {mockTeacherAnnouncements.map((item) => (
                   <div
                     key={item.id}

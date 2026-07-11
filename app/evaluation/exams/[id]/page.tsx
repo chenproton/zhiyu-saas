@@ -255,7 +255,8 @@ export default function ExamComposerPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => alert("此处参考 1.0 版本页面功能即可")}
+                  disabled
+                  title="手动抽题功能开发中"
                 >
                   <Hand className="mr-1 size-4" />
                   手动抽题
@@ -265,7 +266,8 @@ export default function ExamComposerPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => alert("此处参考 1.0 版本页面功能即可")}
+                  disabled
+                  title="新增题目功能开发中"
                 >
                   <Plus className="mr-1 size-4" />
                   新增题目
@@ -275,7 +277,8 @@ export default function ExamComposerPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => alert("此处参考 1.0 版本页面功能即可")}
+                  disabled
+                  title="批量导入题目功能开发中"
                 >
                   <FileUp className="mr-1 size-4" />
                   批量导入题目

@@ -33,9 +33,9 @@ export function GradesContent() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const passedCount = mockGradeRecords.filter((g) => g.total >= 60).length
-  const avgScore = Math.round(
-    mockGradeRecords.reduce((s, g) => s + g.total, 0) / mockGradeRecords.length
-  )
+  const avgScore = mockGradeRecords.length > 0
+    ? Math.round(mockGradeRecords.reduce((s, g) => s + g.total, 0) / mockGradeRecords.length)
+    : 0
 
   return (
     <div className="space-y-5">
@@ -95,6 +95,11 @@ export function GradesContent() {
       </div>
 
       <div className="space-y-4">
+        {mockGradeRecords.length === 0 && (
+          <div className="py-12 text-center text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl">
+            暂无成绩记录
+          </div>
+        )}
         {mockGradeRecords.map((g) => {
           const isExpanded = expandedId === g.courseId
           return (
