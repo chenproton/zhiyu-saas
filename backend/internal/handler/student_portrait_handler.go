@@ -137,7 +137,7 @@ func (h *StudentPortraitHandler) Generate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	id := "sap-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO student_ability_portraits (id, student_name, student_id, class_name, major_name, position_name, overall_grade,
 			domain_scores, class_rank, class_total, major_rank, major_total, recommend_positions, updated_at, gender, grade_year,
@@ -236,7 +236,7 @@ func (h *StudentPortraitHandler) CreateArchive(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	id := "saa-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO student_ability_archives (id, student_name, student_id, class_name, material_type, material_name, issuing_org, obtain_date,
 			audit_status, converted_credit, direction, is_visible)

@@ -143,7 +143,7 @@ func (h *ScenarioTaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`, req.ScenarioID, req.Name, req.Code, req.SortOrder, req.Description, req.DetailedDescription,
-		req.EstimatedHours, req.TaskType, req.Difficulty, req.Background, req.DependencyIDs, req.IsReferenced, req.SourceScenarioID)
+		req.EstimatedHours, req.TaskType, req.Difficulty, req.Background, coalesceStringSlice(req.DependencyIDs), req.IsReferenced, req.SourceScenarioID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create task")
 		return

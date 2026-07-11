@@ -128,7 +128,7 @@ func (h *WithdrawalHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "wd-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO withdrawals (id, institution_id, amount, account_type, account_info, status, created_at)
 		VALUES ($1, $2, $3, $4, $5, 'pending', NOW())

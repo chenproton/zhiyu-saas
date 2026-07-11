@@ -121,7 +121,7 @@ func (h *IdentityTypeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "idtype-" + uuid.NewString()
+	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO identity_types (id, tenant_id, code, name, description, user_count, is_system)

@@ -138,7 +138,7 @@ func (h *IndustryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "industry-" + uuid.NewString()
+	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO industries (id, tenant_id, code, name, parent_id, enabled, sort_order)

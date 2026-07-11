@@ -136,7 +136,7 @@ func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "tenant-" + uuid.NewString()
+	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO tenants (id, name, code, logo_url, domain, enterprise_code, contact, phone, address, description, status)

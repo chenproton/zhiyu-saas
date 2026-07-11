@@ -68,7 +68,7 @@ type User struct {
 	Username       string     `json:"username"`
 	PasswordHash   string     `json:"-"`
 	Name           string     `json:"name"`
-	Email          string     `json:"email"`
+	Email          *string    `json:"email,omitempty"`
 	Phone          *string    `json:"phone,omitempty"`
 	AvatarURL      *string    `json:"avatarUrl,omitempty"`
 	StudentNo      *string    `json:"studentNo,omitempty"`

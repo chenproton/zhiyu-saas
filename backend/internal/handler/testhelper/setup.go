@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"github.com/zhiyu-saas/backend/internal/domain"
 	"github.com/zhiyu-saas/backend/internal/handler"
 	"github.com/zhiyu-saas/backend/internal/middleware"
@@ -22,8 +23,8 @@ import (
 
 const (
 	TestJWTSecret  = "test-secret-key-for-unit-tests"
-	TestOperatorID = "test-operator-00000000-0000-0000-0000-000000000001"
-	TestTenantID   = "test-tenant-00000000-0000-0000-0000-000000000001"
+	TestOperatorID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01"
+	TestTenantID   = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa02"
 )
 
 type TestEnv struct {
@@ -35,6 +36,11 @@ type TestEnv struct {
 
 func SetupTestEnv(t *testing.T) *TestEnv {
 	t.Helper()
+
+	_ = godotenv.Load("../../../.env")
+	_ = godotenv.Load("../../.env")
+	_ = godotenv.Load("../.env")
+	_ = godotenv.Load(".env")
 
 	dbURL := os.Getenv("TEST_DATABASE_URL")
 	if dbURL == "" {
@@ -439,19 +445,11 @@ func ensureSeedData(t *testing.T, db *pgxpool.Pool, token string) {
 	t.Helper()
 	ctx := context.Background()
 
-	var exists bool
-	_ = db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM tenants WHERE id = $1)`, TestTenantID).Scan(&exists)
-	if !exists {
-		db.Exec(ctx, `INSERT INTO tenants (id, name, code, status) VALUES ($1, 'Test Tenant', 'test', 'active')`, TestTenantID)
-	}
+	db.Exec(ctx, `INSERT INTO tenants (id, name, code, status) VALUES ($1, 'Test Tenant', 'test', 'active') ON CONFLICT (id) DO NOTHING`, TestTenantID)
 
 	pw, _ := bcrypt.GenerateFromPassword([]byte("test123"), bcrypt.DefaultCost)
-	_ = db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)`, TestOperatorID).Scan(&exists)
-	if !exists {
-		tID := TestTenantID
-		db.Exec(ctx, `INSERT INTO users (id, tenant_id, role, username, login_name, password_hash, name, status) VALUES ($1, $2, 'operator', 'testuser', 'testuser', $3, 'Test Operator', 'active') ON CONFLICT DO NOTHING`,
-			TestOperatorID, tID, string(pw))
-	}
+	db.Exec(ctx, `INSERT INTO users (id, tenant_id, role, username, login_name, password_hash, name, status, title_ids) VALUES ($1, $2, 'operator', 'testuser', 'testuser', $3, 'Test Operator', 'active', '{}') ON CONFLICT (id) DO NOTHING`,
+		TestOperatorID, TestTenantID, string(pw))
 }
 
 func runTestMigrations(t *testing.T, db *pgxpool.Pool) {

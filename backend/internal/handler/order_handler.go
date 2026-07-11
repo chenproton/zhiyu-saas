@@ -190,7 +190,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	platformFee := res.Price * feeRate
 	sellerIncome := res.Price - platformFee
 
-	id := "order-" + uuid.NewString()
+	id := uuid.NewString()
 	orderNo := generateOrderNo()
 
 	_, err = h.DB.Exec(r.Context(), `

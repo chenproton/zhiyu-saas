@@ -182,7 +182,10 @@ func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "course-" + uuid.NewString()
+	id := uuid.NewString()
+	if req.CoCreatorIds == nil {
+		req.CoCreatorIds = domain.JSONSlice{}
+	}
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO courses (id, code, name, type, category, major, teacher_id, industry, version,
 			online_hours, offline_hours, online_weight, offline_weight, semester, class_name,
@@ -222,6 +225,10 @@ func (h *CourseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.Code == "" || req.Name == "" || req.Type == "" || req.Category == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
+	}
+
+	if req.CoCreatorIds == nil {
+		req.CoCreatorIds = domain.JSONSlice{}
 	}
 
 	_, err := h.DB.Exec(r.Context(), `

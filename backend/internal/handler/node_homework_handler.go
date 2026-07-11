@@ -112,7 +112,7 @@ func (h *NodeHomeworkHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "hw-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO node_homeworks (id, node_id, title, requirement, need_attachment, deadline)
 		VALUES ($1, $2, $3, $4, $5, $6)

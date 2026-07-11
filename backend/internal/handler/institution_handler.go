@@ -133,7 +133,7 @@ func (h *InstitutionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "inst-" + uuid.NewString()
+	id := uuid.NewString()
 
 	tx, err := h.DB.Begin(r.Context())
 	if err != nil {

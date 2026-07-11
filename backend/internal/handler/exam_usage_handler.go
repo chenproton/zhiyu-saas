@@ -137,11 +137,11 @@ func (h *ExamUsageHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "eu-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO exam_usages (id, exam_id, name, description, start_time, end_time, duration, target_type, target_ids, status, creator_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', $10)
-	`, id, req.ExamID, req.Name, req.Description, req.StartTime, req.EndTime, req.Duration, req.TargetType, req.TargetIDs, claims.UserID)
+	`, id, req.ExamID, req.Name, req.Description, req.StartTime, req.EndTime, req.Duration, req.TargetType, coalesceStringSlice(req.TargetIDs), claims.UserID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create exam usage")
 		return
@@ -178,7 +178,7 @@ func (h *ExamUsageHandler) Update(w http.ResponseWriter, r *http.Request) {
 		UPDATE exam_usages SET name = $1, description = $2, start_time = $3, end_time = $4,
 			duration = $5, target_type = $6, target_ids = $7, updated_at = NOW()
 		WHERE id = $8
-	`, req.Name, req.Description, req.StartTime, req.EndTime, req.Duration, req.TargetType, req.TargetIDs, id)
+	`, req.Name, req.Description, req.StartTime, req.EndTime, req.Duration, req.TargetType, coalesceStringSlice(req.TargetIDs), id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update exam usage")
 		return

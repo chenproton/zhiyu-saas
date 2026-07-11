@@ -132,7 +132,7 @@ func (h *OrgTypeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Category = domain.OrgTypeCategoryInternal
 	}
 
-	id := "orgtype-" + uuid.NewString()
+	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO org_types (id, tenant_id, name, category, description)

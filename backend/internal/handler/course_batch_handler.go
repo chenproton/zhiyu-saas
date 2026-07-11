@@ -155,7 +155,7 @@ func (h *CourseBatchHandler) Create(w http.ResponseWriter, r *http.Request) {
 		status = domain.LessonBatchStatusOpen
 	}
 
-	id := "lb-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO lesson_batches (id, name, code, org_node_id, major, workflow_id, status, course_count)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, 0)

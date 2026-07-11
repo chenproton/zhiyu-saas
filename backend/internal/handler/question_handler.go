@@ -150,11 +150,15 @@ func (h *QuestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "q-" + uuid.NewString()
+	id := uuid.NewString()
+	if req.Answer == nil {
+		req.Answer = domain.JSONSlice{}
+	}
+	answerJSON, _ := json.Marshal(req.Answer)
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO questions (id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_points, creator_id, source, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft')
-	`, id, req.BankID, req.Type, req.Content, req.Options, req.Answer, req.Analysis, req.Score, req.Difficulty, req.KnowledgePoints, claims.UserID, req.Source)
+	`, id, req.BankID, req.Type, req.Content, coalesceStringSlice(req.Options), string(answerJSON), req.Analysis, req.Score, req.Difficulty, coalesceStringSlice(req.KnowledgePoints), claims.UserID, req.Source)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create question")
 		return
@@ -187,11 +191,16 @@ func (h *QuestionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Answer == nil {
+		req.Answer = domain.JSONSlice{}
+	}
+	answerJSON, _ := json.Marshal(req.Answer)
+
 	_, err := h.DB.Exec(r.Context(), `
 		UPDATE questions SET type = $1, content = $2, options = $3, answer = $4, analysis = $5,
 			score = $6, difficulty = $7, knowledge_points = $8, source = $9
 		WHERE id = $10
-	`, req.Type, req.Content, req.Options, req.Answer, req.Analysis, req.Score, req.Difficulty, req.KnowledgePoints, req.Source, id)
+	`, req.Type, req.Content, coalesceStringSlice(req.Options), string(answerJSON), req.Analysis, req.Score, req.Difficulty, coalesceStringSlice(req.KnowledgePoints), req.Source, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update question")
 		return
@@ -251,11 +260,15 @@ func (h *QuestionHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 		if item.Content == "" || item.Type == "" {
 			continue
 		}
-		id := "q-" + uuid.NewString()
+		if item.Answer == nil {
+			item.Answer = domain.JSONSlice{}
+		}
+		answerJSON, _ := json.Marshal(item.Answer)
+		id := uuid.NewString()
 		_, err := tx.Exec(r.Context(), `
 			INSERT INTO questions (id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_points, creator_id, source, status)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft')
-		`, id, req.BankID, item.Type, item.Content, item.Options, item.Answer, item.Analysis, item.Score, item.Difficulty, item.KnowledgePoints, claims.UserID, item.Source)
+		`, id, req.BankID, item.Type, item.Content, coalesceStringSlice(item.Options), string(answerJSON), item.Analysis, item.Score, item.Difficulty, coalesceStringSlice(item.KnowledgePoints), claims.UserID, item.Source)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to batch create questions")
 			return
@@ -273,12 +286,12 @@ func (h *QuestionHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 
 func (h *QuestionHandler) fetchQuestion(ctx context.Context, id string) (domain.Question, error) {
 	var q domain.Question
-	var analysis, difficulty, creatorID, source *string
+	var analysis, difficulty, creatorID, source, answerStr *string
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_points, creator_id, source, status, created_at
 		FROM questions WHERE id = $1
 	`, id).Scan(
-		&q.ID, &q.BankID, &q.Type, &q.Content, &q.Options, &q.Answer, &analysis, &q.Score, &difficulty, &q.KnowledgePoints, &creatorID, &source, &q.Status, &q.CreatedAt,
+		&q.ID, &q.BankID, &q.Type, &q.Content, &q.Options, &answerStr, &analysis, &q.Score, &difficulty, &q.KnowledgePoints, &creatorID, &source, &q.Status, &q.CreatedAt,
 	)
 	if err != nil {
 		return q, err
@@ -287,6 +300,12 @@ func (h *QuestionHandler) fetchQuestion(ctx context.Context, id string) (domain.
 	q.Difficulty = difficulty
 	q.CreatorID = creatorID
 	q.Source = source
+	if answerStr != nil {
+		_ = json.Unmarshal([]byte(*answerStr), &q.Answer)
+	}
+	if q.Answer == nil {
+		q.Answer = domain.JSONSlice{}
+	}
 	return q, nil
 }
 
@@ -294,9 +313,9 @@ func (h *QuestionHandler) scanQuestionRows(rows pgx.Rows) ([]domain.Question, er
 	items := make([]domain.Question, 0)
 	for rows.Next() {
 		var q domain.Question
-		var analysis, difficulty, creatorID, source *string
+		var analysis, difficulty, creatorID, source, answerStr *string
 		if err := rows.Scan(
-			&q.ID, &q.BankID, &q.Type, &q.Content, &q.Options, &q.Answer, &analysis, &q.Score, &difficulty, &q.KnowledgePoints, &creatorID, &source, &q.Status, &q.CreatedAt,
+			&q.ID, &q.BankID, &q.Type, &q.Content, &q.Options, &answerStr, &analysis, &q.Score, &difficulty, &q.KnowledgePoints, &creatorID, &source, &q.Status, &q.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -304,6 +323,12 @@ func (h *QuestionHandler) scanQuestionRows(rows pgx.Rows) ([]domain.Question, er
 		q.Difficulty = difficulty
 		q.CreatorID = creatorID
 		q.Source = source
+		if answerStr != nil {
+			_ = json.Unmarshal([]byte(*answerStr), &q.Answer)
+		}
+		if q.Answer == nil {
+			q.Answer = domain.JSONSlice{}
+		}
 		items = append(items, q)
 	}
 	return items, nil

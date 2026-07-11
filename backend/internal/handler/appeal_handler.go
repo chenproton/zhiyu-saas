@@ -138,7 +138,7 @@ func (h *AppealHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "ap-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO appeal_records (id, student_id, student_name, type, reason, status)
 		VALUES ($1, $2, $3, $4, $5, 'pending')

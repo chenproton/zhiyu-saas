@@ -117,7 +117,7 @@ func (h *NodeQuizHandler) CreateQuiz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "quiz-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO node_quizzes (id, node_id, title, type, time_limit)
 		VALUES ($1, $2, $3, $4, $5)
@@ -263,7 +263,7 @@ func (h *NodeQuizHandler) AddQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "qq-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO node_quiz_questions (id, quiz_id, type, question, options, answer, score, sort_order)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)

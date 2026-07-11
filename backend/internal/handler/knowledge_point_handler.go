@@ -140,8 +140,11 @@ func (h *KnowledgePointHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "kp-" + uuid.NewString()
+	id := uuid.NewString()
 	creatorID := claims.UserID
+	if req.GranularLessonIds == nil {
+		req.GranularLessonIds = domain.JSONSlice{}
+	}
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO knowledge_points (id, name, code, description, linked, granular_lesson_ids, creator_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -175,6 +178,10 @@ func (h *KnowledgePointHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.Name == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
+	}
+
+	if req.GranularLessonIds == nil {
+		req.GranularLessonIds = domain.JSONSlice{}
 	}
 
 	_, err := h.DB.Exec(r.Context(), `

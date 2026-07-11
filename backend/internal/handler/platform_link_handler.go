@@ -120,7 +120,7 @@ func (h *PlatformLinkHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "plink-" + uuid.NewString()
+	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO platform_links (id, platform, url, enabled)

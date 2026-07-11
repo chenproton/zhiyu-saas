@@ -137,7 +137,7 @@ func (h *RoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Permissions = domain.JSONMap{}
 	}
 
-	id := "role-" + uuid.NewString()
+	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO roles (id, tenant_id, code, name, description, permissions, user_count, status)

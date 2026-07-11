@@ -130,13 +130,13 @@ func (h *QuestionBankHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "qb-" + uuid.NewString()
+	id := uuid.NewString()
 	creatorID := claims.UserID
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO question_banks (id, name, description, cover_url, status, question_count, creator_id,
 			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, is_draft_pool)
 		VALUES ($1, $2, $3, $4, 'draft', 0, $5, $6, $7, $8, 'v1.0', 'mine', false)
-	`, id, req.Name, req.Description, req.CoverURL, creatorID, req.CollaboratorIDs, req.CollaboratorDeptIDs, req.BatchID)
+	`, id, req.Name, req.Description, req.CoverURL, creatorID, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create question bank")
 		return
@@ -173,7 +173,7 @@ func (h *QuestionBankHandler) Update(w http.ResponseWriter, r *http.Request) {
 		UPDATE question_banks SET name = $1, description = $2, cover_url = $3,
 			collaborator_ids = $4, collaborator_dept_ids = $5, batch_id = $6, updated_at = NOW()
 		WHERE id = $7
-	`, req.Name, req.Description, req.CoverURL, req.CollaboratorIDs, req.CollaboratorDeptIDs, req.BatchID, id)
+	`, req.Name, req.Description, req.CoverURL, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update question bank")
 		return

@@ -130,7 +130,7 @@ func (h *ResourceCodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "rescode-" + uuid.NewString()
+	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO resource_codes (id, tenant_id, code, name, description, type)

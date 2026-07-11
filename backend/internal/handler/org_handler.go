@@ -184,7 +184,7 @@ func (h *OrgHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "org-" + uuid.NewString()
+	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO organizations (id, tenant_id, name, type_id, parent_id, sort_order, member_count)

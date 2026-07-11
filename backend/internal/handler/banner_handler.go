@@ -62,7 +62,7 @@ func (h *BannerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "bn-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO banners (id, title, image, link, sort, enabled) VALUES ($1, $2, $3, $4, $5, $6)
 	`, id, req.Title, req.Image, req.Link, req.Sort, req.Enabled)

@@ -162,7 +162,7 @@ func (h *ResourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "res-" + uuid.NewString()
+	id := uuid.NewString()
 	if req.Version == "" {
 		req.Version = "v1.0"
 	}

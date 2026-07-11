@@ -141,6 +141,10 @@ func (h *TaskEvaluationHandler) UpsertConfig(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if req.EvalSubjects == nil {
+		req.EvalSubjects = domain.JSONSlice{}
+	}
+
 	var id string
 	if req.ID != "" {
 		_, err := h.DB.Exec(r.Context(), `
@@ -270,7 +274,7 @@ func (h *TaskEvaluationHandler) UpsertEvalPoint(w http.ResponseWriter, r *http.R
 				knowledge_point_ids = $9, ability_point_ids = $10, sort_order = $11
 			WHERE id = $12
 		`, req.ConfigID, req.Name, req.Description, req.Weight, req.MaxScore, req.ScoringMethod,
-			req.GradeMapping, req.SubType, req.KnowledgePointIDs, req.AbilityPointIDs, req.SortOrder, req.ID)
+			req.GradeMapping, req.SubType, coalesceStringSlice(req.KnowledgePointIDs), coalesceStringSlice(req.AbilityPointIDs), req.SortOrder, req.ID)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to update eval point")
 			return
@@ -283,7 +287,7 @@ func (h *TaskEvaluationHandler) UpsertEvalPoint(w http.ResponseWriter, r *http.R
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 			RETURNING id
 		`, req.ConfigID, req.Name, req.Description, req.Weight, req.MaxScore, req.ScoringMethod,
-			req.GradeMapping, req.SubType, req.KnowledgePointIDs, req.AbilityPointIDs, req.SortOrder).Scan(&id)
+			req.GradeMapping, req.SubType, coalesceStringSlice(req.KnowledgePointIDs), coalesceStringSlice(req.AbilityPointIDs), req.SortOrder).Scan(&id)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create eval point")
 			return

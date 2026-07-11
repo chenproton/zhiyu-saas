@@ -356,7 +356,7 @@ func (h *UserManagementHandler) createSingleUser(ctx context.Context, req Create
 }
 
 func (h *UserManagementHandler) createSingleUserInTx(ctx context.Context, tx pgx.Tx, req CreateUserRequest) (domain.User, error) {
-	id := "user-" + uuid.NewString()
+	id := uuid.NewString()
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {

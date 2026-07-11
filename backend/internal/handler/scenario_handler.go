@@ -158,7 +158,7 @@ func (h *ScenarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'draft', $12, $13, $14, $15)
 	`, req.Name, req.Code, req.CoverImage, req.CareerPositionID, req.IndustryID, req.IndustryName,
 		req.ProfessionID, req.ProfessionName, req.BatchID, req.Difficulty, req.Version, req.Background,
-		req.DeliveryGoal, claims.UserID, req.CoBuilderIDs)
+		req.DeliveryGoal, claims.UserID, coalesceStringSlice(req.CoBuilderIDs))
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create scenario")
 		return
@@ -194,7 +194,7 @@ func (h *ScenarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 		WHERE id = $15
 	`, req.Name, req.Code, req.CoverImage, req.CareerPositionID, req.IndustryID, req.IndustryName,
 		req.ProfessionID, req.ProfessionName, req.BatchID, req.Difficulty, req.Version, req.Background,
-		req.DeliveryGoal, req.CoBuilderIDs, id)
+		req.DeliveryGoal, coalesceStringSlice(req.CoBuilderIDs), id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update scenario")
 		return

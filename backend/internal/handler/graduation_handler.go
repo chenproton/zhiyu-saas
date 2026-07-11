@@ -178,7 +178,7 @@ func (h *GraduationHandler) CreateTopic(w http.ResponseWriter, r *http.Request) 
 	startDate, _ := time.Parse(time.RFC3339, req.StartDate)
 	endDate, _ := time.Parse(time.RFC3339, req.EndDate)
 
-	id := "gpt-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO graduation_project_topics (id, name, position_id, position_name, college, source, status, capacity, applied_count,
 			advisor_name, enterprise_mentor_name, start_date, end_date, description)
@@ -292,7 +292,7 @@ func (h *GraduationHandler) ArchivesCRUD(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		id := "gpa-" + uuid.NewString()
+		id := uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
 			INSERT INTO graduation_project_archives (id, topic_id, topic_name, student_name, student_id, advisor_name,
 				enterprise_mentor_name, position_name, phase, doc_status, doc_count, last_updated, has_rectification)
@@ -389,7 +389,7 @@ func (h *GraduationHandler) EvaluationsCRUD(w http.ResponseWriter, r *http.Reque
 		}
 
 		evalTime, _ := time.Parse(time.RFC3339, req.EvaluationTime)
-		id := "gpe-" + uuid.NewString()
+		id := uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
 			INSERT INTO graduation_project_evaluations (id, topic_id, topic_name, student_name, student_id, advisor_score,
 				enterprise_score, defense_score, comprehensive_grade, is_excellent, evaluation_time, status)

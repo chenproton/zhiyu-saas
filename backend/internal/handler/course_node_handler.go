@@ -141,7 +141,13 @@ func (h *CourseNodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "node-" + uuid.NewString()
+	id := uuid.NewString()
+	if req.KnowledgePointIds == nil {
+		req.KnowledgePointIds = domain.JSONSlice{}
+	}
+	if req.ResourceIds == nil {
+		req.ResourceIds = domain.JSONSlice{}
+	}
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO system_course_nodes (id, course_id, parent_id, name, sort_order, ref_type, source_id, source_name,
 			teaching_goals, duration, knowledge_point_ids, resource_ids, status)
@@ -177,6 +183,13 @@ func (h *CourseNodeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.Name == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
+	}
+
+	if req.KnowledgePointIds == nil {
+		req.KnowledgePointIds = domain.JSONSlice{}
+	}
+	if req.ResourceIds == nil {
+		req.ResourceIds = domain.JSONSlice{}
 	}
 
 	_, err := h.DB.Exec(r.Context(), `

@@ -138,7 +138,7 @@ func (h *MajorHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "major-" + uuid.NewString()
+	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO majors (id, tenant_id, org_node_id, code, name, alias, enabled)

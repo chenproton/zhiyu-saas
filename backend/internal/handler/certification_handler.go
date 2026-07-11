@@ -149,8 +149,8 @@ func (h *CertificationHandler) CreateRule(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	id := "cert-" + uuid.NewString()
-	_, err := h.DB.Exec(r.Context(), `
+		id := uuid.NewString()
+		_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO certification_rules (id, position_id, position_name, status, rule_source)
 		VALUES ($1, $2, $3, 'draft', $4)
 	`, id, req.PositionID, req.PositionName, req.RuleSource)
@@ -244,7 +244,7 @@ func (h *CertificationHandler) ConfigItems(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		id := "ci-" + uuid.NewString()
+		id := uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
 			INSERT INTO certification_ability_items (id, rule_id, name, sort_order)
 			VALUES ($1, $2, $3, $4)
@@ -305,7 +305,10 @@ func (h *CertificationHandler) ConfigPoints(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		id := "cp-" + uuid.NewString()
+		id := uuid.NewString()
+		if req.CustomLevelMapping == nil {
+			req.CustomLevelMapping = domain.JSONSlice{}
+		}
 		_, err := h.DB.Exec(r.Context(), `
 			INSERT INTO certification_ability_points (id, item_id, ability_point_id, mapping_type, custom_level_mapping, required_level, weight)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)

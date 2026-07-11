@@ -136,12 +136,12 @@ func (h *ExamHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := "exam-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO exams (id, name, description, status, total_score, duration, cover_url,
 			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, creator_id)
 		VALUES ($1, $2, $3, 'draft', 0, $4, $5, $6, $7, $8, 'v1.0', 'mine', $9)
-	`, id, req.Name, req.Description, req.Duration, req.CoverURL, req.CollaboratorIDs, req.CollaboratorDeptIDs, req.BatchID, claims.UserID)
+	`, id, req.Name, req.Description, req.Duration, req.CoverURL, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID, claims.UserID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create exam")
 		return
@@ -178,7 +178,7 @@ func (h *ExamHandler) Update(w http.ResponseWriter, r *http.Request) {
 		UPDATE exams SET name = $1, description = $2, duration = $3, cover_url = $4,
 			collaborator_ids = $5, collaborator_dept_ids = $6, batch_id = $7, updated_at = NOW()
 		WHERE id = $8
-	`, req.Name, req.Description, req.Duration, req.CoverURL, req.CollaboratorIDs, req.CollaboratorDeptIDs, req.BatchID, id)
+	`, req.Name, req.Description, req.Duration, req.CoverURL, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update exam")
 		return

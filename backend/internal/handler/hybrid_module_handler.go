@@ -91,7 +91,7 @@ func (h *HybridModuleHandler) UpsertModule(w http.ResponseWriter, r *http.Reques
 
 	id := req.ID
 	if id == "" {
-		id = "hm-" + uuid.NewString()
+		id = uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
 			INSERT INTO hybrid_node_modules (id, node_id, module_key, mode, data)
 			VALUES ($1, $2, $3, $4, $5)

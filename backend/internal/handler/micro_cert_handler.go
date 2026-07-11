@@ -116,7 +116,7 @@ func (h *MicroCertHandler) CreateTemplate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	id := "mct-" + uuid.NewString()
+	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO micro_cert_templates (id, title, cert_type_id, cert_type_name, content, cover_url)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -221,7 +221,7 @@ func (h *MicroCertHandler) IssueCerts(w http.ResponseWriter, r *http.Request) {
 
 	count := 0
 	for _, userID := range req.UserIDs {
-		recordID := "cir-" + uuid.NewString()
+		recordID := uuid.NewString()
 		_, err := tx.Exec(r.Context(), `
 			INSERT INTO cert_issuance_records (id, template_id, template_title, cert_type_name, student_name, student_id, class_name, issue_date, status, cert_number)
 			VALUES ($1, $2, $3, $4, '', $5, '', $6, 'issued', $7)
