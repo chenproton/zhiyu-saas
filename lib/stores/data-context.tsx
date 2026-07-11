@@ -54,8 +54,8 @@ interface DataContextType {
 
   // 审批操作
   submitForApproval: (positionId: string, workflowId: string, submittedBy: string, submittedByName: string) => Promise<void>
-  approveApproval: (approvalId: string, reviewerId: string, reviewerName: string, comment: string) => void
-  rejectApproval: (approvalId: string, reviewerId: string, reviewerName: string, comment: string) => void
+  approveApproval: (approvalId: string, reviewerId: string, reviewerName: string, comment: string) => Promise<void>
+  rejectApproval: (approvalId: string, reviewerId: string, reviewerName: string, comment: string) => Promise<void>
 
   // 收藏操作
   toggleFavorite: (positionId: string) => void
@@ -210,7 +210,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // 从 localStorage 恢复收藏，并加载真实岗位/批次/推荐/审批流数据
+  function convertApiApprovalToLocal(ar: any, positionMap: Map<string, CareerPosition>): ApprovalRecord {
+    const position = positionMap.get(ar.targetId)
+    const history = (ar.history || []).map((h: any, idx: number) => ({
+      id: h.id || `hist-${ar.id}-${idx}`,
+      stepId: h.stepId || String(h.stepIdx ?? ''),
+      stepName: h.stepName || `第 ${(h.stepIdx ?? 0) + 1} 步`,
+      reviewerId: h.reviewerId || h.reviewerID || '',
+      reviewerName: h.reviewerName || h.reviewerID || '',
+      status: h.status || h.action || 'approved',
+      comment: h.comment || h.remark || '',
+      createdAt: h.createdAt || ar.updatedAt,
+    }))
+    return {
+      id: ar.id,
+      positionId: ar.targetId,
+      positionName: position?.name || ar.targetId,
+      workflowId: ar.workflowId || '',
+      currentStepIndex: ar.currentStepIdx ?? 0,
+      status: ar.status,
+      submittedBy: ar.submitterId || '',
+      submittedByName: ar.submitterId || '',
+      history,
+      createdAt: ar.createdAt,
+      updatedAt: ar.updatedAt,
+    }
+  }
+
+  const loadApprovals = useCallback(async () => {
+    try {
+      const [approvalResp, positionResp] = await Promise.all([
+        approvalApi.list({ targetType: 'career_position', limit: 1000 }),
+        positionApi.list({ limit: 1000 }),
+      ])
+      const positionMap = new Map(positionResp.items.map((p) => [p.id, p]))
+      setApprovals(approvalResp.items.map((ar) => convertApiApprovalToLocal(ar, positionMap)))
+    } catch (err) {
+      console.error('Failed to load approvals:', err)
+    }
+  }, [])
+
+  // 从 localStorage 恢复收藏，并加载真实岗位/批次/推荐/审批流/审批数据
   useEffect(() => {
     const storedFavorites = localStorage.getItem(FAVORITES_KEY)
     if (storedFavorites) {
@@ -221,10 +261,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    Promise.all([loadPositions(), loadBatches(), loadRecommendations(), loadWorkflows()]).finally(() => {
+    Promise.all([loadPositions(), loadBatches(), loadRecommendations(), loadWorkflows(), loadApprovals()]).finally(() => {
       setIsLoaded(true)
     })
-  }, [loadPositions, loadBatches, loadRecommendations, loadWorkflows])
+  }, [loadPositions, loadBatches, loadRecommendations, loadWorkflows, loadApprovals])
 
   // 保存收藏到 localStorage
   useEffect(() => {
@@ -377,121 +417,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const submitForApproval = async (
     positionId: string,
     workflowId: string,
-    submittedBy: string,
-    submittedByName: string
+    _submittedBy: string,
+    _submittedByName: string
   ) => {
-    const position = await positionApi.get(positionId)
-    if (!position) return
-
     await positionApi.submit(positionId)
-    await loadPositions()
-
-    const now = new Date().toISOString()
-    const newApproval: ApprovalRecord = {
-      id: generateId('approval'),
-      positionId,
-      positionName: position.name,
+    await approvalApi.create({
+      targetType: 'career_position',
+      targetId: positionId,
       workflowId,
-      currentStepIndex: 0,
-      status: 'pending',
-      submittedBy,
-      submittedByName,
-      history: [],
-      createdAt: now,
-      updatedAt: now,
-    }
-    setApprovals(prev => [...prev, newApproval])
+    } as any)
+    await Promise.all([loadPositions(), loadApprovals()])
   }
 
-  const approveApproval = (
+  const approveApproval = async (
     approvalId: string,
-    reviewerId: string,
-    reviewerName: string,
+    _reviewerId: string,
+    _reviewerName: string,
     comment: string
   ) => {
-    const approval = approvals.find(a => a.id === approvalId)
-    if (!approval) return
-
-    const workflow = workflows.find(w => w.id === approval.workflowId)
-    if (!workflow) return
-
-    const currentStep = workflow.steps[approval.currentStepIndex]
-    const now = new Date().toISOString()
-
-    const historyItem = {
-      id: generateId('history'),
-      stepId: currentStep.id,
-      stepName: currentStep.name,
-      reviewerId,
-      reviewerName,
-      status: 'approved' as const,
-      comment,
-      createdAt: now,
-    }
-
-    const isLastStep = approval.currentStepIndex >= workflow.steps.length - 1
-
-    setApprovals(prev =>
-      prev.map(a =>
-        a.id === approvalId
-          ? {
-              ...a,
-              currentStepIndex: isLastStep ? a.currentStepIndex : a.currentStepIndex + 1,
-              status: isLastStep ? 'approved' : 'pending',
-              history: [...a.history, historyItem],
-              updatedAt: now,
-            }
-          : a
-      )
-    )
-
-    // 如果是最后一步，更新岗位状态为已通过
-    if (isLastStep) {
-      updatePosition(approval.positionId, { status: 'approved' })
-    }
+    await approvalApi.review(approvalId, { status: 'approved', comment })
+    await loadApprovals()
+    await loadPositions()
   }
 
-  const rejectApproval = (
+  const rejectApproval = async (
     approvalId: string,
-    reviewerId: string,
-    reviewerName: string,
+    _reviewerId: string,
+    _reviewerName: string,
     comment: string
   ) => {
-    const approval = approvals.find(a => a.id === approvalId)
-    if (!approval) return
-
-    const workflow = workflows.find(w => w.id === approval.workflowId)
-    if (!workflow) return
-
-    const currentStep = workflow.steps[approval.currentStepIndex]
-    const now = new Date().toISOString()
-
-    const historyItem = {
-      id: generateId('history'),
-      stepId: currentStep.id,
-      stepName: currentStep.name,
-      reviewerId,
-      reviewerName,
-      status: 'rejected' as const,
-      comment,
-      createdAt: now,
-    }
-
-    setApprovals(prev =>
-      prev.map(a =>
-        a.id === approvalId
-          ? {
-              ...a,
-              status: 'rejected',
-              history: [...a.history, historyItem],
-              updatedAt: now,
-            }
-          : a
-      )
-    )
-
-    // 更新岗位状态为已驳回
-    updatePosition(approval.positionId, { status: 'rejected' })
+    await approvalApi.review(approvalId, { status: 'rejected', comment })
+    await loadApprovals()
+    await loadPositions()
   }
 
   // 收藏操作

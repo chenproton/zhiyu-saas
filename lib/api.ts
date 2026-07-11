@@ -547,7 +547,10 @@ export const approvalApi = {
   create: (req: Omit<ApprovalRecord, "id" | "createdAt" | "updatedAt">) =>
     request<ApprovalRecord>("/approvals", { method: "POST", body: JSON.stringify(req) }),
   review: (id: string, req: { status: "approved" | "rejected"; comment?: string; stepIdx?: number }) =>
-    request<ApprovalRecord>(`/approvals/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
+    request<ApprovalRecord>(`/approvals/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify({ action: req.status, remark: req.comment, nextStepIdx: req.stepIdx }),
+    }),
 }
 
 export const platformLinkApi = {

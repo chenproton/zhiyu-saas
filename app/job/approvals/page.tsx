@@ -63,17 +63,19 @@ export default function ApprovalsPage() {
   const [comment, setComment] = useState("")
 
   // 根据当前用户角色过滤审批记录
+  const reviewerRoles = ["reviewer", "teacher", "enterprise"]
+  const builderRoles = ["builder", "teacher", "enterprise", "student"]
   const myApprovals = approvals.filter((approval) => {
     // 管理员可以看到所有审批
     if (user?.role === "admin") return true
     // 审批人只能看到自己负责的审批（根据当前步骤角色判断）
-    if (user?.role === "reviewer") {
+    if (reviewerRoles.includes(user?.role ?? "")) {
       const workflow = workflows.find(w => w.id === approval.workflowId)
       const currentStep = workflow?.steps[approval.currentStepIndex]
       return currentStep?.role === "reviewer" || currentStep?.role === "admin"
     }
     // 岗位建设者只能看到自己提交的审批
-    if (user?.role === "builder") {
+    if (user && builderRoles.includes(user.role)) {
       return approval.submittedBy === user.id
     }
     return false
