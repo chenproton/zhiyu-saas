@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useMemo, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import {
   ArrowLeft,
   Search,
   GraduationCap,
-  PlayCircle,
   User,
   Award,
   CheckCircle2,
@@ -27,9 +26,10 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { mockUsages, type ExamUsage } from "../_data/mock-data"
 import { PrdAnnotation } from "@/components/prd-annotation"
 import { getAnnotation } from "@/lib/prd-annotations"
+import { examUsageApi } from "@/lib/api"
+import type { ExamUsage } from "@/lib/types"
 
 interface ExamStudentResult {
   id: string
@@ -45,7 +45,7 @@ interface ExamStudentResult {
   rank: number
 }
 
-// 模拟学生数据
+// 模拟学生数据（考试结果接口尚未对接，保留占位数据）
 const mockStudentNames = [
   "张小明", "李华", "王芳", "赵强", "孙丽",
   "周杰", "吴敏", "郑伟", "钱红", "冯刚",
@@ -57,21 +57,19 @@ const mockClassNames = ['前端开发1班', '前端开发2班', '后端开发1�
 const mockGrades = ['2024级', '2023级']
 const mockMajors = ['计算机科学与技术', '软件工程', '网络工程']
 
-function getUsageById(usageId: string): ExamUsage | undefined {
-  return mockUsages.find((u) => u.id === usageId)
-}
-
 function generateMockResults(usage: ExamUsage): ExamStudentResult[] {
-  const count = usage.participantCount || 0
+  const count = 0
   if (count === 0) return []
-  const totalScore = 100 // 默认总分
+  const totalScore = 100
   const passScore = 60
-  const examStartTime = usage.startTime || new Date()
-  const examEndTime = usage.endTime || new Date(examStartTime.getTime() + 120 * 60000)
+  const examStartTime = usage.startTime ? new Date(usage.startTime) : new Date()
+  const examEndTime = usage.endTime
+    ? new Date(usage.endTime)
+    : new Date(examStartTime.getTime() + 120 * 60000)
   const timeRange = examEndTime.getTime() - examStartTime.getTime()
   const results: ExamStudentResult[] = []
   for (let i = 0; i < count; i++) {
-    const score = Math.floor(Math.random() * 55) + 45 // 45-100分
+    const score = Math.floor(Math.random() * 55) + 45
     results.push({
       id: `result-${usage.id}-${i}`,
       studentName: mockStudentNames[i % mockStudentNames.length],
@@ -91,57 +89,50 @@ function generateMockResults(usage: ExamUsage): ExamStudentResult[] {
   return sorted
 }
 
-function getUsageIcon(usage: ExamUsage) {
-  switch (usage.usageType) {
-    case 'quiz':
-      return <PlayCircle className="size-4" />
-    case 'exam':
-      return <GraduationCap className="size-4" />
-  }
-}
-
-const USAGE_TYPE_LABELS = {
-  quiz: '随堂测',
-  exam: '在线考试',
-}
-
 function ExamResultsContent() {
   const searchParams = useSearchParams()
   const usageId = searchParams.get("usageId") || ""
+  const [usage, setUsage] = useState<ExamUsage | null>(null)
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [passFilter, setPassFilter] = useState<string>("all")
 
-  const usage = getUsageById(usageId)
-  const results = useMemo(() => {
-    if (!usage) return []
-    return generateMockResults(usage)
-  }, [usage])
+  useEffect(() => {
+    if (!usageId) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    examUsageApi
+      .get(usageId)
+      .then((res) => setUsage(res))
+      .catch(() => setUsage(null))
+      .finally(() => setLoading(false))
+  }, [usageId])
 
-  const filteredResults = useMemo(() => {
-    let list = [...results]
+  const results: ExamStudentResult[] = usage ? generateMockResults(usage) : []
+
+  const filteredResults = results.filter((r) => {
     if (passFilter !== "all") {
-      list = list.filter((r) =>
-        passFilter === "pass" ? r.isPass : !r.isPass
-      )
+      if (passFilter === "pass" ? !r.isPass : r.isPass) return false
     }
     if (search.trim()) {
       const q = search.toLowerCase()
-      list = list.filter((r) => r.studentName.toLowerCase().includes(q))
+      return r.studentName.toLowerCase().includes(q)
     }
-    return list
-  }, [results, passFilter, search])
+    return true
+  })
 
-  const stats = useMemo(() => {
-    const total = results.length
-    const pass = results.filter((r) => r.isPass).length
-    const fail = total - pass
-    const avgScore = total > 0
-      ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / total)
-      : 0
-    const maxScore = total > 0 ? Math.max(...results.map((r) => r.score)) : 0
-    const minScore = total > 0 ? Math.min(...results.map((r) => r.score)) : 0
-    return { total, pass, fail, avgScore, maxScore, minScore }
-  }, [results])
+  const stats = {
+    total: results.length,
+    pass: results.filter((r) => r.isPass).length,
+    fail: results.length - results.filter((r) => r.isPass).length,
+    avgScore: results.length > 0
+      ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length)
+      : 0,
+    maxScore: results.length > 0 ? Math.max(...results.map((r) => r.score)) : 0,
+    minScore: results.length > 0 ? Math.min(...results.map((r) => r.score)) : 0,
+  }
 
   const formatDateTime = (date: Date) => {
     return new Intl.DateTimeFormat("zh-CN", {
@@ -151,6 +142,14 @@ function ExamResultsContent() {
       hour: "2-digit",
       minute: "2-digit",
     }).format(date)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center text-muted-foreground">
+        加载中...
+      </div>
+    )
   }
 
   if (!usage) {
@@ -178,10 +177,10 @@ function ExamResultsContent() {
         </Button>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">{usage.examName}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{usage.name}</h1>
             <Badge variant="outline" className="gap-1">
-              {getUsageIcon(usage)}
-              {USAGE_TYPE_LABELS[usage.usageType]}
+              <GraduationCap className="size-4" />
+              在线考试
             </Badge>
           </div>
           <PrdAnnotation data={getAnnotation("eur-btn-export")}>
