@@ -1,15 +1,57 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Search, Settings, FolderTree, Upload, List, LayoutGrid, FileText, RotateCcw, GitBranch, ArrowUpFromLine, CheckCircle2, Send, Undo2, ArrowDownFromLine, Copy, Trash2, Download, FolderKanban } from "lucide-react"
+import {
+  ArrowDownFromLine,
+  ArrowUpFromLine,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Download,
+  Eye,
+  FileText,
+  FolderKanban,
+  GitBranch,
+  LayoutGrid,
+  List,
+  Plus,
+  Rocket,
+  RotateCcw,
+  Search,
+  Send,
+  Trash2,
+  Undo2,
+  Upload,
+  X,
+  XCircle,
+} from "lucide-react"
+import { examApi, evaluationBatchApi, workflowApi } from "@/lib/api"
+import type { Exam, EvaluationBatch, Workflow } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -23,155 +65,186 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { StatusBadge } from "@/components/shared/status-badge"
 import { PageHeaderCard } from "@/components/shared/page-header-card"
-import { ExamFormDialog } from "@/components/evaluation/exam-form-dialog"
-import { ExamStatusActions } from "@/components/evaluation/exam-status-actions"
-import { InviteCollaboratorDialog } from "@/components/shared/invite-collaborator-dialog"
-import { useData } from "@/components/providers/data-provider"
-import type { Exam, Status, ExamFormData } from "@/lib/types"
-import { STATUS_LABELS } from "@/lib/types"
-import { mockUsers, mockBatches } from "@/lib/mock-data-evaluation"
-import { PrdAnnotation } from "@/components/prd-annotation"
-import { getAnnotation } from "@/lib/prd-annotations"
 import { cn } from "@/lib/utils"
 
-type OwnerTab = 'mine' | 'collaborate' | 'public'
-type ViewMode = 'list' | 'batch'
+const CURRENT_USER_ID = "user-1"
+
+type TabType = "my" | "collab" | "public"
+type ViewMode = "list" | "group"
+type BackendStatus = "draft" | "pending" | "rejected" | "published" | "archived"
+
+interface BackendExam extends Omit<Exam, "status" | "createdAt" | "updatedAt"> {
+  status: BackendStatus
+  createdAt: string
+  updatedAt: string
+}
+
+const STATUS_LABELS: Record<BackendStatus, string> = {
+  draft: "草稿",
+  pending: "审批中",
+  rejected: "已驳回",
+  published: "已发布",
+  archived: "已归档",
+}
+
+const STATUS_STYLES: Record<BackendStatus, string> = {
+  draft: "bg-muted text-muted-foreground border-muted",
+  pending: "bg-yellow-50 text-yellow-600 border-yellow-200",
+  rejected: "bg-red-50 text-red-600 border-red-200",
+  published: "bg-emerald-50 text-emerald-600 border-emerald-200",
+  archived: "bg-gray-100 text-gray-500 border-gray-200",
+}
+
+function EvalStatusBadge({ status }: { status: BackendStatus }) {
+  const style = STATUS_STYLES[status] || STATUS_STYLES.draft
+  return (
+    <Badge variant="outline" className={style}>
+      {STATUS_LABELS[status] || status}
+    </Badge>
+  )
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
 
 export default function ExamsPage() {
   const router = useRouter()
-  const {
-    exams,
-    createExam,
-    updateExam,
-    deleteExam,
-    updateExamStatus,
-  } = useData()
 
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<Status | "all">("all")
-  const [batchFilter, setBatchFilter] = useState<string>("all")
-  const [formOpen, setFormOpen] = useState(false)
-  const [editingExam, setEditingExam] = useState<Exam | null>(null)
-  const [inviteOpen, setInviteOpen] = useState(false)
-  const [invitingExam, setInvitingExam] = useState<Exam | null>(null)
-  const [ownerTab, setOwnerTab] = useState<OwnerTab>('mine')
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [exams, setExams] = useState<BackendExam[]>([])
+  const [batches, setBatches] = useState<EvaluationBatch[]>([])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const [activeTab, setActiveTab] = useState<TabType>("my")
+  const [viewMode, setViewMode] = useState<ViewMode>("list")
+
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
+  const [selectedStatus, setSelectedStatus] = useState<BackendStatus | null>(null)
 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [expandedBatches, setExpandedBatches] = useState<string[]>([])
+
+  // Dialogs
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [newName, setNewName] = useState("")
+  const [newDescription, setNewDescription] = useState("")
+  const [newDuration, setNewDuration] = useState("60")
+  const [newBatchId, setNewBatchId] = useState("")
+
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false)
+  const [isInnerBatchCreateOpen, setIsInnerBatchCreateOpen] = useState(false)
+  const [newBatchName, setNewBatchName] = useState("")
+  const [newBatchWorkflow, setNewBatchWorkflow] = useState("")
+
+  const [isApprovalWorkflowDialogOpen, setIsApprovalWorkflowDialogOpen] = useState(false)
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [isBatchMoveDialogOpen, setIsBatchMoveDialogOpen] = useState(false)
-  const [batchMoveTarget, setBatchMoveTarget] = useState<string>("")
+  const [moveTargetBatchId, setMoveTargetBatchId] = useState("")
+
+  const [isCloneRenameDialogOpen, setIsCloneRenameDialogOpen] = useState(false)
+  const [cloneRenameValue, setCloneRenameValue] = useState("")
+  const [cloneTargetExam, setCloneTargetExam] = useState<BackendExam | null>(null)
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [examsRes, batchesRes, workflowsRes] = await Promise.all([
+        examApi.list({ limit: 1000 }) as unknown as {
+          items: BackendExam[]
+          total: number
+        },
+        evaluationBatchApi.list({ limit: 1000 }),
+        workflowApi.list({ limit: 1000 }),
+      ])
+      setExams(examsRes.items)
+      setBatches(batchesRes.items)
+      setWorkflows(workflowsRes.items)
+    } catch (err) {
+      console.error("加载数据失败", err)
+      alert("加载数据失败，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    setExpandedBatches(batches.map((b) => b.id))
+  }, [batches])
+
+  const toggleBatch = (batchId: string) => {
+    setExpandedBatches((prev) =>
+      prev.includes(batchId) ? prev.filter((id) => id !== batchId) : [...prev, batchId]
+    )
+  }
+
+  const tabFilteredExams = useMemo(() => {
+    switch (activeTab) {
+      case "my":
+        return exams.filter((e) => e.creatorId === CURRENT_USER_ID)
+      case "collab":
+        return exams.filter((e) => (e.collaboratorIds || []).includes(CURRENT_USER_ID))
+      case "public":
+      default:
+        return exams.filter((e) => e.status === "published")
+    }
+  }, [exams, activeTab])
 
   const filteredExams = useMemo(() => {
-    return exams
-      .filter((exam) => {
-        const q = search.toLowerCase().trim()
-        const matchSearch = !q || exam.name.toLowerCase().includes(q) || exam.description.toLowerCase().includes(q)
-        const matchStatus = statusFilter === "all" || exam.status === statusFilter
-        const matchOwner = exam.ownerType === ownerTab
-        const matchBatch = batchFilter === "all" || exam.batchId === batchFilter
-        return matchSearch && matchStatus && matchOwner && matchBatch
-      })
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-  }, [exams, search, statusFilter, batchFilter, ownerTab])
+    let result = tabFilteredExams
+    const q = searchQuery.trim().toLowerCase()
+    if (q) {
+      result = result.filter(
+        (e) => e.name.toLowerCase().includes(q) || e.description.toLowerCase().includes(q)
+      )
+    }
+    if (selectedBatchId) {
+      result = result.filter((e) => e.batchId === selectedBatchId)
+    }
+    if (selectedStatus) {
+      result = result.filter((e) => e.status === selectedStatus)
+    }
+    return result
+  }, [tabFilteredExams, searchQuery, selectedBatchId, selectedStatus])
 
   const stats = useMemo(() => {
-    const total = exams.length
-    const draftCount = exams.filter(e => e.status === 'draft' || e.status === 'unsubmitted').length
-    const pendingCount = exams.filter(e => e.status === 'pending').length
-    const toPublishCount = exams.filter(e => e.status === 'toPublish').length
-    const publishedCount = exams.filter(e => e.status === 'published').length
+    const total = filteredExams.length
+    const draft = filteredExams.filter((e) => e.status === "draft").length
+    const pending = filteredExams.filter((e) => e.status === "pending").length
+    const rejected = filteredExams.filter((e) => e.status === "rejected").length
+    const published = filteredExams.filter((e) => e.status === "published").length
+    return { total, draft, pending, rejected, published }
+  }, [filteredExams])
 
-    return [
-      { label: "试卷总数", value: total, icon: <FileText className="size-3.5 text-blue-600" />, iconClassName: "bg-blue-50" },
-      { label: "草稿", value: draftCount, icon: <RotateCcw className="size-3.5 text-gray-600" />, iconClassName: "bg-gray-50" },
-      { label: "审批中", value: pendingCount, icon: <GitBranch className="size-3.5 text-yellow-600" />, iconClassName: "bg-yellow-50" },
-      { label: "待发布", value: toPublishCount, icon: <ArrowUpFromLine className="size-3.5 text-amber-600" />, iconClassName: "bg-amber-50" },
-      { label: "已发布", value: publishedCount, icon: <CheckCircle2 className="size-3.5 text-green-600" />, iconClassName: "bg-green-50" },
-    ]
-  }, [exams])
-
-  const handleFormSubmit = (data: ExamFormData) => {
-    if (editingExam) {
-      updateExam(editingExam.id, data)
-    } else {
-      const newExam = createExam(data)
-      router.push(`/evaluation/exams/${newExam.id}`)
-    }
-    setEditingExam(null)
-  }
-
-  const handleEdit = (exam: Exam) => {
-    setEditingExam(exam)
-    setFormOpen(true)
-  }
-
-  const handleInvite = (exam: Exam) => {
-    setInvitingExam(exam)
-    setInviteOpen(true)
-  }
-
-  const handleInviteSubmit = (users: { userId: string; role: 'editor' | 'viewer' }[]) => {
-    console.log('邀请用户:', users, '到试卷:', invitingExam?.name)
-    setInvitingExam(null)
-  }
-
-  const handleCloneExam = (exam: Exam) => {
-    const newExam = createExam({
-      name: `${exam.name}（克隆）`,
-      description: exam.description,
-      duration: exam.duration,
-      coverUrl: exam.coverUrl,
-      batchId: exam.batchId,
-      collaboratorIds: [],
-      collaboratorDeptIds: [],
+  const examsByBatch = useMemo(() => {
+    if (viewMode !== "group") return null
+    const groups: Record<string, BackendExam[]> = {}
+    filteredExams.forEach((e) => {
+      if (!e.batchId) return
+      if (!groups[e.batchId]) groups[e.batchId] = []
+      groups[e.batchId].push(e)
     })
+    return groups
+  }, [filteredExams, viewMode])
 
-    const clonedQuestions = exam.questions.map((q, index) => ({
-      ...q,
-      id: `eq-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
-    }))
-
-    updateExam(newExam.id, {
-      questions: clonedQuestions,
-      totalScore: exam.totalScore,
-    })
-  }
-
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date)
-  }
-
-  const getCreatorName = (exam: Exam) => {
-    return mockUsers.find(u => u.id === exam.creatorId)?.name || '-'
-  }
-
-  const getCollaborators = (exam: Exam) => {
-    const users = (exam.collaboratorIds || []).map(id => mockUsers.find(u => u.id === id)?.name).filter(Boolean)
-    return users.length > 0 ? users.join('、') : '-'
-  }
-
-  const getBatchName = (exam: Exam) => {
-    return mockBatches.find(b => b.id === exam.batchId)?.name || '-'
-  }
+  const uncategorizedExams = useMemo(
+    () => filteredExams.filter((e) => !e.batchId && e.status === "draft"),
+    [filteredExams]
+  )
 
   const handleSelectId = (id: string, checked: boolean) => {
     setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((sid) => sid !== id)))
@@ -185,378 +258,841 @@ export default function ExamsPage() {
     }
   }
 
-  const selectedExams = exams.filter((e) => selectedIds.includes(e.id))
+  const selectedExams = useMemo(
+    () => filteredExams.filter((e) => selectedIds.includes(e.id)),
+    [filteredExams, selectedIds]
+  )
   const hasSelected = selectedIds.length > 0
 
-  const canBatchSubmit = selectedExams.some((e) => e.status === "draft" || e.status === "rejected" || e.status === "unsubmitted")
+  const canBatchSubmit = selectedExams.some((e) => e.status === "draft" || e.status === "rejected")
   const canBatchWithdraw = selectedExams.some((e) => e.status === "pending")
-  const canBatchPublish = selectedExams.some((e) => e.status === "toPublish")
+  const canBatchPublish = selectedExams.some((e) => e.status === "pending" || e.status === "rejected")
   const canBatchUnpublish = selectedExams.some((e) => e.status === "published")
-  const canBatchDelete = selectedExams.some((e) => e.status === "draft" || e.status === "rejected" || e.status === "unsubmitted")
+  const canBatchDelete = selectedExams.some((e) => e.status === "draft" || e.status === "rejected")
 
-  const handleBatchSubmitApproval = () => {
-    selectedIds.forEach((id) => updateExamStatus(id, "submit"))
-    setSelectedIds([])
+  const resetCreateForm = () => {
+    setNewName("")
+    setNewDescription("")
+    setNewDuration("60")
+    setNewBatchId("")
   }
 
-  const handleBatchWithdrawApproval = () => {
-    selectedIds.forEach((id) => updateExamStatus(id, "withdraw"))
-    setSelectedIds([])
-  }
-
-  const handleBatchPublish = () => {
-    selectedIds.forEach((id) => updateExamStatus(id, "publish"))
-    setSelectedIds([])
-  }
-
-  const handleBatchUnpublish = () => {
-    selectedIds.forEach((id) => updateExamStatus(id, "unpublish"))
-    setSelectedIds([])
-  }
-
-  const handleBatchDelete = () => {
-    if (confirm(`确定要删除选中的 ${selectedIds.length} 个试卷吗？`)) {
-      selectedIds.forEach((id) => deleteExam(id))
-      setSelectedIds([])
+  const handleCreate = async () => {
+    if (!newName.trim()) return
+    const duration = parseInt(newDuration, 10) || 60
+    try {
+      const created = (await examApi.create({
+        name: newName.trim(),
+        description: newDescription.trim(),
+        duration,
+        status: "draft",
+        ownerType: "mine",
+        version: "v1.0",
+        questions: [],
+        collaboratorIds: [],
+        collaboratorDeptIds: [],
+        batchId: newBatchId || undefined,
+      })) as unknown as BackendExam
+      setIsCreateOpen(false)
+      resetCreateForm()
+      router.push(`/evaluation/exams/${created.id}`)
+    } catch (err) {
+      console.error("创建试卷失败", err)
+      alert("创建试卷失败")
     }
   }
 
-  const handleBatchClone = () => {
-    selectedExams.forEach((exam) => handleCloneExam(exam))
-    setSelectedIds([])
+  const handleDelete = async (exam: BackendExam) => {
+    if (confirm(`确定要删除试卷「${exam.name}」吗？`)) {
+      try {
+        await examApi.delete(exam.id)
+        await loadData()
+      } catch (err) {
+        console.error("删除失败", err)
+        alert("删除失败")
+      }
+    }
   }
 
-  const handleBatchMove = () => {
-    if (!batchMoveTarget) return
-    selectedIds.forEach((id) => updateExam(id, { batchId: batchMoveTarget }))
-    setBatchMoveTarget("")
-    setIsBatchMoveDialogOpen(false)
+  const handleSubmitApproval = async (id: string) => {
+    try {
+      await examApi.submit(id)
+      await loadData()
+    } catch (err) {
+      console.error("提交审批失败", err)
+      alert("提交审批失败")
+    }
+  }
+
+  const handleWithdrawApproval = async (id: string) => {
+    try {
+      await examApi.update(id, { status: "draft" })
+      await loadData()
+    } catch (err) {
+      console.error("撤回审批失败", err)
+      alert("撤回审批失败")
+    }
+  }
+
+  const handleReview = async (id: string, status: "published" | "rejected") => {
+    try {
+      await examApi.review(id, { status })
+      await loadData()
+    } catch (err) {
+      console.error("审批操作失败", err)
+      alert("审批操作失败")
+    }
+  }
+
+  const handlePublish = async (id: string) => {
+    try {
+      await examApi.publish(id)
+      await loadData()
+    } catch (err) {
+      console.error("发布失败", err)
+      alert("发布失败")
+    }
+  }
+
+  const handleUnpublish = async (id: string) => {
+    try {
+      await examApi.update(id, { status: "draft" })
+      await loadData()
+    } catch (err) {
+      console.error("取消发布失败", err)
+      alert("取消发布失败")
+    }
+  }
+
+  const handleClone = (exam: BackendExam) => {
+    setCloneTargetExam(exam)
+    setCloneRenameValue(`${exam.name} (克隆)`)
+    setIsCloneRenameDialogOpen(true)
+  }
+
+  const handleConfirmClone = async () => {
+    if (!cloneTargetExam || !cloneRenameValue.trim()) return
+    try {
+      const cloned = (await examApi.create({
+        name: cloneRenameValue.trim(),
+        description: cloneTargetExam.description,
+        duration: cloneTargetExam.duration,
+        status: "draft",
+        ownerType: "mine",
+        version: "v1.0",
+        questions: [],
+        collaboratorIds: [],
+        collaboratorDeptIds: [],
+        batchId: cloneTargetExam.batchId || undefined,
+      })) as unknown as BackendExam
+
+      for (const q of cloneTargetExam.questions || []) {
+        await examApi.addQuestion(cloned.id, q.questionId, q.score)
+      }
+      setIsCloneRenameDialogOpen(false)
+      setCloneTargetExam(null)
+      setCloneRenameValue("")
+      setSelectedIds([])
+      await loadData()
+    } catch (err) {
+      console.error("克隆失败", err)
+      alert("克隆失败")
+    }
+  }
+
+  const handleBatchSubmitApproval = async () => {
+    for (const exam of selectedExams) {
+      if (exam.status === "draft" || exam.status === "rejected") {
+        await examApi.submit(exam.id)
+      }
+    }
     setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchWithdrawApproval = async () => {
+    for (const exam of selectedExams) {
+      if (exam.status === "pending") {
+        await examApi.update(exam.id, { status: "draft" })
+      }
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchPublish = async () => {
+    for (const exam of selectedExams) {
+      if (exam.status === "pending" || exam.status === "rejected") {
+        await examApi.publish(exam.id)
+      }
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchUnpublish = async () => {
+    for (const exam of selectedExams) {
+      if (exam.status === "published") {
+        await examApi.update(exam.id, { status: "draft" })
+      }
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchDelete = async () => {
+    if (!confirm(`确定要删除选中的 ${selectedIds.length} 个试卷吗？`)) return
+    for (const id of selectedIds) {
+      await examApi.delete(id)
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchClone = async () => {
+    for (const exam of selectedExams) {
+      const cloned = (await examApi.create({
+        name: `${exam.name} (克隆)`,
+        description: exam.description,
+        duration: exam.duration,
+        status: "draft",
+        ownerType: "mine",
+        version: "v1.0",
+        questions: [],
+        collaboratorIds: [],
+        collaboratorDeptIds: [],
+        batchId: exam.batchId || undefined,
+      })) as unknown as BackendExam
+
+      for (const q of exam.questions || []) {
+        await examApi.addQuestion(cloned.id, q.questionId, q.score)
+      }
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchMove = async () => {
+    if (!moveTargetBatchId) return
+    for (const id of selectedIds) {
+      await examApi.update(id, { batchId: moveTargetBatchId })
+    }
+    setSelectedIds([])
+    setMoveTargetBatchId("")
+    setIsBatchMoveDialogOpen(false)
+    await loadData()
   }
 
   const handleBatchExport = () => {
     setIsExportDialogOpen(true)
+    setSelectedIds([])
+  }
+
+  const handleCreateBatch = async () => {
+    if (!newBatchName || !newBatchWorkflow) return
+    const code = `EB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`
+    try {
+      await evaluationBatchApi.create({
+        name: newBatchName,
+        code,
+        status: "open",
+        workflowId: newBatchWorkflow,
+      })
+      setNewBatchName("")
+      setNewBatchWorkflow("")
+      setIsInnerBatchCreateOpen(false)
+      await loadData()
+    } catch (err) {
+      console.error("创建批次失败", err)
+      alert("创建批次失败")
+    }
+  }
+
+  const handleResetFilters = () => {
+    setSearchQuery("")
+    setSelectedBatchId(null)
+    setSelectedStatus(null)
+  }
+
+  const allSelected = filteredExams.length > 0 && filteredExams.every((e) => selectedIds.includes(e.id))
+  const someSelected = filteredExams.some((e) => selectedIds.includes(e.id)) && !allSelected
+
+  const renderTable = (items: BackendExam[]) => {
+    const tableAllSelected = items.length > 0 && items.every((e) => selectedIds.includes(e.id))
+    const tableSomeSelected = items.some((e) => selectedIds.includes(e.id)) && !tableAllSelected
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[40px] text-center">
+              <Checkbox
+                checked={tableSomeSelected ? "indeterminate" : tableAllSelected}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setSelectedIds((prev) => Array.from(new Set([...prev, ...items.map((e) => e.id)])))
+                  } else {
+                    setSelectedIds((prev) => prev.filter((id) => !items.find((e) => e.id === id)))
+                  }
+                }}
+                aria-label="全选"
+              />
+            </TableHead>
+            <TableHead className="w-[180px]">试卷名称</TableHead>
+            <TableHead className="w-[200px]">试卷简介</TableHead>
+            <TableHead className="w-[80px]">题目数量</TableHead>
+            <TableHead className="w-[80px]">总分</TableHead>
+            <TableHead className="w-[120px]">所属批次</TableHead>
+            <TableHead className="w-[100px]">创建人</TableHead>
+            <TableHead className="w-[120px]">共建人</TableHead>
+            <TableHead className="w-[100px]">状态</TableHead>
+            <TableHead className="w-[130px]">创建时间</TableHead>
+            <TableHead className="w-[130px]">更新时间</TableHead>
+            <TableHead className="sticky right-0 w-[80px] bg-white text-right">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((exam) => {
+            const isSelected = selectedIds.includes(exam.id)
+            const batchName = batches.find((b) => b.id === exam.batchId)?.name || "-"
+            return (
+              <TableRow key={exam.id} className={cn("group", isSelected && "bg-primary/5")}>
+                <TableCell className="text-center">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={(checked) => handleSelectId(exam.id, checked === true)}
+                    aria-label={`选择 ${exam.name}`}
+                  />
+                </TableCell>
+                <TableCell>
+                  <button
+                    className="text-left text-sm font-medium hover:text-primary"
+                    onClick={() => router.push(`/evaluation/exams/${exam.id}`)}
+                  >
+                    {exam.name}
+                  </button>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-muted-foreground line-clamp-2">
+                    {exam.description || "-"}
+                  </span>
+                </TableCell>
+                <TableCell>{(exam.questions || []).length} 题</TableCell>
+                <TableCell>{exam.totalScore} 分</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{batchName}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{exam.creatorId || "-"}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {(exam.collaboratorIds?.length || 0) > 0 ? `${exam.collaboratorIds!.length} 人` : "-"}
+                </TableCell>
+                <TableCell>
+                  <EvalStatusBadge status={exam.status} />
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">{formatDate(exam.createdAt)}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{formatDate(exam.updatedAt)}</TableCell>
+                <TableCell className="sticky right-0 bg-white text-right relative">
+                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-sm z-10 px-2 py-1 rounded-lg shadow-sm border border-slate-100">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => router.push(`/evaluation/exams/${exam.id}`)}
+                    >
+                      <Eye className="mr-1 h-3 w-3" />
+                      查看
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => handleClone(exam)}
+                    >
+                      <Copy className="mr-1 h-3 w-3" />
+                      克隆
+                    </Button>
+                    {(exam.status === "draft" || exam.status === "rejected") && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
+                        onClick={() => handleSubmitApproval(exam.id)}
+                      >
+                        <Send className="mr-1 h-3 w-3" />
+                        提交审批
+                      </Button>
+                    )}
+                    {exam.status === "pending" && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700"
+                          onClick={() => handleReview(exam.id, "published")}
+                        >
+                          <CheckCircle className="mr-1 h-3 w-3" />
+                          通过
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
+                          onClick={() => handleReview(exam.id, "rejected")}
+                        >
+                          <XCircle className="mr-1 h-3 w-3" />
+                          驳回
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-amber-600 hover:text-amber-700"
+                          onClick={() => handleWithdrawApproval(exam.id)}
+                        >
+                          <Undo2 className="mr-1 h-3 w-3" />
+                          撤回
+                        </Button>
+                      </>
+                    )}
+                    {(exam.status === "pending" || exam.status === "rejected") && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-indigo-600 hover:text-indigo-700"
+                        onClick={() => handlePublish(exam.id)}
+                      >
+                        <Rocket className="mr-1 h-3 w-3" />
+                        发布
+                      </Button>
+                    )}
+                    {exam.status === "published" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
+                        onClick={() => handleUnpublish(exam.id)}
+                      >
+                        <ArrowDownFromLine className="mr-1 h-3 w-3" />
+                        取消发布
+                      </Button>
+                    )}
+                    {(exam.status === "draft" || exam.status === "rejected") && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
+                        onClick={() => handleDelete(exam)}
+                      >
+                        <Trash2 className="mr-1 h-3 w-3" />
+                        删除
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    )
   }
 
   return (
-    <div className="px-8 py-6">
+    <div className="space-y-6">
       <PageHeaderCard
-        title="试卷管理"
-        description="管理所有试卷，进行组卷操作"
-        stats={stats}
+        title="试卷资源管理"
+        description="维护试卷资源，支持组卷、审批、发布与批次分组管理"
         actions={
           <>
-            <PrdAnnotation data={getAnnotation("exam-btn-config-approval")}>
-              <Button variant="outline">
-                <Settings className="mr-2 size-4" />
-                配置审批流程
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("exam-btn-config-batch")}>
-              <Button variant="outline">
-                <FolderTree className="mr-2 size-4" />
-                配置批次分组
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("exam-btn-import")}>
-              <Button variant="outline">
-                <Upload className="mr-2 size-4" />
-                导入试卷
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("exam-btn-create")}>
-              <Button onClick={() => { setEditingExam(null); setFormOpen(true) }}>
-                <Plus className="mr-2 size-4" />
-                新建试卷
-              </Button>
-            </PrdAnnotation>
+            <Button variant="outline" size="sm" onClick={() => setIsApprovalWorkflowDialogOpen(true)}>
+              <GitBranch className="mr-2 h-4 w-4" />
+              配置审批流程
+            </Button>
+
+            <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FolderKanban className="mr-2 h-4 w-4" />
+                  配置批次分组
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+                <DialogHeader>
+                  <DialogTitle>批次分组管理</DialogTitle>
+                  <DialogDescription>管理试卷建设批次分组，关联审批流程</DialogDescription>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                  <div className="flex justify-end">
+                    <Dialog open={isInnerBatchCreateOpen} onOpenChange={setIsInnerBatchCreateOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          新增批次
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                          <DialogTitle>新增批次</DialogTitle>
+                          <DialogDescription>创建新的试卷建设批次分组，并关联审批流程。</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="batchName">分组名称</Label>
+                            <Input
+                              id="batchName"
+                              value={newBatchName}
+                              onChange={(e) => setNewBatchName(e.target.value)}
+                              placeholder="例如：2026春季电商实训试卷开发"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="batchCode">批次编号</Label>
+                            <Input
+                              id="batchCode"
+                              value={`EB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`}
+                              disabled
+                              className="bg-gray-50 text-gray-500"
+                            />
+                            <p className="text-xs text-gray-500">批次编号自动生成，不可修改</p>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="workflow">关联审批流 <span className="text-red-500">*</span></Label>
+                            <Select value={newBatchWorkflow} onValueChange={setNewBatchWorkflow}>
+                              <SelectTrigger id="workflow">
+                                <SelectValue placeholder="选择审批流程" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {workflows.map((wf) => (
+                                  <SelectItem key={wf.id} value={wf.id}>
+                                    <span className="inline-flex items-center">
+                                      <span>{wf.name}</span>
+                                      <span className="text-xs text-gray-400 ml-2">({wf.steps?.length || 0}步)</span>
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsInnerBatchCreateOpen(false)}>取消</Button>
+                          <Button onClick={handleCreateBatch} disabled={!newBatchName || !newBatchWorkflow}>
+                            创建批次
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-slate-50 text-xs font-medium text-slate-500 border-b">
+                      <div>分组名称</div>
+                      <div>批次编号</div>
+                      <div>审批流程</div>
+                    </div>
+                    {batches.map((batch) => (
+                      <div key={batch.id} className="grid grid-cols-3 gap-4 px-4 py-2 text-sm border-b last:border-0">
+                        <div className="font-medium">{batch.name}</div>
+                        <div className="text-gray-500">{batch.code || batch.id.slice(0, 12)}</div>
+                        <div>
+                          <Badge variant="outline" className="text-xs">
+                            {workflows.find((w) => w.id === batch.workflowId)?.name || "-"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsBatchDialogOpen(false)}>关闭</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              导入试卷
+            </Button>
+
+            <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => { resetCreateForm(); setIsCreateOpen(true) }}>
+              <Plus className="mr-2 h-4 w-4" />
+              新建试卷
+            </Button>
           </>
         }
-        className="mb-4"
+        stats={
+          activeTab !== "public"
+            ? [
+                {
+                  label: "试卷总数",
+                  value: stats.total,
+                  icon: <FileText className="h-3 w-3 text-blue-500" />,
+                  iconClassName: "bg-blue-50",
+                },
+                {
+                  label: "草稿",
+                  value: stats.draft,
+                  icon: <RotateCcw className="h-3 w-3 text-gray-500" />,
+                  iconClassName: "bg-gray-50",
+                },
+                {
+                  label: "审批中",
+                  value: stats.pending,
+                  icon: <GitBranch className="h-3 w-3 text-yellow-500" />,
+                  iconClassName: "bg-yellow-50",
+                },
+                {
+                  label: "已驳回",
+                  value: stats.rejected,
+                  icon: <X className="h-3 w-3 text-red-500" />,
+                  iconClassName: "bg-red-50",
+                },
+                {
+                  label: "已发布",
+                  value: stats.published,
+                  icon: <ArrowUpFromLine className="h-3 w-3 text-green-500" />,
+                  iconClassName: "bg-green-50",
+                },
+              ]
+            : undefined
+        }
       />
 
-      {/* Tab 切换与视图切换 */}
-      <div className="mb-4 flex items-center justify-between">
-        <Tabs value={ownerTab} onValueChange={(v) => setOwnerTab(v as OwnerTab)}>
-          <TabsList>
-            <TabsTrigger value="mine">我的试卷</TabsTrigger>
-            <TabsTrigger value="collaborate">共建试卷</TabsTrigger>
-            <TabsTrigger value="public">公共试卷</TabsTrigger>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            setActiveTab(v as TabType)
+            setSelectedIds([])
+            setSelectedBatchId(null)
+          }}
+        >
+          <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="my" className="w-full">我的试卷</TabsTrigger>
+            <TabsTrigger value="collab" className="w-full">共建试卷</TabsTrigger>
+            <TabsTrigger value="public" className="w-full">公共试卷</TabsTrigger>
           </TabsList>
         </Tabs>
+
         <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
           <ToggleGroupItem value="list" aria-label="资源列表">
-            <List className="size-4" />
+            <List className="h-4 w-4" />
             <span className="ml-1.5">资源列表</span>
           </ToggleGroupItem>
-          <ToggleGroupItem value="batch" aria-label="批次分组">
-            <LayoutGrid className="size-4" />
+          <ToggleGroupItem value="group" aria-label="批次分组">
+            <LayoutGrid className="h-4 w-4" />
             <span className="ml-1.5">批次分组</span>
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
 
-      {/* 筛选栏 */}
-      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="搜索试卷名称或试卷简介..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as Status | "all")}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="全部状态" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="all">全部状态</SelectItem>
-              {(Object.keys(STATUS_LABELS) as Status[]).map((status) => (
-                <SelectItem key={status} value={status}>
-                  {STATUS_LABELS[status]}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Select value={batchFilter} onValueChange={setBatchFilter}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="全部批次" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="all">全部批次</SelectItem>
-              {mockBatches.map((batch) => (
-                <SelectItem key={batch.id} value={batch.id}>
-                  {batch.name}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* 试卷列表 */}
-      <div className="rounded-lg border bg-white px-4 py-3">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40px] text-center">
-                  <Checkbox
-                    checked={filteredExams.length > 0 && filteredExams.every((e) => selectedIds.includes(e.id)) ? true : selectedExams.some((e) => filteredExams.map((fe) => fe.id).includes(e.id)) ? "indeterminate" : false}
-                    onCheckedChange={(checked) => handleSelectAll(checked === true)}
-                    aria-label="全选"
-                  />
-                </TableHead>
-                <TableHead className="w-[180px]">
-                  <PrdAnnotation data={getAnnotation("exam-col-name")}>试卷名称</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[200px]">
-                  <PrdAnnotation data={getAnnotation("exam-col-desc")}>试卷简介</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[80px]">
-                  <PrdAnnotation data={getAnnotation("exam-col-question-count")}>题目数量</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[80px]">
-                  <PrdAnnotation data={getAnnotation("exam-col-total-score")}>总分</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[120px]">
-                  <PrdAnnotation data={getAnnotation("exam-col-batch")}>所属批次</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[100px]">
-                  <PrdAnnotation data={getAnnotation("exam-col-creator")}>创建人</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[140px]">
-                  <PrdAnnotation data={getAnnotation("exam-col-collaborators")}>共建人</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[100px]">
-                  <PrdAnnotation data={getAnnotation("exam-col-status")}>状态</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[130px]">创建时间</TableHead>
-                <TableHead className="w-[130px]">更新时间</TableHead>
-                <TableHead className="sticky right-0 w-[80px] bg-white text-right">
-                  <PrdAnnotation data={getAnnotation("exam-col-actions")}>操作</PrdAnnotation>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredExams.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
-                  {exams.length === 0 ? "暂无试卷，点击上方按钮创建" : "没有找到匹配的试卷"}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredExams.map((exam) => {
-                const isSelected = selectedIds.includes(exam.id)
-                return (
-                  <TableRow key={exam.id} className={cn("group", isSelected && "bg-primary/5")}>
-                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectId(exam.id, checked === true)}
-                        aria-label={`选择 ${exam.name}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className="cursor-pointer font-medium hover:underline"
-                        onClick={() => router.push('/evaluation/landing/resources/exams/exam-1?returnUrl=' + encodeURIComponent('/exams'))}
-                      >
-                        {exam.name}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {exam.description ? (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{exam.description}</p>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{exam.questions.length}</TableCell>
-                    <TableCell>{exam.totalScore} 分</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{getBatchName(exam)}</TableCell>
-                    <TableCell>{getCreatorName(exam)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{getCollaborators(exam)}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={exam.status} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(exam.createdAt)}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(exam.updatedAt)}</TableCell>
-                    <TableCell className="sticky right-0 bg-white text-right relative">
-                      <ExamStatusActions
-                        status={exam.status}
-                        onEdit={() => handleEdit(exam)}
-                        onDelete={() => deleteExam(exam.id)}
-                        onStatusChange={(action) => updateExamStatus(exam.id, action)}
-                        onView={() => router.push(`/evaluation/exams/${exam.id}`)}
-                        onPreview={() => router.push('/evaluation/landing/resources/exams/exam-1?returnUrl=' + encodeURIComponent('/exams'))}
-                        onInvite={() => handleInvite(exam)}
-                        onClone={() => handleCloneExam(exam)}
-                      />
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-        </div>
-        {/* 批量操作工具栏 */}
-        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 mt-3">
-          <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
-            {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择试卷："}
-          </span>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
-            <Send className="mr-1 h-3 w-3" />
-            提交审批
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
-            <Undo2 className="mr-1 h-3 w-3" />
-            撤回审批
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
-            <ArrowUpFromLine className="mr-1 h-3 w-3" />
-            发布
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
-            <ArrowDownFromLine className="mr-1 h-3 w-3" />
-            取消发布
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
-            <Trash2 className="mr-1 h-3 w-3" />
-            删除
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchClone}>
-            <Copy className="mr-1 h-3 w-3" />
-            克隆
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={() => setIsBatchMoveDialogOpen(true)}>
-            <FolderKanban className="mr-1 h-3 w-3" />
-            调整批次分组
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchExport}>
-            <Download className="mr-1 h-3 w-3" />
-            导出
-          </Button>
-        </div>
-      </div>
-
-      {/* 新建/编辑弹窗 */}
-      <ExamFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        exam={editingExam}
-        onSubmit={handleFormSubmit}
-      />
-
-      {/* 邀请共建弹窗 */}
-      <InviteCollaboratorDialog
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        title={`邀请共建「${invitingExam?.name || ''}」`}
-        description="邀请其他用户一起维护此试卷"
-        onInvite={handleInviteSubmit}
-      />
-
-      {/* 批量导出弹窗 */}
-      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>批量导出试卷</DialogTitle>
-            <DialogDescription>已选择 {selectedIds.length} 个试卷，请选择导出格式</DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-3">
-            <div className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
-              <div className="h-10 w-10 rounded bg-green-50 flex items-center justify-center">
-                <span className="text-xs font-bold text-green-600">XLSX</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium">导出为 Excel</p>
-                <p className="text-xs text-slate-400">包含试卷基础信息和题目配置</p>
+      <Card className="border-slate-200 shadow-sm">
+        <CardContent className="flex flex-col gap-4 p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <div className="flex items-center gap-2 w-full">
+                <Search className="h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="搜索试卷名称 / 简介"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 text-sm flex-1"
+                />
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
-              <div className="h-10 w-10 rounded bg-blue-50 flex items-center justify-center">
-                <span className="text-xs font-bold text-blue-600">JSON</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium">导出为 JSON</p>
-                <p className="text-xs text-slate-400">完整的试卷数据结构，适用于备份和迁移</p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsExportDialogOpen(false)}>确认导出</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 调整批次分组弹窗 */}
-      <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>调整批次分组</DialogTitle>
-            <DialogDescription>将已选择的 {selectedIds.length} 个试卷移动到其他批次分组</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="targetBatch">目标批次分组</Label>
-              <Select value={batchMoveTarget} onValueChange={setBatchMoveTarget}>
-                <SelectTrigger id="targetBatch">
-                  <SelectValue placeholder="请选择目标批次分组" />
+            <div className="flex items-center gap-2">
+              <Select value={selectedBatchId || "__all__"} onValueChange={(v) => setSelectedBatchId(v === "__all__" ? null : v)}>
+                <SelectTrigger className="h-9 text-sm w-44">
+                  <SelectValue placeholder="按批次筛选" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockBatches.map((batch) => (
+                  <SelectItem value="__all__">全部批次</SelectItem>
+                  {batches.map((batch) => (
                     <SelectItem key={batch.id} value={batch.id}>
                       <span className="flex items-center gap-2">
                         {batch.name}
+                        <span className="text-xs text-gray-400">({batch.code || batch.id.slice(0, 8)})</span>
                       </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedStatus || "__all__"} onValueChange={(v) => setSelectedStatus(v === "__all__" ? null : (v as BackendStatus))}>
+                <SelectTrigger className="h-9 text-sm w-36">
+                  <SelectValue placeholder="按状态筛选" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">全部状态</SelectItem>
+                  <SelectItem value="draft">草稿</SelectItem>
+                  <SelectItem value="pending">审批中</SelectItem>
+                  <SelectItem value="rejected">已驳回</SelectItem>
+                  <SelectItem value="published">已发布</SelectItem>
+                  <SelectItem value="archived">已归档</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" size="sm" className="h-9" onClick={handleResetFilters}>
+              <RotateCcw className="mr-1 h-3.5 w-3.5" />
+              重置
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+            <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
+              {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择试卷："}
+            </span>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
+              <Send className="mr-1 h-3 w-3" />
+              提交审批
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
+              <Undo2 className="mr-1 h-3 w-3" />
+              撤回审批
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
+              <ArrowUpFromLine className="mr-1 h-3 w-3" />
+              发布
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
+              <ArrowDownFromLine className="mr-1 h-3 w-3" />
+              取消发布
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchClone}>
+              <Copy className="mr-1 h-3 w-3" />
+              克隆
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={() => setIsBatchMoveDialogOpen(true)}>
+              <FolderKanban className="mr-1 h-3 w-3" />
+              调整批次分组
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchExport}>
+              <Download className="mr-1 h-3 w-3" />
+              导出
+            </Button>
+          </div>
+        </CardContent>
+
+        {filteredExams.length > 0 && viewMode !== "group" && (
+          <CardContent className="pt-0">
+            <div className="overflow-x-auto">{renderTable(filteredExams)}</div>
+          </CardContent>
+        )}
+      </Card>
+
+      {viewMode === "group" && examsByBatch && (
+        <div className="space-y-4">
+          {Object.entries(examsByBatch).map(([batchId, batchExams]) => {
+            const batch = batches.find((b) => b.id === batchId)
+            if (!batch) return null
+            const isExpanded = expandedBatches.includes(batchId)
+            return (
+              <Collapsible key={batchId} open={isExpanded} onOpenChange={() => toggleBatch(batchId)}>
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <CollapsibleTrigger asChild>
+                    <div className="flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-gray-400" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-gray-400" />
+                        )}
+                        <span className="font-medium text-gray-800">{batch.name}</span>
+                        <span className="text-xs text-gray-400">({batch.code || batch.id.slice(0, 8)})</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {batchExams.length} 个试卷
+                      </Badge>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="p-4 pt-0 overflow-x-auto">{renderTable(batchExams)}</div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
+            )
+          })}
+          {uncategorizedExams.length > 0 && (
+            <div className="overflow-hidden rounded-xl border border-dashed border-slate-300 bg-white">
+              <div className="flex items-center justify-between px-4 py-3 bg-slate-50/80">
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-gray-800">未分类</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {uncategorizedExams.length} 个试卷
+                  </Badge>
+                </div>
+              </div>
+              <div className="p-4 pt-0 overflow-x-auto">{renderTable(uncategorizedExams)}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!loading && filteredExams.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+            <Search className="h-8 w-8 text-slate-400" />
+          </div>
+          <h3 className="mb-2 text-lg font-medium text-slate-700">暂无试卷</h3>
+          <p className="mb-4 text-sm text-slate-500">当前筛选条件下没有试卷数据</p>
+          <Button size="sm" onClick={() => { resetCreateForm(); setIsCreateOpen(true) }}>
+            <Plus className="mr-2 h-4 w-4" />
+            新建试卷
+          </Button>
+        </div>
+      )}
+
+      {loading && filteredExams.length === 0 && (
+        <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
+          加载中...
+        </div>
+      )}
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>新建试卷</DialogTitle>
+            <DialogDescription>创建一个新的试卷</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="examName">试卷名称 <span className="text-red-500">*</span></Label>
+              <Input
+                id="examName"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="请输入试卷名称"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="examDesc">试卷简介</Label>
+              <Input
+                id="examDesc"
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="请输入试卷简介（可选）"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="examDuration">考试时长（分钟）</Label>
+              <Input
+                id="examDuration"
+                type="number"
+                value={newDuration}
+                onChange={(e) => setNewDuration(e.target.value)}
+                placeholder="60"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="examBatch">所属批次</Label>
+              <Select value={newBatchId || "none"} onValueChange={(v) => setNewBatchId(v === "none" ? "" : v)}>
+                <SelectTrigger id="examBatch">
+                  <SelectValue placeholder="选择所属批次" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">不设置批次</SelectItem>
+                  {batches.map((batch) => (
+                    <SelectItem key={batch.id} value={batch.id}>
+                      {batch.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -564,8 +1100,150 @@ export default function ExamsPage() {
             </div>
           </div>
           <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
+            <Button onClick={handleCreate} disabled={!newName.trim()}>创建</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Workflow Config Dialog */}
+      <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <div>
+              <DialogTitle>配置审批流程</DialogTitle>
+              <DialogDescription>管理试卷审批流程模板</DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-4 space-y-4">
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>流程名称</TableHead>
+                    <TableHead>流程描述</TableHead>
+                    <TableHead>审批步骤</TableHead>
+                    <TableHead>创建时间</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {workflows.map((wf) => (
+                    <TableRow key={wf.id}>
+                      <TableCell className="font-medium text-sm">{wf.name}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{wf.description}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {wf.steps?.map((step) => (
+                            <Badge key={step.id} variant="outline" className="text-xs">
+                              {step.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">{wf.createdAt}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsApprovalWorkflowDialogOpen(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>导入试卷</DialogTitle>
+            <DialogDescription>上传 Excel 或 CSV 文件批量导入试卷数据</DialogDescription>
+          </DialogHeader>
+          <div className="py-8">
+            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+              <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
+              <p className="text-sm text-muted-foreground mb-2">拖拽文件到此处，或点击选择文件</p>
+              <Button variant="outline" size="sm">选择文件</Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
+            <Button onClick={() => { alert("导入功能演示：文件已上传，正在解析..."); setIsImportDialogOpen(false) }}>开始导入</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Dialog */}
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>导出试卷</DialogTitle>
+            <DialogDescription>将选中的试卷数据导出为文件</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-slate-500">已选择 {selectedIds.length} 个试卷</p>
+            <div className="grid gap-2">
+              <Label>导出格式</Label>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1">Excel (.xlsx)</Button>
+                <Button variant="outline" size="sm" className="flex-1">CSV (.csv)</Button>
+                <Button variant="outline" size="sm" className="flex-1">JSON (.json)</Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
+            <Button onClick={() => { alert(`已导出 ${selectedIds.length} 个试卷数据`); setIsExportDialogOpen(false); setSelectedIds([]) }}>确认导出</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Move Dialog */}
+      <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>调整批次分组</DialogTitle>
+            <DialogDescription>将选中的 {selectedIds.length} 个试卷移动到指定批次</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={moveTargetBatchId} onValueChange={setMoveTargetBatchId}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择目标批次" />
+              </SelectTrigger>
+              <SelectContent>
+                {batches.map((batch) => (
+                  <SelectItem key={batch.id} value={batch.id}>
+                    {batch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
             <Button variant="outline" onClick={() => setIsBatchMoveDialogOpen(false)}>取消</Button>
-            <Button onClick={handleBatchMove} disabled={!batchMoveTarget}>确认移动</Button>
+            <Button onClick={handleBatchMove} disabled={!moveTargetBatchId}>确认移动</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clone Rename Dialog */}
+      <Dialog open={isCloneRenameDialogOpen} onOpenChange={setIsCloneRenameDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>克隆试卷</DialogTitle>
+            <DialogDescription>为克隆的试卷命名</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={cloneRenameValue}
+              onChange={(e) => setCloneRenameValue(e.target.value)}
+              placeholder="输入新试卷名称"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCloneRenameDialogOpen(false)}>取消</Button>
+            <Button onClick={handleConfirmClone} disabled={!cloneRenameValue.trim()}>确认克隆</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

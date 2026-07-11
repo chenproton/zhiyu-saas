@@ -7,8 +7,8 @@ import {
   Download,
   FolderKanban,
   GitBranch,
-  LayoutList,
-  ListFilter,
+  List,
+  LayoutGrid,
   Plus,
   RotateCcw,
   Search,
@@ -17,21 +17,18 @@ import {
   Trash2,
   Undo2,
   Upload,
-  UserPlus,
   X,
   ArrowDownFromLine,
   ArrowUpFromLine,
   MessageSquare,
 } from "lucide-react"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useRouter } from "next/navigation"
-import { useState, useMemo } from "react"
-import { ScenarioList } from "@/components/scene/scenarios/scenario-list"
-import { PrdAnnotation } from "@/components/prd-annotation"
-import { getAnnotation } from "@/lib/prd-annotations"
+import { useState, useMemo, useEffect, useCallback } from "react"
+import { ScenarioList, type ScenarioListItem } from "@/components/scene/scenarios/scenario-list"
+import { PageHeaderCard } from "@/components/shared/page-header-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Collapsible,
   CollapsibleContent,
@@ -64,69 +61,104 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-import {
-  professions,
-  scenarios as initialScenarios,
-  batches as initialBatches,
-  approvalWorkflows,
-} from "@/lib/scene-mock-data"
-import type { Scenario } from "@/lib/scene-mock-data"
+import { scenarioApi, sceneBatchApi, workflowApi, taskApi } from "@/lib/api"
+import type { Scenario, SceneBatch } from "@/lib/types/scene"
+import type { Workflow } from "@/lib/types/backend"
 
 const CURRENT_USER_ID = "user-1"
 
 type TabType = "my" | "collab" | "public"
 type ViewMode = "list" | "group"
 
+function generateCode(prefix: string) {
+  return `${prefix}-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`
+}
+
 export default function SceneHallPage() {
   const router = useRouter()
 
-  const [scenarios, setScenarios] = useState<Scenario[]>(initialScenarios)
-  const [localBatches, setLocalBatches] = useState(initialBatches)
+  const [scenarios, setScenarios] = useState<Scenario[]>([])
+  const [batches, setBatches] = useState<SceneBatch[]>([])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [taskCounts, setTaskCounts] = useState<Record<string, number>>({})
+  const [loading, setLoading] = useState(true)
 
   const [activeTab, setActiveTab] = useState<TabType>("my")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
 
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedPositionId, setSelectedPositionId] = useState<string | null>(null)
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [expandedBatches, setExpandedBatches] = useState<string[]>(localBatches.map((b) => b.id))
+  const [expandedBatches, setExpandedBatches] = useState<string[]>([])
 
   // Dialogs
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [createPositionId, setCreatePositionId] = useState<string>("")
-  const [createBatchId, setCreateBatchId] = useState<string>("")
-  const [createPositionTab, setCreatePositionTab] = useState<TabType>("my")
-  const [createPositionSearch, setCreatePositionSearch] = useState("")
-  const [isCreatePositionPopoverOpen, setIsCreatePositionPopoverOpen] = useState(false)
-
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false)
   const [isInnerBatchCreateOpen, setIsInnerBatchCreateOpen] = useState(false)
   const [newBatchName, setNewBatchName] = useState("")
   const [newBatchWorkflow, setNewBatchWorkflow] = useState("")
 
-  const [isApprovalWorkflowDialogOpen, setIsApprovalWorkflowDialogOpen] = useState(false)
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
-  const [importConflictRule, setImportConflictRule] = useState<"overwrite" | "new" | "skip">("overwrite")
   const [isResourceImportDialogOpen, setIsResourceImportDialogOpen] = useState(false)
+  const [isApprovalWorkflowDialogOpen, setIsApprovalWorkflowDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [isBatchMoveDialogOpen, setIsBatchMoveDialogOpen] = useState(false)
+  const [moveTargetBatchId, setMoveTargetBatchId] = useState("")
 
-  const [isRejectReasonDialogOpen, setIsRejectReasonDialogOpen] = useState(false)
-  const [rejectReasonScenario, setRejectReasonScenario] = useState<Scenario | null>(null)
-
-  // Approval dialog for scenarios without batch
-  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false)
-  const [approvalScenario, setApprovalScenario] = useState<Scenario | null>(null)
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>("")
-
-  // Clone rename dialog
   const [isCloneRenameDialogOpen, setIsCloneRenameDialogOpen] = useState(false)
   const [cloneRenameValue, setCloneRenameValue] = useState("")
-  const [cloneTargetScenario, setCloneTargetScenario] = useState<Scenario | null>(null)
+  const [cloneTargetScenario, setCloneTargetScenario] = useState<ScenarioListItem | null>(null)
+
+  const [isRejectReasonDialogOpen, setIsRejectReasonDialogOpen] = useState(false)
+  const [rejectReasonScenario, setRejectReasonScenario] = useState<ScenarioListItem | null>(null)
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [scenariosRes, batchesRes, workflowsRes, tasksRes] = await Promise.all([
+        scenarioApi.list({ limit: 1000 }),
+        sceneBatchApi.list({ limit: 1000 }),
+        workflowApi.list({ limit: 1000 }),
+        taskApi.list({ limit: 10000 }),
+      ])
+      setScenarios(scenariosRes.items)
+      setBatches(batchesRes.items)
+      setWorkflows(workflowsRes.items)
+      setExpandedBatches(batchesRes.items.map((b) => b.id))
+      const counts: Record<string, number> = {}
+      tasksRes.items.forEach((task) => {
+        counts[task.scenarioId] = (counts[task.scenarioId] || 0) + 1
+      })
+      setTaskCounts(counts)
+    } catch (err) {
+      console.error("加载场景数据失败", err)
+      alert("加载场景数据失败，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const scenarioItems = useMemo<ScenarioListItem[]>(() => {
+    return scenarios.map((s) => ({
+      id: s.id,
+      name: s.name,
+      code: s.code,
+      version: s.version,
+      status: s.status,
+      positionName: "-",
+      batchName: s.batchId ? batches.find((b) => b.id === s.batchId)?.name || "-" : "-",
+      creatorName: "-",
+      publishTime: s.publishTime,
+      taskCount: taskCounts[s.id] || 0,
+    }))
+  }, [scenarios, batches, taskCounts])
 
   const toggleBatch = (batchId: string) => {
     setExpandedBatches((prev) =>
@@ -137,36 +169,38 @@ export default function SceneHallPage() {
   const tabFilteredScenarios = useMemo(() => {
     switch (activeTab) {
       case "my":
-        return scenarios.filter((s) => s.creatorId === CURRENT_USER_ID)
+        return scenarioItems.filter((s) => {
+          const backend = scenarios.find((bs) => bs.id === s.id)
+          return backend?.creatorId === CURRENT_USER_ID
+        })
       case "collab":
-        return scenarios.filter((s) => s.coBuilders.some((c) => c.id === CURRENT_USER_ID))
+        return scenarioItems.filter((s) => {
+          const backend = scenarios.find((bs) => bs.id === s.id)
+          return backend?.coBuilderIds?.includes(CURRENT_USER_ID) ?? false
+        })
       case "public":
       default:
-        return scenarios.filter((s) => s.status === "published")
+        return scenarioItems.filter((s) => s.status === "published")
     }
-  }, [scenarios, activeTab])
+  }, [scenarioItems, scenarios, activeTab])
 
   const filteredScenarios = useMemo(() => {
     let result = tabFilteredScenarios
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
-      result = result.filter((s) => {
-        const matchName = s.name.toLowerCase().includes(q)
-        const matchTask = s.tasks.some((t) => t.name.toLowerCase().includes(q))
-        return matchName || matchTask
-      })
-    }
-    if (selectedPositionId) {
-      result = result.filter((s) => s.positionId === selectedPositionId)
+      result = result.filter((s) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
     }
     if (selectedBatchId) {
-      result = result.filter((s) => s.batchId === selectedBatchId)
+      result = result.filter((s) => {
+        const backend = scenarios.find((bs) => bs.id === s.id)
+        return backend?.batchId === selectedBatchId
+      })
     }
     if (selectedStatus) {
       result = result.filter((s) => s.status === selectedStatus)
     }
     return result
-  }, [tabFilteredScenarios, searchQuery, selectedPositionId, selectedBatchId, selectedStatus])
+  }, [tabFilteredScenarios, searchQuery, selectedBatchId, selectedStatus, scenarios])
 
   const stats = useMemo(() => {
     const total = filteredScenarios.length
@@ -179,64 +213,25 @@ export default function SceneHallPage() {
 
   const scenariosByBatch = useMemo(() => {
     if (viewMode !== "group") return null
-    const groups: Record<string, Scenario[]> = {}
+    const groups: Record<string, ScenarioListItem[]> = {}
     filteredScenarios.forEach((s) => {
-      if (!s.batchId) return
-      if (!groups[s.batchId]) groups[s.batchId] = []
-      groups[s.batchId].push(s)
+      const backend = scenarios.find((bs) => bs.id === s.id)
+      const batchId = backend?.batchId
+      if (!batchId) return
+      if (!groups[batchId]) groups[batchId] = []
+      groups[batchId].push(s)
     })
     return groups
-  }, [filteredScenarios, viewMode])
+  }, [filteredScenarios, viewMode, scenarios])
 
   const uncategorizedScenarios = useMemo(
-    () => filteredScenarios.filter((s) => !s.batchId && s.status === "draft"),
-    [filteredScenarios]
+    () =>
+      filteredScenarios.filter((s) => {
+        const backend = scenarios.find((bs) => bs.id === s.id)
+        return !backend?.batchId && s.status === "draft"
+      }),
+    [filteredScenarios, scenarios]
   )
-
-  const openBatches = localBatches
-
-  const allPositions = useMemo(() => {
-    return professions.flatMap((prof) =>
-      prof.positions.map((pos) => ({ ...pos, professionName: prof.name, professionId: prof.id }))
-    )
-  }, [])
-
-  const filteredPositions = useMemo(() => {
-    let result = allPositions
-    if (createPositionSearch.trim()) {
-      const q = createPositionSearch.toLowerCase()
-      result = result.filter(
-        (p) => p.name.toLowerCase().includes(q) || p.professionName.toLowerCase().includes(q)
-      )
-    }
-    return result
-  }, [allPositions, createPositionSearch])
-
-  const selectedPositionForCreate = allPositions.find((p) => p.id === createPositionId)
-
-  const getPositionProfession = (positionId: string) => {
-    for (const prof of professions) {
-      const pos = prof.positions.find((p) => p.id === positionId)
-      if (pos) return prof
-    }
-    return null
-  }
-
-  const handleSelectPositionForCreate = (posId: string) => {
-    setCreatePositionId(posId)
-    setIsCreatePositionPopoverOpen(false)
-  }
-
-  const handleOpenCreateDialog = () => {
-    setIsCreateDialogOpen(true)
-  }
-
-  const handleProceedToEditor = () => {
-    const params = new URLSearchParams()
-    if (createPositionId) params.set("positionId", createPositionId)
-    if (createBatchId) params.set("batchId", createBatchId)
-    router.push(`/scenarios/new/edit?${params.toString()}`)
-  }
 
   const handleSelectId = (id: string, checked: boolean) => {
     setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((sid) => sid !== id)))
@@ -250,76 +245,115 @@ export default function SceneHallPage() {
     }
   }
 
-  const selectedScenarios = scenarios.filter((s) => selectedIds.includes(s.id))
+  const selectedScenarios = useMemo(
+    () => scenarios.filter((s) => selectedIds.includes(s.id)),
+    [scenarios, selectedIds]
+  )
 
-  const handleBatchSubmitApproval = () => {
-    setScenarios((prev) =>
-      prev.map((s) =>
-        selectedIds.includes(s.id) && (s.status === "draft" || s.status === "rejected")
-          ? { ...s, status: "pending" as const }
-          : s
-      )
-    )
-    setSelectedIds([])
+  const hasSelected = selectedIds.length > 0
+
+  const canBatchSubmit = selectedScenarios.some((s) => s.status === "draft" || s.status === "rejected")
+  const canBatchWithdraw = selectedScenarios.some((s) => s.status === "pending")
+  const canBatchUnpublish = selectedScenarios.some((s) => s.status === "published")
+  const canBatchPublish = selectedScenarios.some((s) => s.status === "approved")
+  const canBatchDelete = selectedScenarios.some((s) => s.status === "draft" || s.status === "rejected")
+
+  const refresh = async () => {
+    await loadData()
   }
 
-  const handleBatchWithdrawApproval = () => {
-    setScenarios((prev) =>
-      prev.map((s) =>
-        selectedIds.includes(s.id) && s.status === "pending"
-          ? { ...s, status: "draft" as const }
-          : s
-      )
-    )
+  const handleBatchSubmitApproval = async () => {
+    for (const scenario of selectedScenarios) {
+      if (scenario.status === "draft" || scenario.status === "rejected") {
+        try {
+          await scenarioApi.submit(scenario.id)
+        } catch (err) {
+          console.error("提交审批失败", err)
+        }
+      }
+    }
     setSelectedIds([])
+    await refresh()
   }
 
-  const handleBatchUnpublish = () => {
-    setScenarios((prev) =>
-      prev.map((s) =>
-        selectedIds.includes(s.id) && s.status === "published"
-          ? { ...s, status: "draft" as const, publishTime: undefined }
-          : s
-      )
-    )
+  const handleBatchWithdrawApproval = async () => {
+    for (const scenario of selectedScenarios) {
+      if (scenario.status === "pending") {
+        try {
+          await scenarioApi.update(scenario.id, { status: "draft" })
+        } catch (err) {
+          console.error("撤回审批失败", err)
+        }
+      }
+    }
     setSelectedIds([])
+    await refresh()
   }
 
-  const handleBatchPublish = () => {
-    setScenarios((prev) =>
-      prev.map((s) =>
-        selectedIds.includes(s.id) && s.status === "approved"
-          ? { ...s, status: "published" as const, publishTime: new Date().toISOString().replace("T", " ").slice(0, 19) }
-          : s
-      )
-    )
+  const handleBatchUnpublish = async () => {
+    for (const scenario of selectedScenarios) {
+      if (scenario.status === "published") {
+        try {
+          await scenarioApi.update(scenario.id, { status: "draft" })
+        } catch (err) {
+          console.error("取消发布失败", err)
+        }
+      }
+    }
     setSelectedIds([])
+    await refresh()
   }
 
-  const handleBatchDelete = () => {
-    setScenarios((prev) => prev.filter((s) => !selectedIds.includes(s.id)))
+  const handleBatchPublish = async () => {
+    for (const scenario of selectedScenarios) {
+      if (scenario.status === "approved") {
+        try {
+          await scenarioApi.publish(scenario.id)
+        } catch (err) {
+          console.error("发布失败", err)
+        }
+      }
+    }
     setSelectedIds([])
+    await refresh()
   }
 
-  const handleBatchClone = () => {
-    const toClone = scenarios.filter((s) => selectedIds.includes(s.id))
-    const newScenarios = toClone.map((scenario) => ({
-      ...scenario,
-      id: `scenario-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      code: `SC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
-      name: `${scenario.name} (克隆)`,
-      status: "draft" as const,
-      version: "v1.0",
-      tasks: scenario.tasks.map((t) => ({
-        ...t,
-        id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        code: `T-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 100)}`,
-      })),
-      createdAt: new Date().toISOString().split("T")[0],
-      updatedAt: new Date().toISOString().split("T")[0],
-    }))
-    setScenarios((prev) => [...prev, ...newScenarios])
+  const handleBatchDelete = async () => {
+    for (const scenario of selectedScenarios) {
+      try {
+        await scenarioApi.delete(scenario.id)
+      } catch (err) {
+        console.error("删除失败", err)
+      }
+    }
     setSelectedIds([])
+    await refresh()
+  }
+
+  const handleBatchClone = async () => {
+    for (const scenario of selectedScenarios) {
+      try {
+        await scenarioApi.create({
+          name: `${scenario.name} (克隆)`,
+          code: generateCode("SC"),
+          status: "draft",
+          version: "V1.0",
+          difficulty: scenario.difficulty || 1,
+          creatorId: CURRENT_USER_ID,
+          coBuilderIds: [CURRENT_USER_ID],
+          batchId: scenario.batchId,
+          careerPositionId: scenario.careerPositionId,
+          industryId: scenario.industryId,
+          professionId: scenario.professionId,
+          background: scenario.background,
+          deliveryGoal: scenario.deliveryGoal,
+        })
+      } catch (err) {
+        console.error("克隆失败", err)
+      }
+    }
+    setSelectedIds([])
+    await refresh()
   }
 
   const handleBatchExport = () => {
@@ -331,113 +365,141 @@ export default function SceneHallPage() {
     setIsBatchMoveDialogOpen(true)
   }
 
-  const handleClone = (scenario: Scenario) => {
+  const handleConfirmMove = async () => {
+    if (!moveTargetBatchId) return
+    for (const scenario of selectedScenarios) {
+      try {
+        await scenarioApi.update(scenario.id, { batchId: moveTargetBatchId })
+      } catch (err) {
+        console.error("调整批次失败", err)
+      }
+    }
+    setSelectedIds([])
+    setIsBatchMoveDialogOpen(false)
+    setMoveTargetBatchId("")
+    await refresh()
+  }
+
+  const handleClone = (scenario: ScenarioListItem) => {
     setCloneTargetScenario(scenario)
     setCloneRenameValue(`${scenario.name} (克隆)`)
     setIsCloneRenameDialogOpen(true)
   }
 
-  const handleConfirmClone = () => {
+  const handleConfirmClone = async () => {
     if (!cloneTargetScenario) return
-    const newScenario: Scenario = {
-      ...cloneTargetScenario,
-      id: `scenario-${Date.now()}`,
-      code: `SC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
-      name: cloneRenameValue,
-      status: "draft",
-      version: "v1.0",
-      tasks: cloneTargetScenario.tasks.map((t) => ({
-        ...t,
-        id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        code: `T-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 100)}`,
-      })),
-      createdAt: new Date().toISOString().split("T")[0],
-      updatedAt: new Date().toISOString().split("T")[0],
+    const backend = scenarios.find((s) => s.id === cloneTargetScenario.id)
+    try {
+      await scenarioApi.create({
+        name: cloneRenameValue,
+        code: generateCode("SC"),
+        status: "draft",
+        version: "V1.0",
+        difficulty: backend?.difficulty || 1,
+        creatorId: CURRENT_USER_ID,
+        coBuilderIds: [CURRENT_USER_ID],
+        batchId: backend?.batchId,
+        careerPositionId: backend?.careerPositionId,
+        industryId: backend?.industryId,
+        professionId: backend?.professionId,
+        background: backend?.background,
+        deliveryGoal: backend?.deliveryGoal,
+      })
+      setIsCloneRenameDialogOpen(false)
+      setCloneTargetScenario(null)
+      setCloneRenameValue("")
+      await refresh()
+    } catch (err) {
+      console.error("克隆失败", err)
+      alert("克隆失败，请稍后重试")
     }
-    setScenarios((prev) => [...prev, newScenario])
-    setIsCloneRenameDialogOpen(false)
-    setCloneTargetScenario(null)
-    setCloneRenameValue("")
   }
 
-  const handleDelete = (scenario: Scenario) => {
-    setScenarios((prev) => prev.filter((s) => s.id !== scenario.id))
+  const handleDelete = async (scenario: ScenarioListItem) => {
+    if (confirm(`确定要删除场景「${scenario.name}」吗？`)) {
+      try {
+        await scenarioApi.delete(scenario.id)
+        await refresh()
+      } catch (err) {
+        console.error("删除失败", err)
+        alert("删除失败，请稍后重试")
+      }
+    }
   }
 
-  const handleInviteCoBuild = (scenario: Scenario) => {
+  const handleSubmitApproval = async (scenario: ScenarioListItem) => {
+    try {
+      await scenarioApi.submit(scenario.id)
+      await refresh()
+    } catch (err) {
+      console.error("提交审批失败", err)
+      alert("提交审批失败，请稍后重试")
+    }
+  }
+
+  const handleWithdrawApproval = async (scenario: ScenarioListItem) => {
+    try {
+      await scenarioApi.update(scenario.id, { status: "draft" })
+      await refresh()
+    } catch (err) {
+      console.error("撤回审批失败", err)
+      alert("撤回审批失败，请稍后重试")
+    }
+  }
+
+  const handleInviteCoBuild = (scenario: ScenarioListItem) => {
     alert(`邀请共建功能开发中，已记录对场景「${scenario.name}」的共建意向。`)
   }
 
-  const handleSubmitApproval = (scenario: Scenario) => {
-    if (scenario.batchId) {
-      setScenarios((prev) =>
-        prev.map((s) => (s.id === scenario.id ? { ...s, status: "pending" as const } : s))
-      )
-    } else {
-      setApprovalScenario(scenario)
-      setSelectedWorkflowId("")
-      setIsApprovalDialogOpen(true)
-    }
-  }
-
-  const handleConfirmApproval = () => {
-    if (!approvalScenario || !selectedWorkflowId) return
-    setScenarios((prev) =>
-      prev.map((s) => (s.id === approvalScenario.id ? { ...s, status: "pending" as const } : s))
-    )
-    setIsApprovalDialogOpen(false)
-    setApprovalScenario(null)
-    setSelectedWorkflowId("")
-  }
-
-  const handleWithdrawApproval = (scenario: Scenario) => {
-    setScenarios((prev) =>
-      prev.map((s) => (s.id === scenario.id ? { ...s, status: "draft" as const } : s))
-    )
-  }
-
-  const handleViewRejectReason = (scenario: Scenario) => {
+  const handleViewRejectReason = (scenario: ScenarioListItem) => {
     setRejectReasonScenario(scenario)
     setIsRejectReasonDialogOpen(true)
   }
 
-  const handleAddBatch = () => {
+  const handleAddBatch = async () => {
     if (!newBatchName || !newBatchWorkflow) return
-    const newBatch = {
-      id: `batch-${Date.now()}`,
-      name: newBatchName,
-      code: Array.from({ length: 6 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 36)]).join(""),
-      departmentId: "",
-      departmentName: "",
-      workflowId: newBatchWorkflow,
-      workflowName: approvalWorkflows.find((w) => w.id === newBatchWorkflow)?.name || "",
-      status: "open" as const,
-      scenarioCount: 0,
-      createdAt: new Date().toISOString().split("T")[0],
+    try {
+      await sceneBatchApi.create({
+        name: newBatchName,
+        code: generateCode("BG"),
+        workflowId: newBatchWorkflow,
+        status: "open",
+      })
+      setNewBatchName("")
+      setNewBatchWorkflow("")
+      setIsInnerBatchCreateOpen(false)
+      await refresh()
+    } catch (err) {
+      console.error("创建批次失败", err)
+      alert("创建批次失败，请稍后重试")
     }
-    setLocalBatches((prev) => [...prev, newBatch])
-    setNewBatchName("")
-    setNewBatchWorkflow("")
-    setIsInnerBatchCreateOpen(false)
   }
 
   const handleResetFilters = () => {
     setSearchQuery("")
-    setSelectedPositionId(null)
     setSelectedBatchId(null)
     setSelectedStatus(null)
   }
 
-  const hasSelected = selectedIds.length > 0
+  const handleCreate = async () => {
+    try {
+      const newScenario = await scenarioApi.create({
+        name: "新建场景",
+        code: generateCode("SC"),
+        status: "draft",
+        version: "V1.0",
+        difficulty: 1,
+        creatorId: CURRENT_USER_ID,
+        coBuilderIds: [CURRENT_USER_ID],
+      })
+      router.push(`/scene/scenarios/${newScenario.id}/edit`)
+    } catch (err) {
+      console.error("创建场景失败", err)
+      alert("创建场景失败，请稍后重试")
+    }
+  }
 
-  const canBatchSubmit = selectedScenarios.some((s) => s.status === "draft" || s.status === "rejected")
-  const canBatchWithdraw = selectedScenarios.some((s) => s.status === "pending")
-  const canBatchUnpublish = selectedScenarios.some((s) => s.status === "published")
-  const canBatchPublish = selectedScenarios.some((s) => s.status === "approved")
-  const canBatchDelete = selectedScenarios.some((s) => s.status === "draft" || s.status === "rejected")
-
-  const getRejectReason = (scenario: Scenario) => {
-    // 模拟驳回原因，实际项目中应从审批记录中获取
+  const getRejectReason = (scenario: ScenarioListItem) => {
     if (scenario.id === "scenario-3") {
       return "场景任务链不完整，缺少数据清洗环节，请补充后再提交。"
     }
@@ -447,47 +509,33 @@ export default function SceneHallPage() {
   return (
     <div className="space-y-6">
       {/* ===== Part 1: Top Title Card ===== */}
-      <Card className="border-slate-200 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <PrdAnnotation data={getAnnotation("scene-management-title")}>
-              <div>
-                <h1 className="text-xl font-semibold text-slate-900">场景模板管理</h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  维护场景信息、任务信息等场景模板管理功能，开课后自动归档至历史档案库
-                </p>
-              </div>
-            </PrdAnnotation>
+      <PageHeaderCard
+        title="场景模板管理"
+        description="维护场景信息、任务信息等场景模板管理功能"
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setIsApprovalWorkflowDialogOpen(true)}>
+              <GitBranch className="mr-2 h-4 w-4" />
+              配置审批流程
+            </Button>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <PrdAnnotation data={getAnnotation("config-approval-workflow")}>
-                <Button variant="outline" size="sm" onClick={() => setIsApprovalWorkflowDialogOpen(true)}>
-                  <GitBranch className="mr-2 h-4 w-4" />
-                  配置审批流程
+            <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FolderKanban className="mr-2 h-4 w-4" />
+                  配置批次分组
                 </Button>
-              </PrdAnnotation>
-
-              <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
-                <PrdAnnotation data={getAnnotation("config-batch-group")}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <FolderKanban className="mr-2 h-4 w-4" />
-                      配置批次分组
-                    </Button>
-                  </DialogTrigger>
-                </PrdAnnotation>
-                <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
-                  <DialogHeader>
-                    <PrdAnnotation data={getAnnotation("dialog-batch-management")}>
-                      <div>
-                        <DialogTitle>批次分组管理</DialogTitle>
-                        <DialogDescription>管理场景建设批次分组，关联审批流程</DialogDescription>
-                      </div>
-                    </PrdAnnotation>
-                  </DialogHeader>
-                  <div className="flex-1 overflow-y-auto py-4 space-y-4">
-                    <div className="flex justify-end">
-                      <Dialog open={isInnerBatchCreateOpen} onOpenChange={setIsInnerBatchCreateOpen}>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+                <DialogHeader>
+                  <div>
+                    <DialogTitle>批次分组管理</DialogTitle>
+                    <DialogDescription>管理场景建设批次分组，关联审批流程</DialogDescription>
+                  </div>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                  <div className="flex justify-end">
+                    <Dialog open={isInnerBatchCreateOpen} onOpenChange={setIsInnerBatchCreateOpen}>
                       <DialogTrigger asChild>
                         <Button size="sm">
                           <Plus className="mr-2 h-4 w-4" />
@@ -496,12 +544,10 @@ export default function SceneHallPage() {
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-[500px]">
                         <DialogHeader>
-                          <PrdAnnotation data={getAnnotation("dialog-batch-create")}>
-                            <div>
-                              <DialogTitle>新增批次</DialogTitle>
-                              <DialogDescription>创建新的场景建设批次分组，并关联审批流程。</DialogDescription>
-                            </div>
-                          </PrdAnnotation>
+                          <div>
+                            <DialogTitle>新增批次</DialogTitle>
+                            <DialogDescription>创建新的场景建设批次分组，并关联审批流程。</DialogDescription>
+                          </div>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                           <div className="grid gap-2">
@@ -517,7 +563,7 @@ export default function SceneHallPage() {
                             <Label htmlFor="batchCode">批次编号</Label>
                             <Input
                               id="batchCode"
-                              value={`BG-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`}
+                              value={generateCode("BG")}
                               disabled
                               className="bg-gray-50 text-gray-500"
                             />
@@ -530,11 +576,11 @@ export default function SceneHallPage() {
                                 <SelectValue placeholder="选择审批流程" />
                               </SelectTrigger>
                               <SelectContent>
-                                {approvalWorkflows.map((wf) => (
+                                {workflows.map((wf) => (
                                   <SelectItem key={wf.id} value={wf.id}>
                                     <span className="inline-flex items-center">
                                       <span>{wf.name}</span>
-                                      <span className="text-xs text-gray-400 ml-2">({wf.steps.length}步)</span>
+                                      <span className="text-xs text-gray-400 ml-2">({wf.steps?.length ?? 0}步)</span>
                                     </span>
                                   </SelectItem>
                                 ))}
@@ -550,176 +596,112 @@ export default function SceneHallPage() {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
-                    </div>
-                    <div className="rounded-lg border overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>分组名称</TableHead>
-                            <TableHead>批次编号</TableHead>
-                            <TableHead>审批流程</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {localBatches.map((batch) => (
-                            <TableRow key={batch.id}>
-                              <TableCell className="font-medium text-sm">{batch.name}</TableCell>
-                              <TableCell className="text-sm text-gray-500">{batch.code}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="text-xs">
-                                  {batch.workflowName || "-"}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
                   </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsBatchDialogOpen(false)}>关闭</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>分组名称</TableHead>
+                          <TableHead>批次编号</TableHead>
+                          <TableHead>审批流程</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {batches.map((batch) => (
+                          <TableRow key={batch.id}>
+                            <TableCell className="font-medium text-sm">{batch.name}</TableCell>
+                            <TableCell className="text-sm text-gray-500">{batch.code || batch.id.slice(0, 12)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {workflows.find((w) => w.id === batch.workflowId)?.name || "-"}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsBatchDialogOpen(false)}>关闭</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
-              <PrdAnnotation data={getAnnotation("import-resource-package")}>
-                <Button variant="outline" size="sm" onClick={() => setIsResourceImportDialogOpen(true)}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  导入资源包
-                </Button>
-              </PrdAnnotation>
+            <Button variant="outline" size="sm" onClick={() => setIsResourceImportDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              导入资源包
+            </Button>
 
-              <PrdAnnotation data={getAnnotation("import-scenario")}>
-                <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  导入场景
-                </Button>
-              </PrdAnnotation>
+            <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              导入场景
+            </Button>
 
-              <PrdAnnotation data={getAnnotation("create-scenario")}>
-                <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => router.push('/scenarios/new/edit')}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  新建场景
-                </Button>
-              </PrdAnnotation>
-            </div>
-          </div>
-
-          {/* Stats dashboard - hidden in public tab */}
-          {activeTab !== "public" && (
-            <div className="grid grid-cols-5 gap-3 mt-3">
-              <PrdAnnotation data={getAnnotation("stat-total")}>
-                <Card className="border-slate-200 shadow-sm w-full">
-                  <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                    <div className="leading-none">
-                      <p className="text-xs text-slate-500 leading-none">场景总数</p>
-                      <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.total}</p>
-                    </div>
-                    <div className="h-6 w-6 rounded-full bg-blue-50 flex items-center justify-center">
-                      <SlidersHorizontal className="h-3 w-3 text-blue-500" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </PrdAnnotation>
-              <PrdAnnotation data={getAnnotation("stat-draft")}>
-                <Card className="border-slate-200 shadow-sm w-full">
-                  <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                    <div className="leading-none">
-                      <p className="text-xs text-slate-500 leading-none">未提交</p>
-                      <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.draft}</p>
-                    </div>
-                    <div className="h-6 w-6 rounded-full bg-gray-50 flex items-center justify-center">
-                      <RotateCcw className="h-3 w-3 text-gray-500" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </PrdAnnotation>
-              <PrdAnnotation data={getAnnotation("stat-pending")}>
-                <Card className="border-slate-200 shadow-sm w-full">
-                  <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                    <div className="leading-none">
-                      <p className="text-xs text-slate-500 leading-none">审批中</p>
-                      <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.pending}</p>
-                    </div>
-                    <div className="h-6 w-6 rounded-full bg-yellow-50 flex items-center justify-center">
-                      <GitBranch className="h-3 w-3 text-yellow-500" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </PrdAnnotation>
-              <PrdAnnotation data={getAnnotation("stat-rejected")}>
-                <Card className="border-slate-200 shadow-sm w-full">
-                  <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                    <div className="leading-none">
-                      <p className="text-xs text-slate-500 leading-none">已驳回</p>
-                      <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.rejected}</p>
-                    </div>
-                    <div className="h-6 w-6 rounded-full bg-red-50 flex items-center justify-center">
-                      <X className="h-3 w-3 text-red-500" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </PrdAnnotation>
-              <PrdAnnotation data={getAnnotation("stat-published")}>
-                <Card className="border-slate-200 shadow-sm w-full">
-                  <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                    <div className="leading-none">
-                      <p className="text-xs text-slate-500 leading-none">已发布</p>
-                      <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.published}</p>
-                    </div>
-                    <div className="h-6 w-6 rounded-full bg-green-50 flex items-center justify-center">
-                      <ArrowUpFromLine className="h-3 w-3 text-green-500" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </PrdAnnotation>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              新建场景
+            </Button>
+          </>
+        }
+        stats={
+          activeTab !== "public"
+            ? [
+                {
+                  label: "场景总数",
+                  value: stats.total,
+                  icon: <SlidersHorizontal className="h-3 w-3 text-blue-500" />,
+                  iconClassName: "bg-blue-50",
+                },
+                {
+                  label: "未提交",
+                  value: stats.draft,
+                  icon: <RotateCcw className="h-3 w-3 text-gray-500" />,
+                  iconClassName: "bg-gray-50",
+                },
+                {
+                  label: "审批中",
+                  value: stats.pending,
+                  icon: <GitBranch className="h-3 w-3 text-yellow-500" />,
+                  iconClassName: "bg-yellow-50",
+                },
+                {
+                  label: "已驳回",
+                  value: stats.rejected,
+                  icon: <X className="h-3 w-3 text-red-500" />,
+                  iconClassName: "bg-red-50",
+                },
+                {
+                  label: "已发布",
+                  value: stats.published,
+                  icon: <ArrowUpFromLine className="h-3 w-3 text-green-500" />,
+                  iconClassName: "bg-green-50",
+                },
+              ]
+            : undefined
+        }
+      />
 
       {/* ===== Part 2: View Switch Area ===== */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as TabType); setSelectedIds([]); setSelectedPositionId(null); setSelectedBatchId(null) }}>
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as TabType); setSelectedIds([]); setSelectedBatchId(null) }}>
           <TabsList className="grid w-full max-w-md grid-cols-3">
-            <PrdAnnotation data={getAnnotation("tab-my")} className="flex-1">
-              <TabsTrigger value="my" className="w-full">我的场景</TabsTrigger>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("tab-collab")} className="flex-1">
-              <TabsTrigger value="collab" className="w-full">共建场景</TabsTrigger>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("tab-public")} className="flex-1">
-              <TabsTrigger value="public" className="w-full">公共场景</TabsTrigger>
-            </PrdAnnotation>
+            <TabsTrigger value="my" className="w-full">我的场景</TabsTrigger>
+            <TabsTrigger value="collab" className="w-full">共建场景</TabsTrigger>
+            <TabsTrigger value="public" className="w-full">公共场景</TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <div className="flex items-center border rounded-md overflow-hidden">
-          <PrdAnnotation data={getAnnotation("view-list")}>
-            <button
-              onClick={() => setViewMode("list")}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium flex items-center gap-1 transition-colors",
-                viewMode === "list" ? "bg-primary text-primary-foreground" : "bg-white text-slate-600 hover:bg-slate-50"
-              )}
-            >
-              <LayoutList className="h-3.5 w-3.5" />
-              资源列表
-            </button>
-          </PrdAnnotation>
-          <PrdAnnotation data={getAnnotation("view-group")}>
-            <button
-              onClick={() => setViewMode("group")}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium flex items-center gap-1 transition-colors",
-                viewMode === "group" ? "bg-primary text-primary-foreground" : "bg-white text-slate-600 hover:bg-slate-50"
-              )}
-            >
-              <ListFilter className="h-3.5 w-3.5" />
-              批次分组
-            </button>
-          </PrdAnnotation>
-        </div>
+        <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
+          <ToggleGroupItem value="list" aria-label="资源列表">
+            <List className="h-4 w-4" />
+            <span className="ml-1.5">资源列表</span>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="group" aria-label="批次分组">
+            <LayoutGrid className="h-4 w-4" />
+            <span className="ml-1.5">批次分组</span>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {/* ===== Part 3: Data List Area ===== */}
@@ -727,133 +709,91 @@ export default function SceneHallPage() {
         <CardContent className="flex flex-col gap-4 p-5">
           {/* Search + Filter row */}
           <div className="flex flex-wrap items-center gap-3">
-            <PrdAnnotation data={getAnnotation("search-box")} className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[200px]">
               <div className="flex items-center gap-2 w-full">
                 <Search className="h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="搜索场景名称 / 任务名称"
+                  placeholder="搜索场景名称 / 场景编码"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-9 text-sm flex-1"
                 />
               </div>
-            </PrdAnnotation>
-            <div className="flex items-center gap-2">
-              <PrdAnnotation data={getAnnotation("filter-position")}>
-                <Select value={selectedPositionId || "__all__"} onValueChange={(v) => setSelectedPositionId(v === "__all__" ? null : v)}>
-                  <SelectTrigger className="h-9 text-sm w-44">
-                    <SelectValue placeholder="按岗位筛选" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">全部岗位</SelectItem>
-                    {professions.map((prof) => (
-                      <div key={prof.id}>
-                        <div className="px-2 py-1 text-xs font-medium text-gray-500 bg-gray-50">{prof.name}</div>
-                        {prof.positions.map((pos) => (
-                          <SelectItem key={pos.id} value={pos.id}>{pos.name}</SelectItem>
-                        ))}
-                      </div>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </PrdAnnotation>
-              <PrdAnnotation data={getAnnotation("filter-batch")}>
-                <Select value={selectedBatchId || "__all__"} onValueChange={(v) => setSelectedBatchId(v === "__all__" ? null : v)}>
-                  <SelectTrigger className="h-9 text-sm w-44">
-                    <SelectValue placeholder="按批次分组筛选" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">全部批次</SelectItem>
-                    {localBatches.map((batch) => (
-                      <SelectItem key={batch.id} value={batch.id}>
-                        <span className="flex items-center gap-2">
-                          {batch.name}
-                          <span className="text-xs text-gray-400">({batch.code})</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </PrdAnnotation>
-              <PrdAnnotation data={getAnnotation("filter-status")}>
-                <Select value={selectedStatus || "__all__"} onValueChange={(v) => setSelectedStatus(v === "__all__" ? null : v)}>
-                  <SelectTrigger className="h-9 text-sm w-36">
-                    <SelectValue placeholder="按状态筛选" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">全部状态</SelectItem>
-                    <SelectItem value="draft">草稿</SelectItem>
-                    <SelectItem value="pending">审批中</SelectItem>
-                    <SelectItem value="approved">已通过</SelectItem>
-                    <SelectItem value="rejected">已驳回</SelectItem>
-                    <SelectItem value="published">已发布</SelectItem>
-                  </SelectContent>
-                </Select>
-              </PrdAnnotation>
             </div>
-            <PrdAnnotation data={getAnnotation("filter-reset")}>
-              <Button variant="outline" size="sm" className="h-9" onClick={handleResetFilters}>
-                <RotateCcw className="mr-1 h-3.5 w-3.5" />
-                重置
-              </Button>
-            </PrdAnnotation>
+            <div className="flex items-center gap-2">
+              <Select value={selectedBatchId || "__all__"} onValueChange={(v) => setSelectedBatchId(v === "__all__" ? null : v)}>
+                <SelectTrigger className="h-9 text-sm w-44">
+                  <SelectValue placeholder="按批次筛选" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">全部批次</SelectItem>
+                  {batches.map((batch) => (
+                    <SelectItem key={batch.id} value={batch.id}>
+                      <span className="flex items-center gap-2">
+                        {batch.name}
+                        <span className="text-xs text-gray-400">({batch.code || batch.id.slice(0, 8)})</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedStatus || "__all__"} onValueChange={(v) => setSelectedStatus(v === "__all__" ? null : v)}>
+                <SelectTrigger className="h-9 text-sm w-36">
+                  <SelectValue placeholder="按状态筛选" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">全部状态</SelectItem>
+                  <SelectItem value="draft">草稿</SelectItem>
+                  <SelectItem value="pending">审批中</SelectItem>
+                  <SelectItem value="approved">已通过</SelectItem>
+                  <SelectItem value="rejected">已驳回</SelectItem>
+                  <SelectItem value="published">已发布</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" size="sm" className="h-9" onClick={handleResetFilters}>
+              <RotateCcw className="mr-1 h-3.5 w-3.5" />
+              重置
+            </Button>
           </div>
 
           {/* Quick actions - linked with checkboxes */}
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-            <PrdAnnotation data={getAnnotation("batch-selection-hint")}>
-              <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
-                {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择场景："}
-              </span>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("batch-submit")}>
-              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
-                <Send className="mr-1 h-3 w-3" />
-                提交审批
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("batch-withdraw")}>
-              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
-                <Undo2 className="mr-1 h-3 w-3" />
-                撤回审批
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("batch-publish")}>
-              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
-                <ArrowUpFromLine className="mr-1 h-3 w-3" />
-                发布
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("batch-unpublish")}>
-              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
-                <ArrowDownFromLine className="mr-1 h-3 w-3" />
-                取消发布
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("batch-delete")}>
-              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
-                <Trash2 className="mr-1 h-3 w-3" />
-                删除
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("batch-clone")}>
-              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchClone}>
-                <Copy className="mr-1 h-3 w-3" />
-                克隆
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("batch-move")}>
-              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchMove}>
-                <FolderKanban className="mr-1 h-3 w-3" />
-                调整批次分组
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("batch-export")}>
-              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchExport}>
-                <Download className="mr-1 h-3 w-3" />
-                导出
-              </Button>
-            </PrdAnnotation>
+            <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
+              {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择场景："}
+            </span>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
+              <Send className="mr-1 h-3 w-3" />
+              提交审批
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
+              <Undo2 className="mr-1 h-3 w-3" />
+              撤回审批
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
+              <ArrowUpFromLine className="mr-1 h-3 w-3" />
+              发布
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
+              <ArrowDownFromLine className="mr-1 h-3 w-3" />
+              取消发布
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchClone}>
+              <Copy className="mr-1 h-3 w-3" />
+              克隆
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchMove}>
+              <FolderKanban className="mr-1 h-3 w-3" />
+              调整批次分组
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchExport}>
+              <Download className="mr-1 h-3 w-3" />
+              导出
+            </Button>
           </div>
         </CardContent>
 
@@ -871,6 +811,7 @@ export default function SceneHallPage() {
               onWithdrawApproval={handleWithdrawApproval}
               onViewRejectReason={handleViewRejectReason}
               onInviteCoBuild={handleInviteCoBuild}
+              basePath="/scene/scenarios"
               className="border-0 rounded-none"
             />
           </CardContent>
@@ -881,7 +822,7 @@ export default function SceneHallPage() {
       {filteredScenarios.length > 0 && viewMode === "group" && scenariosByBatch && (
         <div className="space-y-4">
           {Object.entries(scenariosByBatch).map(([batchId, batchScenarios]) => {
-            const batch = localBatches.find((b) => b.id === batchId)
+            const batch = batches.find((b) => b.id === batchId)
             if (!batch) return null
             const isExpanded = expandedBatches.includes(batchId)
 
@@ -897,7 +838,7 @@ export default function SceneHallPage() {
                           <ChevronRight className="h-4 w-4 text-gray-400" />
                         )}
                         <span className="font-medium text-gray-800">{batch.name}</span>
-                        <span className="text-xs text-gray-400">({batch.code})</span>
+                        <span className="text-xs text-gray-400">({batch.code || batch.id.slice(0, 8)})</span>
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         {batchScenarios.length} 个场景
@@ -917,6 +858,7 @@ export default function SceneHallPage() {
                         onWithdrawApproval={handleWithdrawApproval}
                         onViewRejectReason={handleViewRejectReason}
                         onInviteCoBuild={handleInviteCoBuild}
+                        basePath="/scene/scenarios"
                       />
                     </div>
                   </CollapsibleContent>
@@ -946,6 +888,7 @@ export default function SceneHallPage() {
                   onWithdrawApproval={handleWithdrawApproval}
                   onViewRejectReason={handleViewRejectReason}
                   onInviteCoBuild={handleInviteCoBuild}
+                  basePath="/scene/scenarios"
                 />
               </div>
             </div>
@@ -953,103 +896,32 @@ export default function SceneHallPage() {
         </div>
       )}
 
-      {filteredScenarios.length === 0 && (
+      {filteredScenarios.length === 0 && !loading && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
             <Search className="h-8 w-8 text-slate-400" />
           </div>
           <h3 className="mb-2 text-lg font-medium text-slate-700">暂无场景</h3>
           <p className="mb-4 text-sm text-slate-500">当前筛选条件下没有实践场景</p>
-          <Button size="sm" onClick={handleOpenCreateDialog}>
+          <Button size="sm" onClick={handleCreate}>
             <Plus className="mr-2 h-4 w-4" />
             新建场景
           </Button>
         </div>
       )}
 
-      {/* Approval workflow selection dialog */}
-      <Dialog open={isApprovalDialogOpen} onOpenChange={setIsApprovalDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <PrdAnnotation data={getAnnotation("dialog-approval-select")}>
-              <div>
-                <DialogTitle>选择审批流程</DialogTitle>
-                <DialogDescription>
-                  当前场景未关联批次，请手动选择一个审批流程。
-                </DialogDescription>
-              </div>
-            </PrdAnnotation>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="workflowSelect">审批流程</Label>
-              <Select value={selectedWorkflowId} onValueChange={setSelectedWorkflowId}>
-                <SelectTrigger id="workflowSelect">
-                  <SelectValue placeholder="请选择审批流程" />
-                </SelectTrigger>
-                <SelectContent>
-                  {approvalWorkflows.map((wf) => (
-                    <SelectItem key={wf.id} value={wf.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{wf.name}</span>
-                        <span className="text-xs text-gray-400">({wf.steps.length}步)</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {approvalScenario && (
-              <div className="p-3 bg-slate-50 rounded-lg text-sm">
-                <p className="text-slate-500">提交场景</p>
-                <p className="font-medium text-slate-900 mt-1">{approvalScenario.name}</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsApprovalDialogOpen(false)}>取消</Button>
-            <Button onClick={handleConfirmApproval} disabled={!selectedWorkflowId}>提交审批</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Import Dialog */}
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent>
           <DialogHeader>
-            <PrdAnnotation data={getAnnotation("dialog-import")}>
-              <div>
-                <DialogTitle>导入场景</DialogTitle>
-                <DialogDescription>上传 Excel 或 JSON 文件批量导入场景数据</DialogDescription>
-              </div>
-            </PrdAnnotation>
+            <DialogTitle>导入场景</DialogTitle>
+            <DialogDescription>上传 Excel 或 JSON 文件批量导入场景数据</DialogDescription>
           </DialogHeader>
-          <div className="py-6 space-y-4">
+          <div className="py-6">
             <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center">
               <Upload className="h-10 w-10 text-slate-300 mb-3" />
               <p className="text-sm text-slate-600 font-medium">点击或拖拽文件到此处上传</p>
               <p className="text-xs text-slate-400 mt-1">支持 .xlsx, .json 格式，单个文件不超过 10MB</p>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">资源编码冲突处理规则</Label>
-              <RadioGroup
-                value={importConflictRule}
-                onValueChange={(v) => setImportConflictRule(v as "overwrite" | "new" | "skip")}
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="overwrite" id="import-overwrite" />
-                  <Label htmlFor="import-overwrite" className="text-sm font-normal cursor-pointer">覆盖</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="new" id="import-new" />
-                  <Label htmlFor="import-new" className="text-sm font-normal cursor-pointer">新建</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="skip" id="import-skip" />
-                  <Label htmlFor="import-skip" className="text-sm font-normal cursor-pointer">跳过</Label>
-                </div>
-              </RadioGroup>
             </div>
           </div>
           <DialogFooter>
@@ -1059,16 +931,80 @@ export default function SceneHallPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Resource Import Dialog */}
+      <Dialog open={isResourceImportDialogOpen} onOpenChange={setIsResourceImportDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>资源包导入</DialogTitle>
+            <DialogDescription>导入包含场景、任务和资源的完整资源包</DialogDescription>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center">
+              <Upload className="h-10 w-10 text-slate-300 mb-3" />
+              <p className="text-sm text-slate-600 font-medium">点击或拖拽资源包到此处上传</p>
+              <p className="text-xs text-slate-400 mt-1">支持 .zip, .rar 格式</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResourceImportDialogOpen(false)}>取消</Button>
+            <Button onClick={() => setIsResourceImportDialogOpen(false)}>开始导入</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Workflow Config Dialog */}
+      <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <div>
+              <DialogTitle>配置审批流程</DialogTitle>
+              <DialogDescription>管理场景审批流程模板</DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-4 space-y-4">
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>流程名称</TableHead>
+                    <TableHead>流程描述</TableHead>
+                    <TableHead>审批步骤</TableHead>
+                    <TableHead>创建时间</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {workflows.map((wf) => (
+                    <TableRow key={wf.id}>
+                      <TableCell className="font-medium text-sm">{wf.name}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{wf.description}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {wf.steps?.map((step: { id: string; name: string }) => (
+                            <Badge key={step.id} variant="outline" className="text-xs">
+                              {step.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">{wf.createdAt}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsApprovalWorkflowDialogOpen(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Export Dialog */}
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <PrdAnnotation data={getAnnotation("dialog-export")}>
-              <div>
-                <DialogTitle>批量导出场景</DialogTitle>
-                <DialogDescription>已选择 {selectedIds.length} 个场景，请选择导出格式</DialogDescription>
-              </div>
-            </PrdAnnotation>
+            <DialogTitle>批量导出场景</DialogTitle>
+            <DialogDescription>已选择 {selectedIds.length} 个场景，请选择导出格式</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3">
             <div className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
@@ -1097,116 +1033,30 @@ export default function SceneHallPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Resource Import Dialog */}
-      <Dialog open={isResourceImportDialogOpen} onOpenChange={setIsResourceImportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>资源包导入</DialogTitle>
-            <DialogDescription>导入包含场景、任务和资源的完整资源包</DialogDescription>
-          </DialogHeader>
-          <div className="py-6">
-            <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center">
-              <Upload className="h-10 w-10 text-slate-300 mb-3" />
-              <p className="text-sm text-slate-600 font-medium">点击或拖拽资源包到此处上传</p>
-              <p className="text-xs text-slate-400 mt-1">支持 .zip, .rar 格式</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsResourceImportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsResourceImportDialogOpen(false)}>开始导入</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Batch Move Dialog */}
       <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <PrdAnnotation data={getAnnotation("dialog-batch-move")}>
-              <div>
-                <DialogTitle>调整批次分组</DialogTitle>
-                <DialogDescription>将已选择的 {selectedIds.length} 个场景移动到其他批次分组</DialogDescription>
-              </div>
-            </PrdAnnotation>
+            <DialogTitle>调整批次分组</DialogTitle>
+            <DialogDescription>将选中的 {selectedIds.length} 个场景移动到指定批次</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="targetBatch">目标批次分组</Label>
-              <Select>
-                <SelectTrigger id="targetBatch">
-                  <SelectValue placeholder="请选择目标批次分组" />
-                </SelectTrigger>
-                <SelectContent>
-                  {localBatches.map((batch) => (
-                    <SelectItem key={batch.id} value={batch.id}>
-                      <span className="flex items-center gap-2">
-                        {batch.name}
-                        <span className="text-xs text-gray-400">({batch.code})</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={moveTargetBatchId} onValueChange={setMoveTargetBatchId}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择目标批次" />
+              </SelectTrigger>
+              <SelectContent>
+                {batches.map((batch) => (
+                  <SelectItem key={batch.id} value={batch.id}>
+                    {batch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBatchMoveDialogOpen(false)}>取消</Button>
-            <Button onClick={() => { setIsBatchMoveDialogOpen(false); setSelectedIds([]) }}>确认移动</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Approval Workflow Config Dialog */}
-      <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <PrdAnnotation data={getAnnotation("dialog-approval-workflow-config")}>
-              <div>
-                <DialogTitle>配置审批流程</DialogTitle>
-                <DialogDescription>管理场景审批流程模板</DialogDescription>
-              </div>
-            </PrdAnnotation>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto py-4 space-y-4">
-            <div className="flex justify-end">
-              <Button size="sm" onClick={() => setIsApprovalWorkflowDialogOpen(false)}>
-                <Plus className="mr-2 h-4 w-4" />
-                新增审批流程
-              </Button>
-            </div>
-            <div className="rounded-lg border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>流程名称</TableHead>
-                    <TableHead>流程描述</TableHead>
-                    <TableHead>审批步骤</TableHead>
-                    <TableHead>创建时间</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {approvalWorkflows.map((wf) => (
-                    <TableRow key={wf.id}>
-                      <TableCell className="font-medium text-sm">{wf.name}</TableCell>
-                      <TableCell className="text-sm text-gray-600">{wf.description}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {wf.steps.map((step) => (
-                            <Badge key={step.id} variant="outline" className="text-xs">
-                              {step.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-500">{wf.createdAt}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsApprovalWorkflowDialogOpen(false)}>关闭</Button>
+            <Button onClick={handleConfirmMove} disabled={!moveTargetBatchId}>确认移动</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1215,29 +1065,19 @@ export default function SceneHallPage() {
       <Dialog open={isCloneRenameDialogOpen} onOpenChange={setIsCloneRenameDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <PrdAnnotation data={getAnnotation("dialog-clone-rename")}>
-              <div>
-                <DialogTitle>克隆场景</DialogTitle>
-                <DialogDescription>
-                  请为克隆后的场景命名
-                </DialogDescription>
-              </div>
-            </PrdAnnotation>
+            <DialogTitle>克隆场景</DialogTitle>
+            <DialogDescription>请为克隆后的场景命名</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="cloneName">场景名称</Label>
-              <Input
-                id="cloneName"
-                value={cloneRenameValue}
-                onChange={(e) => setCloneRenameValue(e.target.value)}
-                placeholder="输入新场景名称"
-              />
-            </div>
+            <Input
+              value={cloneRenameValue}
+              onChange={(e) => setCloneRenameValue(e.target.value)}
+              placeholder="输入新场景名称"
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCloneRenameDialogOpen(false)}>取消</Button>
-            <Button onClick={handleConfirmClone}>确认克隆</Button>
+            <Button onClick={handleConfirmClone} disabled={!cloneRenameValue.trim()}>确认克隆</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1246,14 +1086,10 @@ export default function SceneHallPage() {
       <Dialog open={isRejectReasonDialogOpen} onOpenChange={setIsRejectReasonDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <PrdAnnotation data={getAnnotation("dialog-reject-reason")}>
-              <div>
-                <DialogTitle>驳回原因</DialogTitle>
-                <DialogDescription>
-                  场景「{rejectReasonScenario?.name}」的审批驳回原因
-                </DialogDescription>
-              </div>
-            </PrdAnnotation>
+            <DialogTitle>驳回原因</DialogTitle>
+            <DialogDescription>
+              场景「{rejectReasonScenario?.name}」的审批驳回原因
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <div className="p-4 bg-red-50 rounded-lg border border-red-100">

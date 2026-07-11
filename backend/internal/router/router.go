@@ -356,6 +356,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/lesson/courses/{id}/submit", courseHandler.Submit)
 			r.Post("/lesson/courses/{id}/review", courseHandler.Review)
 			r.Post("/lesson/courses/{id}/publish", courseHandler.Publish)
+			r.Post("/lesson/courses/{id}/archive", courseHandler.Archive)
 
 			r.Get("/lesson/knowledge-points", knowledgePointHandler.List)
 			r.Get("/lesson/knowledge-points/{id}", knowledgePointHandler.Get)
@@ -403,6 +404,10 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/evaluation/question-banks", questionBankHandler.Create)
 			r.Put("/evaluation/question-banks/{id}", questionBankHandler.Update)
 			r.Delete("/evaluation/question-banks/{id}", questionBankHandler.Delete)
+			r.Post("/evaluation/question-banks/{id}/submit", questionBankHandler.Submit)
+			r.Post("/evaluation/question-banks/{id}/review", questionBankHandler.Review)
+			r.Post("/evaluation/question-banks/{id}/publish", questionBankHandler.Publish)
+			r.Post("/evaluation/question-banks/{id}/archive", questionBankHandler.Archive)
 
 			r.Get("/evaluation/questions", questionHandler.List)
 			r.Get("/evaluation/questions/{id}", questionHandler.Get)
@@ -416,6 +421,10 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/evaluation/exams", examHandler.Create)
 			r.Put("/evaluation/exams/{id}", examHandler.Update)
 			r.Delete("/evaluation/exams/{id}", examHandler.Delete)
+			r.Post("/evaluation/exams/{id}/submit", examHandler.Submit)
+			r.Post("/evaluation/exams/{id}/review", examHandler.Review)
+			r.Post("/evaluation/exams/{id}/publish", examHandler.Publish)
+			r.Post("/evaluation/exams/{id}/archive", examHandler.Archive)
 			r.Post("/evaluation/exams/{id}/questions", examHandler.AddQuestion)
 			r.Delete("/evaluation/exams/{id}/questions/{questionId}", examHandler.RemoveQuestion)
 

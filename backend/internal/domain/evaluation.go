@@ -2,6 +2,26 @@ package domain
 
 import "time"
 
+type QuestionBankStatus string
+
+const (
+	QuestionBankStatusDraft     QuestionBankStatus = "draft"
+	QuestionBankStatusPending   QuestionBankStatus = "pending"
+	QuestionBankStatusRejected  QuestionBankStatus = "rejected"
+	QuestionBankStatusPublished QuestionBankStatus = "published"
+	QuestionBankStatusArchived  QuestionBankStatus = "archived"
+)
+
+type ExamStatus string
+
+const (
+	ExamStatusDraft     ExamStatus = "draft"
+	ExamStatusPending   ExamStatus = "pending"
+	ExamStatusRejected  ExamStatus = "rejected"
+	ExamStatusPublished ExamStatus = "published"
+	ExamStatusArchived  ExamStatus = "archived"
+)
+
 // QuestionBank represents a repository of questions.
 type QuestionBank struct {
 	ID                  string    `json:"id"`

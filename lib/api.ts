@@ -708,6 +708,7 @@ export const courseApi = {
   review: (id: string, req: { status: string; comment?: string }) =>
     request<Course>(`/lesson/courses/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
   publish: (id: string) => request<Course>(`/lesson/courses/${id}/publish`, { method: "POST" }),
+  archive: (id: string) => request<Course>(`/lesson/courses/${id}/archive`, { method: "POST" }),
 }
 
 export const knowledgeApi = {
@@ -756,6 +757,11 @@ export const questionBankApi = {
   update: (id: string, req: Partial<Omit<QuestionBank, "id" | "questionCount" | "createdAt" | "updatedAt">>) =>
     request<QuestionBank>(`/evaluation/question-banks/${id}`, { method: "PUT", body: JSON.stringify(req) }),
   delete: (id: string) => request<{ id: string }>(`/evaluation/question-banks/${id}`, { method: "DELETE" }),
+  submit: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/submit`, { method: "POST" }),
+  review: (id: string, req: { status: string; comment?: string }) =>
+    request<QuestionBank>(`/evaluation/question-banks/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
+  publish: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/publish`, { method: "POST" }),
+  archive: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/archive`, { method: "POST" }),
 }
 
 export const questionApi = {
@@ -780,6 +786,11 @@ export const examApi = {
   update: (id: string, req: Partial<Omit<Exam, "id" | "totalScore" | "createdAt" | "updatedAt">>) =>
     request<Exam>(`/evaluation/exams/${id}`, { method: "PUT", body: JSON.stringify(req) }),
   delete: (id: string) => request<{ id: string }>(`/evaluation/exams/${id}`, { method: "DELETE" }),
+  submit: (id: string) => request<Exam>(`/evaluation/exams/${id}/submit`, { method: "POST" }),
+  review: (id: string, req: { status: string; comment?: string }) =>
+    request<Exam>(`/evaluation/exams/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
+  publish: (id: string) => request<Exam>(`/evaluation/exams/${id}/publish`, { method: "POST" }),
+  archive: (id: string) => request<Exam>(`/evaluation/exams/${id}/archive`, { method: "POST" }),
   addQuestion: (id: string, questionId: string, score: number) =>
     request<Exam>(`/evaluation/exams/${id}/questions`, { method: "POST", body: JSON.stringify({ questionId, score }) }),
   removeQuestion: (id: string, questionId: string) =>

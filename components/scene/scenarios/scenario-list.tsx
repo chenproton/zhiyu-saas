@@ -8,7 +8,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { PrdAnnotation } from "@/components/prd-annotation"
 import { getAnnotation } from "@/lib/prd-annotations"
 import { cn } from "@/lib/utils"
-import type { Scenario } from "@/lib/scene-mock-data"
 
 const statusConfig = {
   draft: { label: "草稿", className: "bg-gray-100 text-gray-500" },
@@ -18,22 +17,36 @@ const statusConfig = {
   published: { label: "已发布", className: "bg-green-50 text-green-600" },
 }
 
-interface ScenarioListProps {
-  scenarios: Scenario[]
+export interface ScenarioListItem {
+  id: string
+  name: string
+  code: string
+  version: string
+  status: "draft" | "pending" | "approved" | "rejected" | "published"
+  positionName?: string
+  batchName?: string
+  creatorName?: string
+  publishTime?: string
+  taskCount?: number
+  tasks?: { length: number }
+}
+
+interface ScenarioListProps<T extends ScenarioListItem = ScenarioListItem> {
+  scenarios: T[]
   selectedIds?: string[]
   onSelectId?: (id: string, checked: boolean) => void
   onSelectAll?: (checked: boolean) => void
-  onClone?: (scenario: Scenario) => void
-  onDelete?: (scenario: Scenario) => void
-  onSubmitApproval?: (scenario: Scenario) => void
-  onWithdrawApproval?: (scenario: Scenario) => void
-  onViewRejectReason?: (scenario: Scenario) => void
-  onInviteCoBuild?: (scenario: Scenario) => void
+  onClone?: (scenario: T) => void
+  onDelete?: (scenario: T) => void
+  onSubmitApproval?: (scenario: T) => void
+  onWithdrawApproval?: (scenario: T) => void
+  onViewRejectReason?: (scenario: T) => void
+  onInviteCoBuild?: (scenario: T) => void
   className?: string
   basePath?: string
 }
 
-export function ScenarioList({
+export function ScenarioList<T extends ScenarioListItem = ScenarioListItem>({
   scenarios,
   selectedIds = [],
   onSelectId,
@@ -46,7 +59,7 @@ export function ScenarioList({
   onInviteCoBuild,
   className,
   basePath = "/scenarios",
-}: ScenarioListProps) {
+}: ScenarioListProps<T>) {
   if (scenarios.length === 0) return null
 
   const allSelected = scenarios.length > 0 && scenarios.every((s) => selectedIds.includes(s.id))
@@ -133,7 +146,7 @@ export function ScenarioList({
                     href={`${basePath}/${scenario.id}/edit/tasks`}
                     className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
                   >
-                    {scenario.tasks.length}
+                    {scenario.taskCount ?? scenario.tasks?.length ?? 0}
                   </Link>
                 </PrdAnnotation>
               </div>

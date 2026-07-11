@@ -161,6 +161,18 @@ func main() {
 		fmt.Println("seed job data error:", err)
 		os.Exit(1)
 	}
+	if err := seedSceneData(ctx, tx); err != nil {
+		fmt.Println("seed scene data error:", err)
+		os.Exit(1)
+	}
+	if err := seedLessonData(ctx, tx); err != nil {
+		fmt.Println("seed lesson data error:", err)
+		os.Exit(1)
+	}
+	if err := seedEvaluationData(ctx, tx); err != nil {
+		fmt.Println("seed evaluation data error:", err)
+		os.Exit(1)
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		fmt.Println("commit error:", err)
@@ -1273,6 +1285,365 @@ func seedJobData(ctx context.Context, tx pgx.Tx) error {
 		`, b.id, b.title, b.image, b.link, b.sort, b.active)
 		if err != nil {
 			return fmt.Errorf("seed banner config %s: %w", b.title, err)
+		}
+	}
+
+	return nil
+}
+
+func seedSceneData(ctx context.Context, tx pgx.Tx) error {
+	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	teacherID := uuid.MustParse("71111111-1111-1111-1111-111111111114")
+
+	workflows := []struct {
+		id          uuid.UUID
+		name        string
+		description string
+		steps       string
+	}{
+		{
+			uuid.MustParse("b1111111-1111-1111-1111-111111111111"),
+			"场景审批流程",
+			"由教研室进行场景审核",
+			`[{"name":"教研室审核","approverId":"71111111-1111-1111-1111-111111111114"}]`,
+		},
+	}
+	for _, w := range workflows {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO workflows (id, tenant_id, name, scene, description, steps, usage_count, status, created_at)
+			VALUES ($1, $2, $3, 'scene', $4, $5::jsonb, 0, 'active', NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, scene = EXCLUDED.scene, description = EXCLUDED.description,
+				steps = EXCLUDED.steps, status = EXCLUDED.status
+		`, w.id, tenantID, w.name, w.description, w.steps)
+		if err != nil {
+			return fmt.Errorf("seed scene workflow %s: %w", w.name, err)
+		}
+	}
+
+	batches := []struct {
+		id         uuid.UUID
+		name       string
+		code       string
+		orgNodeID  uuid.UUID
+		major      string
+		workflowID uuid.UUID
+	}{
+		{
+			uuid.MustParse("b2222222-2222-2222-2222-222222222221"),
+			"2024年春季场景建设批次",
+			"SCENE-BATCH-2024-SPRING",
+			uuid.MustParse("31111111-1111-1111-1111-111111111113"),
+			"信息安全技术应用",
+			uuid.MustParse("b1111111-1111-1111-1111-111111111111"),
+		},
+	}
+	for _, b := range batches {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO scene_batches (id, name, code, org_node_id, major, workflow_id, status, scenario_count, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, 'open', 0, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, code = EXCLUDED.code, org_node_id = EXCLUDED.org_node_id,
+				major = EXCLUDED.major, workflow_id = EXCLUDED.workflow_id, status = EXCLUDED.status,
+				scenario_count = EXCLUDED.scenario_count, updated_at = NOW()
+		`, b.id, b.name, b.code, b.orgNodeID, b.major, b.workflowID)
+		if err != nil {
+			return fmt.Errorf("seed scene batch %s: %w", b.name, err)
+		}
+	}
+
+	scenarios := []struct {
+		id       uuid.UUID
+		batchID  uuid.UUID
+		name     string
+		code     string
+		status   string
+		difficulty int
+	}{
+		{
+			uuid.MustParse("b3333333-3333-3333-3333-333333333331"),
+			uuid.MustParse("b2222222-2222-2222-2222-222222222221"),
+			"企业级前端项目开发实战",
+			"SC-2026-0001",
+			"draft",
+			3,
+		},
+		{
+			uuid.MustParse("b3333333-3333-3333-3333-333333333332"),
+			uuid.MustParse("b2222222-2222-2222-2222-222222222221"),
+			"渗透测试实战场景",
+			"SC-2026-0002",
+			"pending",
+			4,
+		},
+		{
+			uuid.MustParse("b3333333-3333-3333-3333-333333333333"),
+			uuid.MustParse("b2222222-2222-2222-2222-222222222221"),
+			"云计算平台搭建与运维",
+			"SC-2026-0003",
+			"published",
+			3,
+		},
+	}
+	for _, s := range scenarios {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO scenarios (id, name, code, batch_id, difficulty, version, status, creator_id, co_builder_ids, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, 'v1.0', $6, $7, ARRAY[$8::UUID], NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, code = EXCLUDED.code, batch_id = EXCLUDED.batch_id,
+				difficulty = EXCLUDED.difficulty, version = EXCLUDED.version, status = EXCLUDED.status,
+				creator_id = EXCLUDED.creator_id, co_builder_ids = EXCLUDED.co_builder_ids, updated_at = NOW()
+		`, s.id, s.name, s.code, s.batchID, s.difficulty, s.status, teacherID, teacherID)
+		if err != nil {
+			return fmt.Errorf("seed scenario %s: %w", s.name, err)
+		}
+	}
+
+	return nil
+}
+
+func seedLessonData(ctx context.Context, tx pgx.Tx) error {
+	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	teacherID := uuid.MustParse("71111111-1111-1111-1111-111111111114")
+
+	workflows := []struct {
+		id          uuid.UUID
+		name        string
+		description string
+		steps       string
+	}{
+		{
+			uuid.MustParse("c1111111-1111-1111-1111-111111111111"),
+			"课程审批流程",
+			"由二级学院进行课程审核",
+			`[{"name":"学院审核","approverId":"71111111-1111-1111-1111-111111111114"}]`,
+		},
+	}
+	for _, w := range workflows {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO workflows (id, tenant_id, name, scene, description, steps, usage_count, status, created_at)
+			VALUES ($1, $2, $3, 'lesson', $4, $5::jsonb, 0, 'active', NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, scene = EXCLUDED.scene, description = EXCLUDED.description,
+				steps = EXCLUDED.steps, status = EXCLUDED.status
+		`, w.id, tenantID, w.name, w.description, w.steps)
+		if err != nil {
+			return fmt.Errorf("seed lesson workflow %s: %w", w.name, err)
+		}
+	}
+
+	batches := []struct {
+		id         uuid.UUID
+		name       string
+		code       string
+		orgNodeID  uuid.UUID
+		major      string
+		workflowID uuid.UUID
+	}{
+		{
+			uuid.MustParse("c2222222-2222-2222-2222-222222222221"),
+			"2024年春季课程建设批次",
+			"COURSE-BATCH-2024-SPRING",
+			uuid.MustParse("31111111-1111-1111-1111-111111111113"),
+			"信息安全技术应用",
+			uuid.MustParse("c1111111-1111-1111-1111-111111111111"),
+		},
+	}
+	for _, b := range batches {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO lesson_batches (id, name, code, org_node_id, major, workflow_id, status, course_count, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, 'open', 0, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, code = EXCLUDED.code, org_node_id = EXCLUDED.org_node_id,
+				major = EXCLUDED.major, workflow_id = EXCLUDED.workflow_id, status = EXCLUDED.status,
+				updated_at = NOW()
+		`, b.id, b.name, b.code, b.orgNodeID, b.major, b.workflowID)
+		if err != nil {
+			return fmt.Errorf("seed lesson batch %s: %w", b.name, err)
+		}
+	}
+
+	courses := []struct {
+		id       uuid.UUID
+		name     string
+		code     string
+		courseType string
+		category string
+		status   string
+		batchGroup string
+	}{
+		{
+			uuid.MustParse("c3333333-3333-3333-3333-333333333331"),
+			"Web 应用安全开发",
+			"C-2026-0001",
+			"system",
+			"专业核心课",
+			"draft",
+			"2024年春季课程建设批次",
+		},
+		{
+			uuid.MustParse("c3333333-3333-3333-3333-333333333332"),
+			"网络安全运维基础",
+			"C-2026-0002",
+			"system",
+			"专业基础课",
+			"pending",
+			"2024年春季课程建设批次",
+		},
+		{
+			uuid.MustParse("c3333333-3333-3333-3333-333333333333"),
+			"云计算平台搭建",
+			"C-2026-0003",
+			"system",
+			"专业核心课",
+			"published",
+			"2024年春季课程建设批次",
+		},
+	}
+	for _, c := range courses {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO courses (id, code, name, type, category, status, creator_id, batch_group, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				code = EXCLUDED.code, name = EXCLUDED.name, type = EXCLUDED.type,
+				category = EXCLUDED.category, status = EXCLUDED.status, creator_id = EXCLUDED.creator_id,
+				co_creator_ids = '{}', batch_group = EXCLUDED.batch_group, updated_at = NOW()
+		`, c.id, c.code, c.name, c.courseType, c.category, c.status, teacherID, c.batchGroup)
+		if err != nil {
+			return fmt.Errorf("seed course %s: %w", c.name, err)
+		}
+	}
+
+	return nil
+}
+
+func seedEvaluationData(ctx context.Context, tx pgx.Tx) error {
+	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	teacherID := uuid.MustParse("71111111-1111-1111-1111-111111111114")
+
+	workflows := []struct {
+		id          uuid.UUID
+		name        string
+		description string
+		steps       string
+	}{
+		{
+			uuid.MustParse("d1111111-1111-1111-1111-111111111111"),
+			"题库审批流程",
+			"由教研室进行题库审核",
+			`[{"name":"教研室审核","approverId":"71111111-1111-1111-1111-111111111114"}]`,
+		},
+	}
+	for _, w := range workflows {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO workflows (id, tenant_id, name, scene, description, steps, usage_count, status, created_at)
+			VALUES ($1, $2, $3, 'evaluation', $4, $5::jsonb, 0, 'active', NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, scene = EXCLUDED.scene, description = EXCLUDED.description,
+				steps = EXCLUDED.steps, status = EXCLUDED.status
+		`, w.id, tenantID, w.name, w.description, w.steps)
+		if err != nil {
+			return fmt.Errorf("seed evaluation workflow %s: %w", w.name, err)
+		}
+	}
+
+	batches := []struct {
+		id         uuid.UUID
+		name       string
+		code       string
+		orgNodeID  uuid.UUID
+		major      string
+		workflowID uuid.UUID
+	}{
+		{
+			uuid.MustParse("d2222222-2222-2222-2222-222222222221"),
+			"2024年春季题库建设批次",
+			"EVAL-BATCH-2024-SPRING",
+			uuid.MustParse("31111111-1111-1111-1111-111111111113"),
+			"信息安全技术应用",
+			uuid.MustParse("d1111111-1111-1111-1111-111111111111"),
+		},
+	}
+	for _, b := range batches {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO evaluation_batches (id, name, code, org_node_id, major, workflow_id, status, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, 'open', NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, code = EXCLUDED.code, org_node_id = EXCLUDED.org_node_id,
+				major = EXCLUDED.major, workflow_id = EXCLUDED.workflow_id, status = EXCLUDED.status,
+				updated_at = NOW()
+		`, b.id, b.name, b.code, b.orgNodeID, b.major, b.workflowID)
+		if err != nil {
+			return fmt.Errorf("seed evaluation batch %s: %w", b.name, err)
+		}
+	}
+
+	banks := []struct {
+		id     uuid.UUID
+		batchID uuid.UUID
+		name   string
+		status string
+	}{
+		{
+			uuid.MustParse("d3333333-3333-3333-3333-333333333331"),
+			uuid.MustParse("d2222222-2222-2222-2222-222222222221"),
+			"网络安全基础题库",
+			"draft",
+		},
+		{
+			uuid.MustParse("d3333333-3333-3333-3333-333333333332"),
+			uuid.MustParse("d2222222-2222-2222-2222-222222222221"),
+			"渗透测试题库",
+			"published",
+		},
+	}
+	for _, b := range banks {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO question_banks (id, name, description, status, question_count, creator_id, collaborator_ids, batch_id, version, owner_type, is_draft_pool, created_at, updated_at)
+			VALUES ($1, $2, '', $3, 0, $4, ARRAY[$5::UUID], $6, 'v1.0', 'mine', false, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, description = EXCLUDED.description, status = EXCLUDED.status, question_count = EXCLUDED.question_count,
+				creator_id = EXCLUDED.creator_id, collaborator_ids = EXCLUDED.collaborator_ids, batch_id = EXCLUDED.batch_id,
+				version = EXCLUDED.version, updated_at = NOW()
+		`, b.id, b.name, b.status, teacherID, teacherID, b.batchID)
+		if err != nil {
+			return fmt.Errorf("seed question bank %s: %w", b.name, err)
+		}
+	}
+
+	exams := []struct {
+		id       uuid.UUID
+		batchID  uuid.UUID
+		name     string
+		status   string
+		duration int
+	}{
+		{
+			uuid.MustParse("d4444444-4444-4444-4444-444444444441"),
+			uuid.MustParse("d2222222-2222-2222-2222-222222222221"),
+			"Web 安全期中测试",
+			"draft",
+			90,
+		},
+		{
+			uuid.MustParse("d4444444-4444-4444-4444-444444444442"),
+			uuid.MustParse("d2222222-2222-2222-2222-222222222221"),
+			"渗透测试期末试卷",
+			"published",
+			120,
+		},
+	}
+	for _, e := range exams {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO exams (id, name, description, status, duration, creator_id, collaborator_ids, batch_id, version, owner_type, created_at, updated_at)
+			VALUES ($1, $2, '', $3, $4, $5, ARRAY[$6::UUID], $7, 'v1.0', 'mine', NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, description = EXCLUDED.description, status = EXCLUDED.status, duration = EXCLUDED.duration,
+				creator_id = EXCLUDED.creator_id, collaborator_ids = EXCLUDED.collaborator_ids, batch_id = EXCLUDED.batch_id,
+				version = EXCLUDED.version, updated_at = NOW()
+		`, e.id, e.name, e.status, e.duration, teacherID, teacherID, e.batchID)
+		if err != nil {
+			return fmt.Errorf("seed exam %s: %w", e.name, err)
 		}
 	}
 

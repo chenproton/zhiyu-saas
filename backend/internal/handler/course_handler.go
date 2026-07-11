@@ -322,6 +322,14 @@ func (h *CourseHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	h.transitionStatus(w, r, domain.CourseStatusPublished, "")
 }
 
+func (h *CourseHandler) Archive(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.CourseStatusArchived, "")
+}
+
 func (h *CourseHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.CourseStatus, comment string) {
 	id := chi.URLParam(r, "id")
 	_, err := h.DB.Exec(r.Context(), `

@@ -1,4 +1,4 @@
-export type CourseStatus = 'draft' | 'pending' | 'rejected' | 'published'
+export type CourseStatus = 'draft' | 'pending' | 'rejected' | 'published' | 'archived'
 export type CourseType = 'system' | 'granular' | 'hybrid'
 
 export interface Course {
@@ -22,8 +22,10 @@ export interface Course {
   coverImage?: string
   courseTag?: string
   creator?: string
+  creatorId?: string
   createDate?: string
   coCreator?: string
+  coCreatorIds?: string[]
   batchGroup?: string
   /** 混合课程：线上学时 */
   onlineHours?: number
@@ -60,6 +62,7 @@ export const COURSE_STATUS_LABELS: Record<CourseStatus, string> = {
   pending: '审批中',
   rejected: '已驳回',
   published: '已发布',
+  archived: '已归档',
 }
 
 export const COURSE_STATUS_COLORS: Record<CourseStatus, string> = {
@@ -67,6 +70,7 @@ export const COURSE_STATUS_COLORS: Record<CourseStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
   rejected: 'bg-red-100 text-red-700',
   published: 'bg-green-100 text-green-700',
+  archived: 'bg-slate-100 text-slate-700',
 }
 
 export const INDUSTRIES = [

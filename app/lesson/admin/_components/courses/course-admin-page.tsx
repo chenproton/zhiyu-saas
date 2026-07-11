@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   ChevronDown,
   ChevronRight,
@@ -9,8 +9,8 @@ import {
   Download,
   FolderKanban,
   GitBranch,
-  LayoutList,
-  ListFilter,
+  LayoutGrid,
+  List,
   Plus,
   RotateCcw,
   Search,
@@ -23,6 +23,7 @@ import {
   ArrowDownFromLine,
   ArrowUpFromLine,
 } from "lucide-react"
+import { PageHeaderCard } from "@/components/shared/page-header-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -38,6 +39,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -49,32 +51,68 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
+import { courseApi, lessonBatchApi, workflowApi } from "@/lib/api"
 import { CourseList } from "./course-list"
 import type { Course, CourseStatus, CourseType } from "@/lib/types/lesson-source"
-import { COURSE_STATUS_LABELS } from "@/lib/types/lesson-source"
+import type { Course as BackendCourse, LessonBatch } from "@/lib/types/lesson"
+import type { Workflow } from "@/lib/types/backend"
 
 const CURRENT_USER_ID = "user-1"
 
+function displayCreatorName(creatorId: string): string {
+  return creatorId === CURRENT_USER_ID ? "杭州知与未来科技有限公司" : creatorId
+}
+
+function convertBackendCourse(c: BackendCourse): Course {
+  return {
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    type: c.type as CourseType,
+    category: c.category,
+    major: c.major || "",
+    teacher: c.teacherId || "",
+    industry: c.industry || "",
+    version: c.version || "V1.0",
+    updateDate: c.updatedAt,
+    nodeCount: c.nodeCount,
+    lessonCount: 0,
+    resourceCount: c.resourceCount,
+    viewCount: c.viewCount,
+    studyCount: c.studyCount,
+    status: c.status as CourseStatus,
+    coverColor: c.coverColor || undefined,
+    coverImage: c.coverImage || undefined,
+    courseTag: c.courseTag || undefined,
+    creator: displayCreatorName(c.creatorId),
+    creatorId: c.creatorId,
+    createDate: c.createdAt,
+    coCreator: c.coCreatorIds?.length ? c.coCreatorIds.join(", ") : undefined,
+    coCreatorIds: c.coCreatorIds,
+    batchGroup: c.batchGroup || undefined,
+    onlineHours: c.onlineHours,
+    offlineHours: c.offlineHours,
+    onlineWeight: c.onlineWeight,
+    offlineWeight: c.offlineWeight,
+    semester: c.semester || undefined,
+    className: c.className || undefined,
+  }
+}
+
 type TabType = "my" | "collab" | "public"
 type ViewMode = "list" | "group"
-
-interface MockBatch {
-  id: string
-  name: string
-  department: string
-  major: string
-}
 
 interface CourseAdminPageProps {
   title: string
   subtitle: string
   courseType: CourseType
-  courses: Course[]
   addHref: string
 }
 
-export function CourseAdminPage({ title, subtitle, courseType, courses, addHref }: CourseAdminPageProps) {
+export function CourseAdminPage({ title, subtitle, courseType, addHref }: CourseAdminPageProps) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabType>("my")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
 
@@ -84,26 +122,21 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
-  // Mock batches derived from courses
-  const batches: MockBatch[] = useMemo(() => {
-    const map = new Map<string, MockBatch>()
-    courses.forEach((c) => {
-      if (!c.batchGroup || map.has(c.batchGroup)) return
-      map.set(c.batchGroup, {
-        id: c.batchGroup,
-        name: c.batchGroup,
-        department: "教学系",
-        major: c.major,
-      })
-    })
-    return Array.from(map.values())
-  }, [courses])
-
-  const [expandedBatches, setExpandedBatches] = useState<string[]>(batches.map((b) => b.id))
+  const [courses, setCourses] = useState<Course[]>([])
+  const [batches, setBatches] = useState<LessonBatch[]>([])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [expandedBatches, setExpandedBatches] = useState<string[]>([])
 
   // Dialogs
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false)
+  const [isInnerBatchCreateOpen, setIsInnerBatchCreateOpen] = useState(false)
+  const [newBatchName, setNewBatchName] = useState("")
+  const [newBatchWorkflow, setNewBatchWorkflow] = useState("")
+
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+  const [isResourceImportDialogOpen, setIsResourceImportDialogOpen] = useState(false)
+  const [isApprovalWorkflowDialogOpen, setIsApprovalWorkflowDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [isBatchMoveDialogOpen, setIsBatchMoveDialogOpen] = useState(false)
   const [moveTargetBatchId, setMoveTargetBatchId] = useState("")
@@ -112,7 +145,28 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
   const [cloneRenameValue, setCloneRenameValue] = useState("")
   const [cloneTargetCourse, setCloneTargetCourse] = useState<Course | null>(null)
 
-  const [courseData, setCourseData] = useState<Course[]>(courses)
+  const loadData = async () => {
+    setIsLoading(true)
+    try {
+      const [coursesResp, batchesResp, workflowsResp] = await Promise.all([
+        courseApi.list({ type: courseType, limit: 1000 }),
+        lessonBatchApi.list({ limit: 1000 }),
+        workflowApi.list({ limit: 1000 }),
+      ])
+      setCourses(coursesResp.items.map(convertBackendCourse))
+      setBatches(batchesResp.items)
+      setWorkflows(workflowsResp.items)
+      setExpandedBatches(batchesResp.items.map((b) => b.id))
+    } catch (err) {
+      console.error("Failed to load lesson data:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [courseType])
 
   const toggleBatch = (batchId: string) => {
     setExpandedBatches((prev) =>
@@ -123,14 +177,14 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
   const tabFilteredCourses = useMemo(() => {
     switch (activeTab) {
       case "my":
-        return courseData.filter((c) => c.creator === "杭州知与未来科技有限公司" || !c.creator)
+        return courses.filter((c) => c.creatorId === CURRENT_USER_ID)
       case "collab":
-        return courseData.filter((c) => c.coCreator && c.coCreator !== "-")
+        return courses.filter((c) => c.coCreatorIds?.includes(CURRENT_USER_ID))
       case "public":
       default:
-        return courseData.filter((c) => c.status === "published")
+        return courses.filter((c) => c.status === "published")
     }
-  }, [courseData, activeTab])
+  }, [courses, activeTab])
 
   const filteredCourses = useMemo(() => {
     let result = tabFilteredCourses
@@ -186,7 +240,7 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
     }
   }
 
-  const selectedCourses = courseData.filter((c) => selectedIds.includes(c.id))
+  const selectedCourses = courses.filter((c) => selectedIds.includes(c.id))
   const hasSelected = selectedIds.length > 0
 
   const canBatchSubmit = selectedCourses.some((c) => c.status === "draft" || c.status === "rejected")
@@ -194,18 +248,15 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
   const canBatchUnpublish = selectedCourses.some((c) => c.status === "published")
   const canBatchDelete = selectedCourses.some((c) => c.status === "draft" || c.status === "rejected")
 
-  const updateCourseStatus = (id: string, status: CourseStatus) => {
-    setCourseData((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)))
-  }
-
-  const handleBatchSubmitApproval = () => {
-    selectedIds.forEach((id) => {
-      const course = courseData.find((c) => c.id === id)
-      if (course && (course.status === "draft" || course.status === "rejected")) {
-        updateCourseStatus(id, "pending")
+  const handleBatchSubmitApproval = async () => {
+    for (const id of selectedIds) {
+      const course = courses.find((c) => c.id === id)
+      if (course && (course.status === "draft" || course.status === "rejected") && course.batchGroup) {
+        await courseApi.submit(id)
       }
-    })
+    }
     setSelectedIds([])
+    await loadData()
   }
 
   const handleBatchWithdrawApproval = () => {
@@ -213,38 +264,61 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
     setSelectedIds([])
   }
 
-  const handleBatchUnpublish = () => {
-    selectedIds.forEach((id) => {
-      const course = courseData.find((c) => c.id === id)
+  const handleBatchUnpublish = async () => {
+    for (const id of selectedIds) {
+      const course = courses.find((c) => c.id === id)
       if (course && course.status === "published") {
-        updateCourseStatus(id, "draft")
+        await courseApi.update(id, { status: "draft" })
       }
-    })
+    }
     setSelectedIds([])
+    await loadData()
   }
 
-  const handleBatchPublish = () => {
-    selectedIds.forEach((id) => {
-      updateCourseStatus(id, "published")
-    })
+  const handleBatchPublish = async () => {
+    for (const id of selectedIds) {
+      await courseApi.publish(id)
+    }
     setSelectedIds([])
+    await loadData()
   }
 
-  const handleBatchDelete = () => {
-    setCourseData((prev) => prev.filter((c) => !selectedIds.includes(c.id)))
+  const handleBatchArchive = async () => {
+    for (const id of selectedIds) {
+      await courseApi.archive(id)
+    }
     setSelectedIds([])
+    await loadData()
   }
 
-  const handleBatchClone = () => {
-    const toClone = courseData.filter((c) => selectedIds.includes(c.id))
-    const newCourses: Course[] = toClone.map((course) => ({
-      ...course,
-      id: `${course.id}-clone-${Date.now()}`,
-      name: `${course.name} (克隆)`,
-      status: "draft" as CourseStatus,
-    }))
-    setCourseData((prev) => [...prev, ...newCourses])
+  const handleBatchDelete = async () => {
+    for (const id of selectedIds) {
+      await courseApi.delete(id)
+    }
     setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchClone = async () => {
+    const toClone = courses.filter((c) => selectedIds.includes(c.id))
+    for (const course of toClone) {
+      await courseApi.create({
+        code: `${course.code}-clone-${Date.now()}`,
+        name: `${course.name} (克隆)`,
+        type: course.type,
+        category: course.category,
+        major: course.major || undefined,
+        teacherId: course.teacher || undefined,
+        industry: course.industry || undefined,
+        version: course.version,
+        status: "draft",
+        creatorId: CURRENT_USER_ID,
+        coCreatorIds: [],
+        batchGroup: course.batchGroup,
+      })
+    }
+    setSelectedIds([])
+    await loadData()
   }
 
   const handleBatchExport = () => {
@@ -255,14 +329,15 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
     setIsBatchMoveDialogOpen(true)
   }
 
-  const handleConfirmMove = () => {
+  const handleConfirmMove = async () => {
     if (!moveTargetBatchId) return
-    setCourseData((prev) =>
-      prev.map((c) => (selectedIds.includes(c.id) ? { ...c, batchGroup: moveTargetBatchId } : c))
-    )
+    for (const id of selectedIds) {
+      await courseApi.update(id, { batchGroup: moveTargetBatchId })
+    }
     setSelectedIds([])
     setIsBatchMoveDialogOpen(false)
     setMoveTargetBatchId("")
+    await loadData()
   }
 
   const handleClone = (course: Course) => {
@@ -271,34 +346,42 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
     setIsCloneRenameDialogOpen(true)
   }
 
-  const handleConfirmClone = () => {
+  const handleConfirmClone = async () => {
     if (!cloneTargetCourse) return
-    setCourseData((prev) => [
-      ...prev,
-      {
-        ...cloneTargetCourse,
-        id: `${cloneTargetCourse.id}-clone-${Date.now()}`,
-        name: cloneRenameValue,
-        status: "draft",
-      },
-    ])
+    await courseApi.create({
+      code: `${cloneTargetCourse.code}-clone-${Date.now()}`,
+      name: cloneRenameValue,
+      type: cloneTargetCourse.type,
+      category: cloneTargetCourse.category,
+      major: cloneTargetCourse.major || undefined,
+      teacherId: cloneTargetCourse.teacher || undefined,
+      industry: cloneTargetCourse.industry || undefined,
+      version: cloneTargetCourse.version,
+      status: "draft",
+      creatorId: CURRENT_USER_ID,
+      coCreatorIds: [],
+      batchGroup: cloneTargetCourse.batchGroup,
+    })
     setIsCloneRenameDialogOpen(false)
     setCloneTargetCourse(null)
     setCloneRenameValue("")
+    await loadData()
   }
 
-  const handleDelete = (course: Course) => {
+  const handleDelete = async (course: Course) => {
     if (confirm(`确定要删除课程「${course.name}」吗？`)) {
-      setCourseData((prev) => prev.filter((c) => c.id !== course.id))
+      await courseApi.delete(course.id)
+      await loadData()
     }
   }
 
-  const handleSubmitApproval = (course: Course) => {
+  const handleSubmitApproval = async (course: Course) => {
     if (!course.batchGroup) {
       alert("该课程未关联批次，无法提交审批")
       return
     }
-    updateCourseStatus(course.id, "pending")
+    await courseApi.submit(course.id)
+    await loadData()
   }
 
   const handleWithdrawApproval = () => {
@@ -315,111 +398,204 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
     setSelectedStatus(null)
   }
 
+  const handleCreate = async () => {
+    const newCourse = await courseApi.create({
+      code: `${courseType.toUpperCase()}-${Date.now()}`,
+      name: `新建${typeLabel}`,
+      type: courseType,
+      category: "default",
+      status: "draft",
+      creatorId: CURRENT_USER_ID,
+      coCreatorIds: [],
+    })
+    router.push(`${addHref}?courseId=${newCourse.id}`)
+  }
+
+  const handleAddBatch = async () => {
+    if (!newBatchName || !newBatchWorkflow) return
+    await lessonBatchApi.create({
+      name: newBatchName,
+      code: `BG-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
+      workflowId: newBatchWorkflow,
+      status: "open",
+    })
+    setNewBatchName("")
+    setNewBatchWorkflow("")
+    setIsInnerBatchCreateOpen(false)
+    await loadData()
+  }
+
   const typeLabel = courseType === "system" ? "体系课" : courseType === "granular" ? "颗粒课" : "混合课"
 
   return (
     <div className="space-y-6">
       {/* ===== Part 1: Top Title Card ===== */}
-      <Card className="border-slate-200 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
-              <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
-            </div>
+      <PageHeaderCard
+        title={title}
+        description={subtitle}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setIsApprovalWorkflowDialogOpen(true)}>
+              <GitBranch className="mr-2 h-4 w-4" />
+              配置审批流程
+            </Button>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" disabled>
-                <GitBranch className="mr-2 h-4 w-4" />
-                配置审批流程
-              </Button>
+            <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FolderKanban className="mr-2 h-4 w-4" />
+                  配置批次分组
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+                <DialogHeader>
+                  <div>
+                    <DialogTitle>批次分组管理</DialogTitle>
+                    <DialogDescription>管理课程建设批次分组，关联审批流程</DialogDescription>
+                  </div>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                  <div className="flex justify-end">
+                    <Dialog open={isInnerBatchCreateOpen} onOpenChange={setIsInnerBatchCreateOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          新增批次
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                          <div>
+                            <DialogTitle>新增批次</DialogTitle>
+                            <DialogDescription>创建新的课程建设批次分组，并关联审批流程。</DialogDescription>
+                          </div>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="batchName">分组名称</Label>
+                            <Input
+                              id="batchName"
+                              value={newBatchName}
+                              onChange={(e) => setNewBatchName(e.target.value)}
+                              placeholder="例如：2026春季软件工程课程开发"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="batchCode">批次编号</Label>
+                            <Input
+                              id="batchCode"
+                              value={`BG-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`}
+                              disabled
+                              className="bg-gray-50 text-gray-500"
+                            />
+                            <p className="text-xs text-gray-500">批次编号自动生成，不可修改</p>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="workflow">关联审批流 <span className="text-red-500">*</span></Label>
+                            <Select value={newBatchWorkflow} onValueChange={setNewBatchWorkflow}>
+                              <SelectTrigger id="workflow">
+                                <SelectValue placeholder="选择审批流程" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {workflows.map((wf) => (
+                                  <SelectItem key={wf.id} value={wf.id}>
+                                    <span className="inline-flex items-center">
+                                      <span>{wf.name}</span>
+                                      <span className="text-xs text-gray-400 ml-2">({wf.steps.length}步)</span>
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsInnerBatchCreateOpen(false)}>取消</Button>
+                          <Button onClick={handleAddBatch} disabled={!newBatchName || !newBatchWorkflow}>
+                            创建批次
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-slate-50 text-xs font-medium text-slate-500 border-b">
+                      <div>分组名称</div>
+                      <div>批次编号</div>
+                      <div>审批流程</div>
+                    </div>
+                    {batches.map((batch) => (
+                      <div key={batch.id} className="grid grid-cols-3 gap-4 px-4 py-2 text-sm border-b last:border-0">
+                        <div className="font-medium">{batch.name}</div>
+                        <div className="text-gray-500">{batch.id.slice(0, 12)}</div>
+                        <div>
+                          <Badge variant="outline" className="text-xs">
+                            {workflows.find((w) => w.id === batch.workflowId)?.name || "-"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsBatchDialogOpen(false)}>关闭</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
-              <Button variant="outline" size="sm" onClick={() => setIsBatchDialogOpen(true)}>
-                <FolderKanban className="mr-2 h-4 w-4" />
-                配置批次分组
-              </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsResourceImportDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              导入资源包
+            </Button>
 
-              <Button variant="outline" size="sm" disabled>
-                <Upload className="mr-2 h-4 w-4" />
-                导入资源包
-              </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              导入{typeLabel}
+            </Button>
 
-              <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" />
-                导入{typeLabel}
-              </Button>
-
-              <Button size="sm" className="bg-primary hover:bg-primary/90" asChild>
-                <Link href={addHref}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  新增{typeLabel}
-                </Link>
-              </Button>
-            </div>
-          </div>
-
-          {/* Stats dashboard - hidden in public tab */}
-          {activeTab !== "public" && (
-            <div className="grid grid-cols-5 gap-3 mt-3">
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">{typeLabel}总数</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.total}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-blue-50 flex items-center justify-center">
-                    <SlidersHorizontal className="h-3 w-3 text-blue-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">未提交</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.draft}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-gray-50 flex items-center justify-center">
-                    <RotateCcw className="h-3 w-3 text-gray-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">审批中</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.pending}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-yellow-50 flex items-center justify-center">
-                    <GitBranch className="h-3 w-3 text-yellow-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">已驳回</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.rejected}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-red-50 flex items-center justify-center">
-                    <X className="h-3 w-3 text-red-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">已发布</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.published}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-green-50 flex items-center justify-center">
-                    <ArrowUpFromLine className="h-3 w-3 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              新增{typeLabel}
+            </Button>
+          </>
+        }
+        stats={
+          activeTab !== "public"
+            ? [
+                {
+                  label: `${typeLabel}总数`,
+                  value: stats.total,
+                  icon: <SlidersHorizontal className="h-3 w-3 text-blue-500" />,
+                  iconClassName: "bg-blue-50",
+                },
+                {
+                  label: "未提交",
+                  value: stats.draft,
+                  icon: <RotateCcw className="h-3 w-3 text-gray-500" />,
+                  iconClassName: "bg-gray-50",
+                },
+                {
+                  label: "审批中",
+                  value: stats.pending,
+                  icon: <GitBranch className="h-3 w-3 text-yellow-500" />,
+                  iconClassName: "bg-yellow-50",
+                },
+                {
+                  label: "已驳回",
+                  value: stats.rejected,
+                  icon: <X className="h-3 w-3 text-red-500" />,
+                  iconClassName: "bg-red-50",
+                },
+                {
+                  label: "已发布",
+                  value: stats.published,
+                  icon: <ArrowUpFromLine className="h-3 w-3 text-green-500" />,
+                  iconClassName: "bg-green-50",
+                },
+              ]
+            : undefined
+        }
+      />
 
       {/* ===== Part 2: View Switch Area ===== */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -431,28 +607,16 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
           </TabsList>
         </Tabs>
 
-        <div className="flex items-center border rounded-md overflow-hidden">
-          <button
-            onClick={() => setViewMode("list")}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium flex items-center gap-1 transition-colors",
-              viewMode === "list" ? "bg-primary text-primary-foreground" : "bg-white text-slate-600 hover:bg-slate-50"
-            )}
-          >
-            <LayoutList className="h-3.5 w-3.5" />
-            资源列表
-          </button>
-          <button
-            onClick={() => setViewMode("group")}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium flex items-center gap-1 transition-colors",
-              viewMode === "group" ? "bg-primary text-primary-foreground" : "bg-white text-slate-600 hover:bg-slate-50"
-            )}
-          >
-            <ListFilter className="h-3.5 w-3.5" />
-            批次分组
-          </button>
-        </div>
+        <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
+          <ToggleGroupItem value="list" aria-label="资源列表">
+            <List className="h-4 w-4" />
+            <span className="ml-1.5">资源列表</span>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="group" aria-label="批次分组">
+            <LayoutGrid className="h-4 w-4" />
+            <span className="ml-1.5">批次分组</span>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {/* ===== Part 3: Data List Area ===== */}
@@ -482,6 +646,7 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
                     <SelectItem key={batch.id} value={batch.id}>
                       <span className="flex items-center gap-2">
                         {batch.name}
+                        <span className="text-xs text-gray-400">({batch.id.slice(0, 8)})</span>
                       </span>
                     </SelectItem>
                   ))}
@@ -497,6 +662,7 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
                   <SelectItem value="pending">审批中</SelectItem>
                   <SelectItem value="rejected">已驳回</SelectItem>
                   <SelectItem value="published">已发布</SelectItem>
+                  <SelectItem value="archived">已归档</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -527,6 +693,10 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
               <ArrowDownFromLine className="mr-1 h-3 w-3" />
               取消发布
             </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchArchive}>
+              <Download className="mr-1 h-3 w-3" />
+              归档
+            </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
               <Trash2 className="mr-1 h-3 w-3" />
               删除
@@ -547,7 +717,7 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
         </CardContent>
 
         {/* Course list - merged into the same Card */}
-        {filteredCourses.length > 0 && viewMode !== "group" && (
+        {!isLoading && filteredCourses.length > 0 && viewMode !== "group" && (
           <CardContent className="pt-0">
             <CourseList
               courses={filteredCourses}
@@ -567,7 +737,7 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
       </Card>
 
       {/* Course list - group view remains outside the card */}
-      {filteredCourses.length > 0 && viewMode === "group" && coursesByBatch && (
+      {!isLoading && filteredCourses.length > 0 && viewMode === "group" && coursesByBatch && (
         <div className="space-y-4">
           {Object.entries(coursesByBatch).map(([batchId, batchCourses]) => {
             const batch = batches.find((b) => b.id === batchId)
@@ -586,7 +756,9 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
                           <ChevronRight className="h-4 w-4 text-gray-400" />
                         )}
                         <span className="font-medium text-gray-800">{batch.name}</span>
-                        <span className="text-xs text-gray-400">({batch.department} - {batch.major})</span>
+                        {batch.major && (
+                          <span className="text-xs text-gray-400">({batch.major})</span>
+                        )}
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         {batchCourses.length} 个{typeLabel}
@@ -642,56 +814,25 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
         </div>
       )}
 
-      {filteredCourses.length === 0 && (
+      {!isLoading && filteredCourses.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
             <Search className="h-8 w-8 text-slate-400" />
           </div>
           <h3 className="mb-2 text-lg font-medium text-slate-700">暂无{typeLabel}</h3>
           <p className="mb-4 text-sm text-slate-500">当前筛选条件下没有课程数据</p>
-          <Button size="sm" asChild>
-            <Link href={addHref}>
-              <Plus className="mr-2 h-4 w-4" />
-              新增{typeLabel}
-            </Link>
+          <Button size="sm" onClick={handleCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            新增{typeLabel}
           </Button>
         </div>
       )}
 
-      {/* Batch Dialog */}
-      <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <div>
-              <DialogTitle>批次分组管理</DialogTitle>
-              <DialogDescription>管理课程建设批次分组</DialogDescription>
-            </div>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto py-4 space-y-4">
-            <div className="rounded-lg border overflow-hidden">
-              <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-slate-50 text-xs font-medium text-slate-500 border-b">
-                <div>分组名称</div>
-                <div>批次编号</div>
-                <div>适用专业</div>
-              </div>
-              {batches.map((batch) => (
-                <div key={batch.id} className="grid grid-cols-3 gap-4 px-4 py-2 text-sm border-b last:border-0">
-                  <div className="font-medium">{batch.name}</div>
-                  <div className="text-gray-500">{batch.id.slice(0, 12)}</div>
-                  <div>
-                    <Badge variant="outline" className="text-xs">
-                      {batch.major}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsBatchDialogOpen(false)}>关闭</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
+          <p className="text-sm text-slate-500">加载中...</p>
+        </div>
+      )}
 
       {/* Import Dialog */}
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
@@ -712,6 +853,68 @@ export function CourseAdminPage({ title, subtitle, courseType, courses, addHref 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
             <Button onClick={() => { alert(`导入${typeLabel}演示：文件已上传，正在解析...`); setIsImportDialogOpen(false) }}>开始导入</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resource Import Dialog */}
+      <Dialog open={isResourceImportDialogOpen} onOpenChange={setIsResourceImportDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>资源包导入</DialogTitle>
+            <DialogDescription>导入包含课程、知识点和资源的完整资源包</DialogDescription>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center">
+              <Upload className="h-10 w-10 text-slate-300 mb-3" />
+              <p className="text-sm text-slate-600 font-medium">点击或拖拽资源包到此处上传</p>
+              <p className="text-xs text-slate-400 mt-1">支持 .zip, .rar 格式</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResourceImportDialogOpen(false)}>取消</Button>
+            <Button onClick={() => setIsResourceImportDialogOpen(false)}>开始导入</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Workflow Config Dialog */}
+      <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <div>
+              <DialogTitle>配置审批流程</DialogTitle>
+              <DialogDescription>管理课程审批流程模板</DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-4 space-y-4">
+            <div className="rounded-lg border overflow-hidden">
+              <div className="grid grid-cols-4 gap-4 px-4 py-2 bg-slate-50 text-xs font-medium text-slate-500 border-b">
+                <div>流程名称</div>
+                <div>流程描述</div>
+                <div>审批步骤</div>
+                <div>创建时间</div>
+              </div>
+              {workflows.map((wf) => (
+                <div key={wf.id} className="grid grid-cols-4 gap-4 px-4 py-2 text-sm border-b last:border-0">
+                  <div className="font-medium">{wf.name}</div>
+                  <div className="text-gray-600">{wf.description || "-"}</div>
+                  <div>
+                    <div className="flex flex-wrap gap-1">
+                      {wf.steps.map((step) => (
+                        <Badge key={step.id} variant="outline" className="text-xs">
+                          {step.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-gray-500">{wf.createdAt}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsApprovalWorkflowDialogOpen(false)}>关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

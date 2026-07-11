@@ -32,6 +32,11 @@ type CreateQuestionBankRequest struct {
 	BatchID             *string  `json:"batchId"`
 }
 
+type ReviewQuestionBankRequest struct {
+	Status  string  `json:"status"`
+	Comment *string `json:"comment"`
+}
+
 func (h *QuestionBankHandler) List(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
 	if claims == nil {
@@ -202,6 +207,88 @@ func (h *QuestionBankHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *QuestionBankHandler) Submit(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.QuestionBankStatusPending)
+}
+
+func (h *QuestionBankHandler) Review(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	var req ReviewQuestionBankRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	var status domain.QuestionBankStatus
+	switch req.Status {
+	case "published":
+		status = domain.QuestionBankStatusPublished
+	case "rejected":
+		status = domain.QuestionBankStatusRejected
+	default:
+		respondError(w, http.StatusBadRequest, "invalid review status")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE question_banks SET status = $1, updated_at = NOW() WHERE id = $2
+	`, status, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to review question bank")
+		return
+	}
+
+	bank, _ := h.fetchQuestionBank(r.Context(), id)
+	respondJSON(w, http.StatusOK, bank)
+}
+
+func (h *QuestionBankHandler) Publish(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.QuestionBankStatusPublished)
+}
+
+func (h *QuestionBankHandler) Archive(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.QuestionBankStatusArchived)
+}
+
+func (h *QuestionBankHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.QuestionBankStatus) {
+	id := chi.URLParam(r, "id")
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE question_banks SET status = $1, updated_at = NOW() WHERE id = $2
+	`, status, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update status")
+		return
+	}
+
+	bank, err := h.fetchQuestionBank(r.Context(), id)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "question bank not found")
+		return
+	}
+	respondJSON(w, http.StatusOK, bank)
 }
 
 func (h *QuestionBankHandler) fetchQuestionBank(ctx context.Context, id string) (domain.QuestionBank, error) {

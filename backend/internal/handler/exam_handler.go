@@ -33,6 +33,11 @@ type CreateExamRequest struct {
 	BatchID             *string  `json:"batchId"`
 }
 
+type ReviewExamRequest struct {
+	Status  string  `json:"status"`
+	Comment *string `json:"comment"`
+}
+
 type AddExamQuestionRequest struct {
 	QuestionID string  `json:"questionId"`
 	Score      float64 `json:"score"`
@@ -207,6 +212,88 @@ func (h *ExamHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *ExamHandler) Submit(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.ExamStatusPending)
+}
+
+func (h *ExamHandler) Review(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	var req ReviewExamRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	var status domain.ExamStatus
+	switch req.Status {
+	case "published":
+		status = domain.ExamStatusPublished
+	case "rejected":
+		status = domain.ExamStatusRejected
+	default:
+		respondError(w, http.StatusBadRequest, "invalid review status")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE exams SET status = $1, updated_at = NOW() WHERE id = $2
+	`, status, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to review exam")
+		return
+	}
+
+	exam, _ := h.fetchExam(r.Context(), id)
+	respondJSON(w, http.StatusOK, exam)
+}
+
+func (h *ExamHandler) Publish(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.ExamStatusPublished)
+}
+
+func (h *ExamHandler) Archive(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.ExamStatusArchived)
+}
+
+func (h *ExamHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.ExamStatus) {
+	id := chi.URLParam(r, "id")
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE exams SET status = $1, updated_at = NOW() WHERE id = $2
+	`, status, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update status")
+		return
+	}
+
+	exam, err := h.fetchExam(r.Context(), id)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "exam not found")
+		return
+	}
+	respondJSON(w, http.StatusOK, exam)
 }
 
 func (h *ExamHandler) AddQuestion(w http.ResponseWriter, r *http.Request) {

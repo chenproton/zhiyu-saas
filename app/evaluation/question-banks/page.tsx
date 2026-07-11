@@ -1,36 +1,57 @@
-// @ts-nocheck
 "use client"
 
-import { useState, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Plus,
-  Search,
-  FileText,
-  Settings,
-  FolderTree,
-  Upload,
-  List,
-  LayoutGrid,
-  RotateCcw,
-  GitBranch,
-  ArrowUpFromLine,
-  CheckCircle2,
-  Send,
-  Undo2,
   ArrowDownFromLine,
+  ArrowUpFromLine,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
   Copy,
-  Trash2,
   Download,
+  Eye,
   FolderKanban,
+  GitBranch,
+  LayoutGrid,
+  List,
+  Plus,
+  Rocket,
+  RotateCcw,
+  Search,
+  Send,
+  Settings,
+  Trash2,
+  Undo2,
+  Upload,
+  X,
+  XCircle,
 } from "lucide-react"
+import { questionBankApi, questionApi, evaluationBatchApi, workflowApi } from "@/lib/api"
+import type { QuestionBank, Question, EvaluationBatch, Workflow } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -45,156 +66,182 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { StatusBadge } from "@/components/shared/status-badge"
 import { PageHeaderCard } from "@/components/shared/page-header-card"
-import { BankFormDialog } from "@/components/evaluation/bank-form-dialog"
-import { BankStatusActions } from "@/components/evaluation/bank-status-actions"
-import { InviteCollaboratorDialog } from "@/components/shared/invite-collaborator-dialog"
-import { useData } from "@/components/providers/data-provider"
-import type { QuestionBank, QuestionBankFormData } from "@/lib/types"
-import { mockUsers, mockBatches } from "@/lib/mock-data-evaluation"
-import { PrdAnnotation } from "@/components/prd-annotation"
-import { getAnnotation } from "@/lib/prd-annotations"
 import { cn } from "@/lib/utils"
 
-type OwnerTab = 'mine' | 'collaborate' | 'public'
-type ViewMode = 'list' | 'batch'
+const CURRENT_USER_ID = "user-1"
+
+type TabType = "my" | "collab" | "public"
+type ViewMode = "list" | "group"
+type BackendStatus = "draft" | "pending" | "rejected" | "published" | "archived"
+
+interface BackendQuestionBank extends Omit<QuestionBank, "status" | "createdAt" | "updatedAt"> {
+  status: BackendStatus
+  createdAt: string
+  updatedAt: string
+}
+
+const STATUS_LABELS: Record<BackendStatus, string> = {
+  draft: "草稿",
+  pending: "审批中",
+  rejected: "已驳回",
+  published: "已发布",
+  archived: "已归档",
+}
+
+const STATUS_STYLES: Record<BackendStatus, string> = {
+  draft: "bg-muted text-muted-foreground border-muted",
+  pending: "bg-yellow-50 text-yellow-600 border-yellow-200",
+  rejected: "bg-red-50 text-red-600 border-red-200",
+  published: "bg-emerald-50 text-emerald-600 border-emerald-200",
+  archived: "bg-gray-100 text-gray-500 border-gray-200",
+}
+
+function EvalStatusBadge({ status }: { status: BackendStatus }) {
+  const style = STATUS_STYLES[status] || STATUS_STYLES.draft
+  return (
+    <Badge variant="outline" className={style}>
+      {STATUS_LABELS[status] || status}
+    </Badge>
+  )
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+}
 
 export default function QuestionBanksPage() {
   const router = useRouter()
-  const {
-    questionBanks,
-    questions,
-    createQuestionBank,
-    updateQuestionBank,
-    deleteQuestionBank,
-    updateQuestionBankStatus,
-    getQuestionsByBank,
-    createQuestion,
-  } = useData()
 
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [formOpen, setFormOpen] = useState(false)
-  const [editingBank, setEditingBank] = useState<QuestionBank | null>(null)
-  const [ownerTab, setOwnerTab] = useState<OwnerTab>('mine')
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [inviteOpen, setInviteOpen] = useState(false)
-  const [invitingBank, setInvitingBank] = useState<QuestionBank | null>(null)
+  const [banks, setBanks] = useState<BackendQuestionBank[]>([])
+  const [batches, setBatches] = useState<EvaluationBatch[]>([])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const [activeTab, setActiveTab] = useState<TabType>("my")
+  const [viewMode, setViewMode] = useState<ViewMode>("list")
+
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
+  const [selectedStatus, setSelectedStatus] = useState<BackendStatus | null>(null)
 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [expandedBatches, setExpandedBatches] = useState<string[]>([])
+
+  // Dialogs
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [newName, setNewName] = useState("")
+  const [newDescription, setNewDescription] = useState("")
+  const [newBatchId, setNewBatchId] = useState("")
+
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false)
+  const [isInnerBatchCreateOpen, setIsInnerBatchCreateOpen] = useState(false)
+  const [newBatchName, setNewBatchName] = useState("")
+  const [newBatchWorkflow, setNewBatchWorkflow] = useState("")
+
+  const [isApprovalWorkflowDialogOpen, setIsApprovalWorkflowDialogOpen] = useState(false)
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [isBatchMoveDialogOpen, setIsBatchMoveDialogOpen] = useState(false)
-  const [batchMoveTarget, setBatchMoveTarget] = useState<string>("")
+  const [moveTargetBatchId, setMoveTargetBatchId] = useState("")
+
+  const [isCloneRenameDialogOpen, setIsCloneRenameDialogOpen] = useState(false)
+  const [cloneRenameValue, setCloneRenameValue] = useState("")
+  const [cloneTargetBank, setCloneTargetBank] = useState<BackendQuestionBank | null>(null)
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [banksRes, batchesRes, workflowsRes] = await Promise.all([
+        questionBankApi.list({ limit: 1000 }) as unknown as {
+          items: BackendQuestionBank[]
+          total: number
+        },
+        evaluationBatchApi.list({ limit: 1000 }),
+        workflowApi.list({ limit: 1000 }),
+      ])
+      setBanks(banksRes.items)
+      setBatches(batchesRes.items)
+      setWorkflows(workflowsRes.items)
+    } catch (err) {
+      console.error("加载数据失败", err)
+      alert("加载数据失败，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    setExpandedBatches(batches.map((b) => b.id))
+  }, [batches])
+
+  const toggleBatch = (batchId: string) => {
+    setExpandedBatches((prev) =>
+      prev.includes(batchId) ? prev.filter((id) => id !== batchId) : [...prev, batchId]
+    )
+  }
+
+  const tabFilteredBanks = useMemo(() => {
+    switch (activeTab) {
+      case "my":
+        return banks.filter((b) => b.creatorId === CURRENT_USER_ID)
+      case "collab":
+        return banks.filter((b) => (b.collaboratorIds || []).includes(CURRENT_USER_ID))
+      case "public":
+      default:
+        return banks.filter((b) => b.status === "published")
+    }
+  }, [banks, activeTab])
 
   const filteredBanks = useMemo(() => {
-    return questionBanks
-      .filter((bank) => {
-        const q = search.toLowerCase().trim()
-        const matchSearch = !q || bank.name.toLowerCase().includes(q)
-        const matchOwner = bank.ownerType === ownerTab
-        const matchStatus = statusFilter === "all" || bank.status === statusFilter
-        return matchSearch && matchOwner && matchStatus
-      })
-      .sort((a, b) => {
-        // 草稿库始终置顶
-        if (a.isDraftPool && !b.isDraftPool) return -1
-        if (!a.isDraftPool && b.isDraftPool) return 1
-        return b.updatedAt.getTime() - a.updatedAt.getTime()
-      })
-  }, [questionBanks, search, statusFilter, ownerTab])
+    let result = tabFilteredBanks
+    const q = searchQuery.trim().toLowerCase()
+    if (q) {
+      result = result.filter(
+        (b) => b.name.toLowerCase().includes(q) || b.description.toLowerCase().includes(q)
+      )
+    }
+    if (selectedBatchId) {
+      result = result.filter((b) => b.batchId === selectedBatchId)
+    }
+    if (selectedStatus) {
+      result = result.filter((b) => b.status === selectedStatus)
+    }
+    return result
+  }, [tabFilteredBanks, searchQuery, selectedBatchId, selectedStatus])
 
   const stats = useMemo(() => {
-    const total = questionBanks.length
-    const draft = questionBanks.filter((b) => b.status === 'draft').length
-    const pending = questionBanks.filter((b) => b.status === 'pending').length
-    const toPublish = questionBanks.filter((b) => b.status === 'toPublish').length
-    const published = questionBanks.filter((b) => b.status === 'published').length
-    return { total, draft, pending, toPublish, published }
-  }, [questionBanks])
+    const total = filteredBanks.length
+    const draft = filteredBanks.filter((b) => b.status === "draft").length
+    const pending = filteredBanks.filter((b) => b.status === "pending").length
+    const rejected = filteredBanks.filter((b) => b.status === "rejected").length
+    const published = filteredBanks.filter((b) => b.status === "published").length
+    return { total, draft, pending, rejected, published }
+  }, [filteredBanks])
 
-  const handleFormSubmit = (data: QuestionBankFormData) => {
-    if (editingBank) {
-      updateQuestionBank(editingBank.id, data)
-    } else {
-      const newBank = createQuestionBank(data)
-      router.push(`/evaluation/question-banks/${newBank.id}`)
-    }
-    setEditingBank(null)
-  }
-
-  const handleEdit = (bank: QuestionBank) => {
-    setEditingBank(bank)
-    setFormOpen(true)
-  }
-
-  const handleInvite = (bank: QuestionBank) => {
-    setInvitingBank(bank)
-    setInviteOpen(true)
-  }
-
-  const handleInviteSubmit = (users: { userId: string; role: 'editor' | 'viewer' }[]) => {
-    console.log('邀请用户:', users, '到题库:', invitingBank?.name)
-    setInvitingBank(null)
-  }
-
-  const handleCloneBank = (bank: QuestionBank) => {
-    const newBank = createQuestionBank({
-      name: `${bank.name}（克隆）`,
-      description: bank.description,
-      coverUrl: bank.coverUrl,
-      batchId: bank.batchId,
-      collaboratorIds: [],
-      collaboratorDeptIds: [],
+  const banksByBatch = useMemo(() => {
+    if (viewMode !== "group") return null
+    const groups: Record<string, BackendQuestionBank[]> = {}
+    filteredBanks.forEach((b) => {
+      if (!b.batchId) return
+      if (!groups[b.batchId]) groups[b.batchId] = []
+      groups[b.batchId].push(b)
     })
+    return groups
+  }, [filteredBanks, viewMode])
 
-    const bankQuestions = getQuestionsByBank(bank.id)
-    bankQuestions.forEach((q) => {
-      createQuestion(newBank.id, {
-        type: q.type,
-        content: q.content,
-        options: q.options,
-        answer: q.answer,
-        analysis: q.analysis,
-        score: q.score,
-        difficulty: q.difficulty,
-        knowledgePoints: q.knowledgePoints,
-      })
-    })
-  }
-
-  const handleDelete = (bank: QuestionBank) => {
-    if (bank.isDraftPool) {
-      alert('默认题库不可删除')
-      return
-    }
-    if (confirm(`确定要删除题库「${bank.name}」吗？题库中的所有题目也会被删除。`)) {
-      deleteQuestionBank(bank.id)
-    }
-  }
-
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(date)
-  }
-
-  const getBatchName = (bank: QuestionBank) => {
-    return mockBatches.find(b => b.id === bank.batchId)?.name || '-'
-  }
-
-  const selectableBanks = useMemo(() => filteredBanks.filter((b) => !b.isDraftPool), [filteredBanks])
+  const uncategorizedBanks = useMemo(
+    () => filteredBanks.filter((b) => !b.batchId && b.status === "draft"),
+    [filteredBanks]
+  )
 
   const handleSelectId = (id: string, checked: boolean) => {
     setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((sid) => sid !== id)))
@@ -202,415 +249,858 @@ export default function QuestionBanksPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(selectableBanks.map((b) => b.id))
+      setSelectedIds(filteredBanks.map((b) => b.id))
     } else {
       setSelectedIds([])
     }
   }
 
-  const selectedBanks = questionBanks.filter((b) => selectedIds.includes(b.id))
+  const selectedBanks = useMemo(
+    () => filteredBanks.filter((b) => selectedIds.includes(b.id)),
+    [filteredBanks, selectedIds]
+  )
   const hasSelected = selectedIds.length > 0
 
-  const canBatchSubmit = selectedBanks.some((b) => b.status === "draft" || b.status === "rejected" || b.status === "unsubmitted")
+  const canBatchSubmit = selectedBanks.some((b) => b.status === "draft" || b.status === "rejected")
   const canBatchWithdraw = selectedBanks.some((b) => b.status === "pending")
-  const canBatchPublish = selectedBanks.some((b) => b.status === "toPublish")
+  const canBatchPublish = selectedBanks.some((b) => b.status === "pending" || b.status === "rejected")
   const canBatchUnpublish = selectedBanks.some((b) => b.status === "published")
-  const canBatchDelete = selectedBanks.some((b) => b.status === "draft" || b.status === "rejected" || b.status === "unsubmitted")
+  const canBatchDelete = selectedBanks.some((b) => b.status === "draft" || b.status === "rejected")
 
-  const handleBatchSubmitApproval = () => {
-    selectedIds.forEach((id) => updateQuestionBankStatus(id, "submit"))
-    setSelectedIds([])
+  const resetCreateForm = () => {
+    setNewName("")
+    setNewDescription("")
+    setNewBatchId("")
   }
 
-  const handleBatchWithdrawApproval = () => {
-    selectedIds.forEach((id) => updateQuestionBankStatus(id, "withdraw"))
-    setSelectedIds([])
-  }
-
-  const handleBatchPublish = () => {
-    selectedIds.forEach((id) => updateQuestionBankStatus(id, "publish"))
-    setSelectedIds([])
-  }
-
-  const handleBatchUnpublish = () => {
-    selectedIds.forEach((id) => updateQuestionBankStatus(id, "unpublish"))
-    setSelectedIds([])
-  }
-
-  const handleBatchDelete = () => {
-    if (confirm(`确定要删除选中的 ${selectedIds.length} 个题库吗？`)) {
-      selectedIds.forEach((id) => deleteQuestionBank(id))
-      setSelectedIds([])
+  const handleCreate = async () => {
+    if (!newName.trim()) return
+    try {
+      const created = (await questionBankApi.create({
+        name: newName.trim(),
+        description: newDescription.trim(),
+        status: "draft",
+        ownerType: "mine",
+        version: "v1.0",
+        isDraftPool: false,
+        collaboratorIds: [],
+        collaboratorDeptIds: [],
+        batchId: newBatchId || undefined,
+      })) as unknown as BackendQuestionBank
+      setIsCreateOpen(false)
+      resetCreateForm()
+      router.push(`/evaluation/question-banks/${created.id}`)
+    } catch (err) {
+      console.error("创建题库失败", err)
+      alert("创建题库失败")
     }
   }
 
-  const handleBatchClone = () => {
-    selectedBanks.forEach((bank) => handleCloneBank(bank))
-    setSelectedIds([])
+  const handleDelete = async (bank: BackendQuestionBank) => {
+    if (confirm(`确定要删除题库「${bank.name}」吗？`)) {
+      try {
+        await questionBankApi.delete(bank.id)
+        await loadData()
+      } catch (err) {
+        console.error("删除失败", err)
+        alert("删除失败")
+      }
+    }
   }
 
-  const handleBatchMove = () => {
-    if (!batchMoveTarget) return
-    selectedIds.forEach((id) => {
-      const bank = questionBanks.find((b) => b.id === id)
-      if (bank) {
-        updateQuestionBank(id, { name: bank.name, description: bank.description, batchId: batchMoveTarget })
+  const handleSubmitApproval = async (id: string) => {
+    try {
+      await questionBankApi.submit(id)
+      await loadData()
+    } catch (err) {
+      console.error("提交审批失败", err)
+      alert("提交审批失败")
+    }
+  }
+
+  const handleWithdrawApproval = async (id: string) => {
+    try {
+      await questionBankApi.update(id, { status: "draft" })
+      await loadData()
+    } catch (err) {
+      console.error("撤回审批失败", err)
+      alert("撤回审批失败")
+    }
+  }
+
+  const handleReview = async (id: string, status: "published" | "rejected") => {
+    try {
+      await questionBankApi.review(id, { status })
+      await loadData()
+    } catch (err) {
+      console.error("审批操作失败", err)
+      alert("审批操作失败")
+    }
+  }
+
+  const handlePublish = async (id: string) => {
+    try {
+      await questionBankApi.publish(id)
+      await loadData()
+    } catch (err) {
+      console.error("发布失败", err)
+      alert("发布失败")
+    }
+  }
+
+  const handleUnpublish = async (id: string) => {
+    try {
+      await questionBankApi.update(id, { status: "draft" })
+      await loadData()
+    } catch (err) {
+      console.error("取消发布失败", err)
+      alert("取消发布失败")
+    }
+  }
+
+  const handleClone = (bank: BackendQuestionBank) => {
+    setCloneTargetBank(bank)
+    setCloneRenameValue(`${bank.name} (克隆)`)
+    setIsCloneRenameDialogOpen(true)
+  }
+
+  const handleConfirmClone = async () => {
+    if (!cloneTargetBank || !cloneRenameValue.trim()) return
+    try {
+      const cloned = (await questionBankApi.create({
+        name: cloneRenameValue.trim(),
+        description: cloneTargetBank.description,
+        status: "draft",
+        ownerType: "mine",
+        version: "v1.0",
+        isDraftPool: false,
+        collaboratorIds: [],
+        collaboratorDeptIds: [],
+        batchId: cloneTargetBank.batchId || undefined,
+      })) as unknown as BackendQuestionBank
+
+      const questionsRes = (await questionApi.list({ bankId: cloneTargetBank.id, limit: 1000 })) as unknown as {
+        items: Question[]
       }
-    })
-    setBatchMoveTarget("")
-    setIsBatchMoveDialogOpen(false)
+      for (const q of questionsRes.items) {
+        await questionApi.create({
+          bankId: cloned.id,
+          type: q.type,
+          content: q.content,
+          options: q.options,
+          answer: q.answer,
+          analysis: q.analysis,
+          score: q.score,
+          difficulty: q.difficulty,
+          knowledgePoints: q.knowledgePoints,
+          status: "draft",
+        })
+      }
+      setIsCloneRenameDialogOpen(false)
+      setCloneTargetBank(null)
+      setCloneRenameValue("")
+      setSelectedIds([])
+      await loadData()
+    } catch (err) {
+      console.error("克隆失败", err)
+      alert("克隆失败")
+    }
+  }
+
+  const handleBatchSubmitApproval = async () => {
+    for (const bank of selectedBanks) {
+      if (bank.status === "draft" || bank.status === "rejected") {
+        await questionBankApi.submit(bank.id)
+      }
+    }
     setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchWithdrawApproval = async () => {
+    for (const bank of selectedBanks) {
+      if (bank.status === "pending") {
+        await questionBankApi.update(bank.id, { status: "draft" })
+      }
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchPublish = async () => {
+    for (const bank of selectedBanks) {
+      if (bank.status === "pending" || bank.status === "rejected") {
+        await questionBankApi.publish(bank.id)
+      }
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchUnpublish = async () => {
+    for (const bank of selectedBanks) {
+      if (bank.status === "published") {
+        await questionBankApi.update(bank.id, { status: "draft" })
+      }
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchDelete = async () => {
+    if (!confirm(`确定要删除选中的 ${selectedIds.length} 个题库吗？`)) return
+    for (const id of selectedIds) {
+      await questionBankApi.delete(id)
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchClone = async () => {
+    for (const bank of selectedBanks) {
+      const cloned = (await questionBankApi.create({
+        name: `${bank.name} (克隆)`,
+        description: bank.description,
+        status: "draft",
+        ownerType: "mine",
+        version: "v1.0",
+        isDraftPool: false,
+        collaboratorIds: [],
+        collaboratorDeptIds: [],
+        batchId: bank.batchId || undefined,
+      })) as unknown as BackendQuestionBank
+
+      const questionsRes = (await questionApi.list({ bankId: bank.id, limit: 1000 })) as unknown as {
+        items: Question[]
+      }
+      for (const q of questionsRes.items) {
+        await questionApi.create({
+          bankId: cloned.id,
+          type: q.type,
+          content: q.content,
+          options: q.options,
+          answer: q.answer,
+          analysis: q.analysis,
+          score: q.score,
+          difficulty: q.difficulty,
+          knowledgePoints: q.knowledgePoints,
+          status: "draft",
+        })
+      }
+    }
+    setSelectedIds([])
+    await loadData()
+  }
+
+  const handleBatchMove = async () => {
+    if (!moveTargetBatchId) return
+    for (const id of selectedIds) {
+      await questionBankApi.update(id, { batchId: moveTargetBatchId })
+    }
+    setSelectedIds([])
+    setMoveTargetBatchId("")
+    setIsBatchMoveDialogOpen(false)
+    await loadData()
   }
 
   const handleBatchExport = () => {
     setIsExportDialogOpen(true)
+    setSelectedIds([])
+  }
+
+  const handleCreateBatch = async () => {
+    if (!newBatchName || !newBatchWorkflow) return
+    const code = `EB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`
+    try {
+      await evaluationBatchApi.create({
+        name: newBatchName,
+        code,
+        status: "open",
+        workflowId: newBatchWorkflow,
+      })
+      setNewBatchName("")
+      setNewBatchWorkflow("")
+      setIsInnerBatchCreateOpen(false)
+      await loadData()
+    } catch (err) {
+      console.error("创建批次失败", err)
+      alert("创建批次失败")
+    }
+  }
+
+  const handleResetFilters = () => {
+    setSearchQuery("")
+    setSelectedBatchId(null)
+    setSelectedStatus(null)
+  }
+
+  const allSelected = filteredBanks.length > 0 && filteredBanks.every((b) => selectedIds.includes(b.id))
+  const someSelected = filteredBanks.some((b) => selectedIds.includes(b.id)) && !allSelected
+
+  const renderTable = (items: BackendQuestionBank[]) => {
+    const tableAllSelected = items.length > 0 && items.every((b) => selectedIds.includes(b.id))
+    const tableSomeSelected = items.some((b) => selectedIds.includes(b.id)) && !tableAllSelected
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[40px] text-center">
+              <Checkbox
+                checked={tableSomeSelected ? "indeterminate" : tableAllSelected}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setSelectedIds((prev) => Array.from(new Set([...prev, ...items.map((b) => b.id)])))
+                  } else {
+                    setSelectedIds((prev) => prev.filter((id) => !items.find((b) => b.id === id)))
+                  }
+                }}
+                aria-label="全选"
+              />
+            </TableHead>
+            <TableHead className="w-[200px]">题库名称</TableHead>
+            <TableHead className="w-[200px]">题库简介</TableHead>
+            <TableHead className="w-[100px]">题目数量</TableHead>
+            <TableHead className="w-[140px]">所属批次</TableHead>
+            <TableHead className="w-[100px]">创建人</TableHead>
+            <TableHead className="w-[120px]">共建人</TableHead>
+            <TableHead className="w-[100px]">状态</TableHead>
+            <TableHead className="w-[120px]">创建时间</TableHead>
+            <TableHead className="w-[120px]">更新时间</TableHead>
+            <TableHead className="sticky right-0 w-[80px] bg-white text-right">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((bank) => {
+            const isSelected = selectedIds.includes(bank.id)
+            const batchName = batches.find((b) => b.id === bank.batchId)?.name || "-"
+            return (
+              <TableRow key={bank.id} className={cn("group", isSelected && "bg-primary/5")}>
+                <TableCell className="text-center">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={(checked) => handleSelectId(bank.id, checked === true)}
+                    aria-label={`选择 ${bank.name}`}
+                  />
+                </TableCell>
+                <TableCell>
+                  <button
+                    className="text-left text-sm font-medium hover:text-primary"
+                    onClick={() => router.push(`/evaluation/question-banks/${bank.id}`)}
+                  >
+                    {bank.name}
+                  </button>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-muted-foreground line-clamp-2">
+                    {bank.description || "-"}
+                  </span>
+                </TableCell>
+                <TableCell>{bank.questionCount} 题</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{batchName}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{bank.creatorId || "-"}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {(bank.collaboratorIds?.length || 0) > 0 ? `${bank.collaboratorIds!.length} 人` : "-"}
+                </TableCell>
+                <TableCell>
+                  <EvalStatusBadge status={bank.status} />
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">{formatDate(bank.createdAt)}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{formatDate(bank.updatedAt)}</TableCell>
+                <TableCell className="sticky right-0 bg-white text-right relative">
+                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-sm z-10 px-2 py-1 rounded-lg shadow-sm border border-slate-100">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => router.push(`/evaluation/question-banks/${bank.id}`)}
+                    >
+                      <Eye className="mr-1 h-3 w-3" />
+                      查看
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => handleClone(bank)}
+                    >
+                      <Copy className="mr-1 h-3 w-3" />
+                      克隆
+                    </Button>
+                    {(bank.status === "draft" || bank.status === "rejected") && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
+                        onClick={() => handleSubmitApproval(bank.id)}
+                      >
+                        <Send className="mr-1 h-3 w-3" />
+                        提交审批
+                      </Button>
+                    )}
+                    {bank.status === "pending" && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700"
+                          onClick={() => handleReview(bank.id, "published")}
+                        >
+                          <CheckCircle className="mr-1 h-3 w-3" />
+                          通过
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
+                          onClick={() => handleReview(bank.id, "rejected")}
+                        >
+                          <XCircle className="mr-1 h-3 w-3" />
+                          驳回
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-amber-600 hover:text-amber-700"
+                          onClick={() => handleWithdrawApproval(bank.id)}
+                        >
+                          <Undo2 className="mr-1 h-3 w-3" />
+                          撤回
+                        </Button>
+                      </>
+                    )}
+                    {(bank.status === "pending" || bank.status === "rejected") && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-indigo-600 hover:text-indigo-700"
+                        onClick={() => handlePublish(bank.id)}
+                      >
+                        <Rocket className="mr-1 h-3 w-3" />
+                        发布
+                      </Button>
+                    )}
+                    {bank.status === "published" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
+                        onClick={() => handleUnpublish(bank.id)}
+                      >
+                        <ArrowDownFromLine className="mr-1 h-3 w-3" />
+                        取消发布
+                      </Button>
+                    )}
+                    {(bank.status === "draft" || bank.status === "rejected") && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
+                        onClick={() => handleDelete(bank)}
+                      >
+                        <Trash2 className="mr-1 h-3 w-3" />
+                        删除
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    )
   }
 
   return (
-    <div className="px-8 py-6">
+    <div className="space-y-6">
       <PageHeaderCard
-        title="题库管理"
-        description="管理所有题库，点击进入题目列表进行管理"
+        title="题库资源管理"
+        description="维护题库及题目资源，支持审批、发布与批次分组管理"
         actions={
           <>
-            <PrdAnnotation data={getAnnotation("qb-btn-config-approval")}>
-              <Button variant="outline">
-                <Settings className="mr-2 size-4" />
-                配置审批流程
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("qb-btn-config-batch")}>
-              <Button variant="outline">
-                <FolderTree className="mr-2 size-4" />
-                配置批次分组
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("qb-btn-import")}>
-              <Button variant="outline">
-                <Upload className="mr-2 size-4" />
-                导入题库
-              </Button>
-            </PrdAnnotation>
-            <PrdAnnotation data={getAnnotation("qb-btn-create")}>
-              <Button onClick={() => { setEditingBank(null); setFormOpen(true) }}>
-                <Plus className="mr-2 size-4" />
-                新建题库
-              </Button>
-            </PrdAnnotation>
+            <Button variant="outline" size="sm" onClick={() => setIsApprovalWorkflowDialogOpen(true)}>
+              <GitBranch className="mr-2 h-4 w-4" />
+              配置审批流程
+            </Button>
+
+            <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FolderKanban className="mr-2 h-4 w-4" />
+                  配置批次分组
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+                <DialogHeader>
+                  <DialogTitle>批次分组管理</DialogTitle>
+                  <DialogDescription>管理题库建设批次分组，关联审批流程</DialogDescription>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                  <div className="flex justify-end">
+                    <Dialog open={isInnerBatchCreateOpen} onOpenChange={setIsInnerBatchCreateOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          新增批次
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                          <DialogTitle>新增批次</DialogTitle>
+                          <DialogDescription>创建新的题库建设批次分组，并关联审批流程。</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="batchName">分组名称</Label>
+                            <Input
+                              id="batchName"
+                              value={newBatchName}
+                              onChange={(e) => setNewBatchName(e.target.value)}
+                              placeholder="例如：2026春季电商实训题库开发"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="batchCode">批次编号</Label>
+                            <Input
+                              id="batchCode"
+                              value={`EB-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`}
+                              disabled
+                              className="bg-gray-50 text-gray-500"
+                            />
+                            <p className="text-xs text-gray-500">批次编号自动生成，不可修改</p>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="workflow">关联审批流 <span className="text-red-500">*</span></Label>
+                            <Select value={newBatchWorkflow} onValueChange={setNewBatchWorkflow}>
+                              <SelectTrigger id="workflow">
+                                <SelectValue placeholder="选择审批流程" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {workflows.map((wf) => (
+                                  <SelectItem key={wf.id} value={wf.id}>
+                                    <span className="inline-flex items-center">
+                                      <span>{wf.name}</span>
+                                      <span className="text-xs text-gray-400 ml-2">({wf.steps?.length || 0}步)</span>
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsInnerBatchCreateOpen(false)}>取消</Button>
+                          <Button onClick={handleCreateBatch} disabled={!newBatchName || !newBatchWorkflow}>
+                            创建批次
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-slate-50 text-xs font-medium text-slate-500 border-b">
+                      <div>分组名称</div>
+                      <div>批次编号</div>
+                      <div>审批流程</div>
+                    </div>
+                    {batches.map((batch) => (
+                      <div key={batch.id} className="grid grid-cols-3 gap-4 px-4 py-2 text-sm border-b last:border-0">
+                        <div className="font-medium">{batch.name}</div>
+                        <div className="text-gray-500">{batch.code || batch.id.slice(0, 12)}</div>
+                        <div>
+                          <Badge variant="outline" className="text-xs">
+                            {workflows.find((w) => w.id === batch.workflowId)?.name || "-"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsBatchDialogOpen(false)}>关闭</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              导入题库
+            </Button>
+
+            <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => { resetCreateForm(); setIsCreateOpen(true) }}>
+              <Plus className="mr-2 h-4 w-4" />
+              新建题库
+            </Button>
           </>
         }
-        stats={[
-          {
-            label: "题库总数",
-            value: stats.total,
-            icon: <FileText className="size-3.5 text-blue-500" />,
-            iconClassName: "bg-blue-50",
-          },
-          {
-            label: "草稿",
-            value: stats.draft,
-            icon: <RotateCcw className="size-3.5 text-gray-500" />,
-            iconClassName: "bg-gray-50",
-          },
-          {
-            label: "审批中",
-            value: stats.pending,
-            icon: <GitBranch className="size-3.5 text-yellow-500" />,
-            iconClassName: "bg-yellow-50",
-          },
-          {
-            label: "待发布",
-            value: stats.toPublish,
-            icon: <ArrowUpFromLine className="size-3.5 text-amber-500" />,
-            iconClassName: "bg-amber-50",
-          },
-          {
-            label: "已发布",
-            value: stats.published,
-            icon: <CheckCircle2 className="size-3.5 text-green-500" />,
-            iconClassName: "bg-green-50",
-          },
-        ]}
-        className="mb-4"
+        stats={
+          activeTab !== "public"
+            ? [
+                {
+                  label: "题库总数",
+                  value: stats.total,
+                  icon: <List className="h-3 w-3 text-blue-500" />,
+                  iconClassName: "bg-blue-50",
+                },
+                {
+                  label: "草稿",
+                  value: stats.draft,
+                  icon: <RotateCcw className="h-3 w-3 text-gray-500" />,
+                  iconClassName: "bg-gray-50",
+                },
+                {
+                  label: "审批中",
+                  value: stats.pending,
+                  icon: <GitBranch className="h-3 w-3 text-yellow-500" />,
+                  iconClassName: "bg-yellow-50",
+                },
+                {
+                  label: "已驳回",
+                  value: stats.rejected,
+                  icon: <X className="h-3 w-3 text-red-500" />,
+                  iconClassName: "bg-red-50",
+                },
+                {
+                  label: "已发布",
+                  value: stats.published,
+                  icon: <ArrowUpFromLine className="h-3 w-3 text-green-500" />,
+                  iconClassName: "bg-green-50",
+                },
+              ]
+            : undefined
+        }
       />
 
-      {/* Tab 切换与视图切换 */}
-      <div className="mb-4 flex items-center justify-between">
-        <Tabs value={ownerTab} onValueChange={(v) => setOwnerTab(v as OwnerTab)}>
-          <TabsList>
-            <TabsTrigger value="mine">我的题库</TabsTrigger>
-            <TabsTrigger value="collaborate">共建题库</TabsTrigger>
-            <TabsTrigger value="public">公共题库</TabsTrigger>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            setActiveTab(v as TabType)
+            setSelectedIds([])
+            setSelectedBatchId(null)
+          }}
+        >
+          <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="my" className="w-full">我的题库</TabsTrigger>
+            <TabsTrigger value="collab" className="w-full">共建题库</TabsTrigger>
+            <TabsTrigger value="public" className="w-full">公共题库</TabsTrigger>
           </TabsList>
         </Tabs>
+
         <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
           <ToggleGroupItem value="list" aria-label="资源列表">
-            <List className="size-4" />
+            <List className="h-4 w-4" />
             <span className="ml-1.5">资源列表</span>
           </ToggleGroupItem>
-          <ToggleGroupItem value="batch" aria-label="批次分组">
-            <LayoutGrid className="size-4" />
+          <ToggleGroupItem value="group" aria-label="批次分组">
+            <LayoutGrid className="h-4 w-4" />
             <span className="ml-1.5">批次分组</span>
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
 
-      {/* 筛选栏 */}
-      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="搜索题库名称..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="全部状态" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="draft">草稿</SelectItem>
-              <SelectItem value="published">已发布</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* 题库列表 */}
-      <div className="rounded-lg border bg-white px-4 py-3">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40px] text-center">
-                  <Checkbox
-                    checked={selectableBanks.length > 0 && selectableBanks.every((b) => selectedIds.includes(b.id)) ? true : selectedBanks.some((b) => selectableBanks.map((sb) => sb.id).includes(b.id)) ? "indeterminate" : false}
-                    onCheckedChange={(checked) => handleSelectAll(checked === true)}
-                    aria-label="全选"
-                  />
-                </TableHead>
-                <TableHead className="w-[200px]">
-                  <PrdAnnotation data={getAnnotation("qb-col-name")}>题库名称</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[200px]">
-                  <PrdAnnotation data={getAnnotation("qb-col-desc")}>题库简介</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[100px]">
-                  <PrdAnnotation data={getAnnotation("qb-col-count")}>题目数量</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[120px]">
-                  <PrdAnnotation data={getAnnotation("qb-col-batch")}>所属批次</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[100px]">
-                  <PrdAnnotation data={getAnnotation("qb-col-creator")}>创建人</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[100px]">
-                  <PrdAnnotation data={getAnnotation("qb-col-collaborators")}>共建人</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[100px]">
-                  <PrdAnnotation data={getAnnotation("qb-col-status")}>状态</PrdAnnotation>
-                </TableHead>
-                <TableHead className="w-[120px]">创建时间</TableHead>
-                <TableHead className="w-[120px]">更新时间</TableHead>
-                <TableHead className="sticky right-0 w-[80px] bg-white text-right">
-                  <PrdAnnotation data={getAnnotation("qb-col-actions")}>操作</PrdAnnotation>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredBanks.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
-                    暂无题库记录
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredBanks.map((bank) => {
-                  const isSelected = selectedIds.includes(bank.id)
-                  return (
-                    <TableRow
-                      key={bank.id}
-                      className={cn("group cursor-pointer hover:bg-muted/50", isSelected && "bg-primary/5")}
-                      onClick={() => router.push(`/evaluation/question-banks/${bank.id}`)}
-                    >
-                      <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        {!bank.isDraftPool && (
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(checked) => handleSelectId(bank.id, checked === true)}
-                            aria-label={`选择 ${bank.name}`}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {bank.isDraftPool && (
-                            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                              草稿库
-                            </span>
-                          )}
-                          <span className="text-sm font-medium">{bank.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground line-clamp-2">{bank.description || '-'}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">{bank.questionCount} 题</span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{getBatchName(bank)}</TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">张三</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">{bank.isDraftPool ? '-' : (bank.collaboratorIds?.length ? bank.collaboratorIds.map(id => mockUsers.find(u => u.id === id)?.name).filter(Boolean).join('、') || '-' : '-')}</span>
-                      </TableCell>
-                      <TableCell>
-                        {bank.isDraftPool ? (
-                          <span className="text-sm text-muted-foreground">-</span>
-                        ) : (
-                          <StatusBadge status={bank.status} />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">{formatDate(bank.createdAt)}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">{formatDate(bank.updatedAt)}</span>
-                      </TableCell>
-                      <TableCell className="sticky right-0 bg-white text-right relative">
-                        <BankStatusActions
-                          status={bank.status}
-                          onView={() => router.push(`/evaluation/question-banks/${bank.id}`)}
-                          onEdit={bank.isDraftPool ? undefined : () => handleEdit(bank)}
-                          onDelete={bank.isDraftPool ? undefined : () => handleDelete(bank)}
-                          onStatusChange={bank.isDraftPool ? undefined : (action) => updateQuestionBankStatus(bank.id, action)}
-                          onInvite={bank.isDraftPool ? undefined : () => handleInvite(bank)}
-                          onClone={bank.isDraftPool ? undefined : () => handleCloneBank(bank)}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        {/* 批量操作工具栏 */}
-        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 mt-3">
-          <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
-            {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择题库："}
-          </span>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
-            <Send className="mr-1 h-3 w-3" />
-            提交审批
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
-            <Undo2 className="mr-1 h-3 w-3" />
-            撤回审批
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
-            <ArrowUpFromLine className="mr-1 h-3 w-3" />
-            发布
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
-            <ArrowDownFromLine className="mr-1 h-3 w-3" />
-            取消发布
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
-            <Trash2 className="mr-1 h-3 w-3" />
-            删除
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchClone}>
-            <Copy className="mr-1 h-3 w-3" />
-            克隆
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={() => setIsBatchMoveDialogOpen(true)}>
-            <FolderKanban className="mr-1 h-3 w-3" />
-            调整批次分组
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchExport}>
-            <Download className="mr-1 h-3 w-3" />
-            导出
-          </Button>
-        </div>
-      </div>
-
-      {/* 新建/编辑弹窗 */}
-      <BankFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        bank={editingBank}
-        onSubmit={handleFormSubmit}
-      />
-
-      {/* 邀请共建弹窗 */}
-      <InviteCollaboratorDialog
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        title={`邀请共建「${invitingBank?.name || ''}」`}
-        description="邀请其他用户一起维护此题库"
-        onInvite={handleInviteSubmit}
-      />
-
-      {/* 批量导出弹窗 */}
-      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>批量导出题库</DialogTitle>
-            <DialogDescription>已选择 {selectedIds.length} 个题库，请选择导出格式</DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-3">
-            <div className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
-              <div className="h-10 w-10 rounded bg-green-50 flex items-center justify-center">
-                <span className="text-xs font-bold text-green-600">XLSX</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium">导出为 Excel</p>
-                <p className="text-xs text-slate-400">包含题库基础信息和题目配置</p>
+      <Card className="border-slate-200 shadow-sm">
+        <CardContent className="flex flex-col gap-4 p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <div className="flex items-center gap-2 w-full">
+                <Search className="h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="搜索题库名称 / 简介"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 text-sm flex-1"
+                />
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
-              <div className="h-10 w-10 rounded bg-blue-50 flex items-center justify-center">
-                <span className="text-xs font-bold text-blue-600">JSON</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium">导出为 JSON</p>
-                <p className="text-xs text-slate-400">完整的题库数据结构，适用于备份和迁移</p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsExportDialogOpen(false)}>确认导出</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 调整批次分组弹窗 */}
-      <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>调整批次分组</DialogTitle>
-            <DialogDescription>将已选择的 {selectedIds.length} 个题库移动到其他批次分组</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="targetBatch">目标批次分组</Label>
-              <Select value={batchMoveTarget} onValueChange={setBatchMoveTarget}>
-                <SelectTrigger id="targetBatch">
-                  <SelectValue placeholder="请选择目标批次分组" />
+            <div className="flex items-center gap-2">
+              <Select value={selectedBatchId || "__all__"} onValueChange={(v) => setSelectedBatchId(v === "__all__" ? null : v)}>
+                <SelectTrigger className="h-9 text-sm w-44">
+                  <SelectValue placeholder="按批次筛选" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockBatches.map((batch) => (
+                  <SelectItem value="__all__">全部批次</SelectItem>
+                  {batches.map((batch) => (
                     <SelectItem key={batch.id} value={batch.id}>
                       <span className="flex items-center gap-2">
                         {batch.name}
+                        <span className="text-xs text-gray-400">({batch.code || batch.id.slice(0, 8)})</span>
                       </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedStatus || "__all__"} onValueChange={(v) => setSelectedStatus(v === "__all__" ? null : (v as BackendStatus))}>
+                <SelectTrigger className="h-9 text-sm w-36">
+                  <SelectValue placeholder="按状态筛选" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">全部状态</SelectItem>
+                  <SelectItem value="draft">草稿</SelectItem>
+                  <SelectItem value="pending">审批中</SelectItem>
+                  <SelectItem value="rejected">已驳回</SelectItem>
+                  <SelectItem value="published">已发布</SelectItem>
+                  <SelectItem value="archived">已归档</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" size="sm" className="h-9" onClick={handleResetFilters}>
+              <RotateCcw className="mr-1 h-3.5 w-3.5" />
+              重置
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+            <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
+              {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择题库："}
+            </span>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
+              <Send className="mr-1 h-3 w-3" />
+              提交审批
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
+              <Undo2 className="mr-1 h-3 w-3" />
+              撤回审批
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
+              <ArrowUpFromLine className="mr-1 h-3 w-3" />
+              发布
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
+              <ArrowDownFromLine className="mr-1 h-3 w-3" />
+              取消发布
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchClone}>
+              <Copy className="mr-1 h-3 w-3" />
+              克隆
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={() => setIsBatchMoveDialogOpen(true)}>
+              <FolderKanban className="mr-1 h-3 w-3" />
+              调整批次分组
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchExport}>
+              <Download className="mr-1 h-3 w-3" />
+              导出
+            </Button>
+          </div>
+        </CardContent>
+
+        {filteredBanks.length > 0 && viewMode !== "group" && (
+          <CardContent className="pt-0">
+            <div className="overflow-x-auto">{renderTable(filteredBanks)}</div>
+          </CardContent>
+        )}
+      </Card>
+
+      {viewMode === "group" && banksByBatch && (
+        <div className="space-y-4">
+          {Object.entries(banksByBatch).map(([batchId, batchBanks]) => {
+            const batch = batches.find((b) => b.id === batchId)
+            if (!batch) return null
+            const isExpanded = expandedBatches.includes(batchId)
+            return (
+              <Collapsible key={batchId} open={isExpanded} onOpenChange={() => toggleBatch(batchId)}>
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <CollapsibleTrigger asChild>
+                    <div className="flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-gray-400" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-gray-400" />
+                        )}
+                        <span className="font-medium text-gray-800">{batch.name}</span>
+                        <span className="text-xs text-gray-400">({batch.code || batch.id.slice(0, 8)})</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {batchBanks.length} 个题库
+                      </Badge>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="p-4 pt-0 overflow-x-auto">{renderTable(batchBanks)}</div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
+            )
+          })}
+          {uncategorizedBanks.length > 0 && (
+            <div className="overflow-hidden rounded-xl border border-dashed border-slate-300 bg-white">
+              <div className="flex items-center justify-between px-4 py-3 bg-slate-50/80">
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-gray-800">未分类</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {uncategorizedBanks.length} 个题库
+                  </Badge>
+                </div>
+              </div>
+              <div className="p-4 pt-0 overflow-x-auto">{renderTable(uncategorizedBanks)}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!loading && filteredBanks.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+            <Search className="h-8 w-8 text-slate-400" />
+          </div>
+          <h3 className="mb-2 text-lg font-medium text-slate-700">暂无题库</h3>
+          <p className="mb-4 text-sm text-slate-500">当前筛选条件下没有题库数据</p>
+          <Button size="sm" onClick={() => { resetCreateForm(); setIsCreateOpen(true) }}>
+            <Plus className="mr-2 h-4 w-4" />
+            新建题库
+          </Button>
+        </div>
+      )}
+
+      {loading && filteredBanks.length === 0 && (
+        <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
+          加载中...
+        </div>
+      )}
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>新建题库</DialogTitle>
+            <DialogDescription>创建一个新的题库来管理题目</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="bankName">题库名称 <span className="text-red-500">*</span></Label>
+              <Input
+                id="bankName"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="请输入题库名称"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bankDesc">题库简介</Label>
+              <Input
+                id="bankDesc"
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="请输入题库简介（可选）"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bankBatch">所属批次</Label>
+              <Select value={newBatchId || "none"} onValueChange={(v) => setNewBatchId(v === "none" ? "" : v)}>
+                <SelectTrigger id="bankBatch">
+                  <SelectValue placeholder="选择所属批次" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">不设置批次</SelectItem>
+                  {batches.map((batch) => (
+                    <SelectItem key={batch.id} value={batch.id}>
+                      {batch.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -618,8 +1108,150 @@ export default function QuestionBanksPage() {
             </div>
           </div>
           <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>取消</Button>
+            <Button onClick={handleCreate} disabled={!newName.trim()}>创建</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Workflow Config Dialog */}
+      <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <div>
+              <DialogTitle>配置审批流程</DialogTitle>
+              <DialogDescription>管理题库审批流程模板</DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-4 space-y-4">
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>流程名称</TableHead>
+                    <TableHead>流程描述</TableHead>
+                    <TableHead>审批步骤</TableHead>
+                    <TableHead>创建时间</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {workflows.map((wf) => (
+                    <TableRow key={wf.id}>
+                      <TableCell className="font-medium text-sm">{wf.name}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{wf.description}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {wf.steps?.map((step) => (
+                            <Badge key={step.id} variant="outline" className="text-xs">
+                              {step.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">{wf.createdAt}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsApprovalWorkflowDialogOpen(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>导入题库</DialogTitle>
+            <DialogDescription>上传 Excel 或 CSV 文件批量导入题库数据</DialogDescription>
+          </DialogHeader>
+          <div className="py-8">
+            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+              <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
+              <p className="text-sm text-muted-foreground mb-2">拖拽文件到此处，或点击选择文件</p>
+              <Button variant="outline" size="sm">选择文件</Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
+            <Button onClick={() => { alert("导入功能演示：文件已上传，正在解析..."); setIsImportDialogOpen(false) }}>开始导入</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Dialog */}
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>导出题库</DialogTitle>
+            <DialogDescription>将选中的题库数据导出为文件</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-slate-500">已选择 {selectedIds.length} 个题库</p>
+            <div className="grid gap-2">
+              <Label>导出格式</Label>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1">Excel (.xlsx)</Button>
+                <Button variant="outline" size="sm" className="flex-1">CSV (.csv)</Button>
+                <Button variant="outline" size="sm" className="flex-1">JSON (.json)</Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
+            <Button onClick={() => { alert(`已导出 ${selectedIds.length} 个题库数据`); setIsExportDialogOpen(false); setSelectedIds([]) }}>确认导出</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Move Dialog */}
+      <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>调整批次分组</DialogTitle>
+            <DialogDescription>将选中的 {selectedIds.length} 个题库移动到指定批次</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={moveTargetBatchId} onValueChange={setMoveTargetBatchId}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择目标批次" />
+              </SelectTrigger>
+              <SelectContent>
+                {batches.map((batch) => (
+                  <SelectItem key={batch.id} value={batch.id}>
+                    {batch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
             <Button variant="outline" onClick={() => setIsBatchMoveDialogOpen(false)}>取消</Button>
-            <Button onClick={handleBatchMove} disabled={!batchMoveTarget}>确认移动</Button>
+            <Button onClick={handleBatchMove} disabled={!moveTargetBatchId}>确认移动</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clone Rename Dialog */}
+      <Dialog open={isCloneRenameDialogOpen} onOpenChange={setIsCloneRenameDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>克隆题库</DialogTitle>
+            <DialogDescription>为克隆的题库命名</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={cloneRenameValue}
+              onChange={(e) => setCloneRenameValue(e.target.value)}
+              placeholder="输入新题库名称"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCloneRenameDialogOpen(false)}>取消</Button>
+            <Button onClick={handleConfirmClone} disabled={!cloneRenameValue.trim()}>确认克隆</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

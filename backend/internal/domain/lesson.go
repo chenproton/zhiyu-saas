@@ -9,6 +9,7 @@ const (
 	CourseStatusPending   CourseStatus = "pending"
 	CourseStatusRejected  CourseStatus = "rejected"
 	CourseStatusPublished CourseStatus = "published"
+	CourseStatusArchived  CourseStatus = "archived"
 )
 
 type LessonBatchStatus string

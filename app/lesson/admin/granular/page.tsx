@@ -1,7 +1,6 @@
 "use client"
 
 import { CourseAdminPage } from "../_components/courses/course-admin-page"
-import { granularCourses } from "@/lib/mock-data-lesson"
 
 export default function GranularCoursePage() {
   return (
@@ -9,7 +8,6 @@ export default function GranularCoursePage() {
       title="颗粒课管理"
       subtitle="维护颗粒课信息，包含颗粒课创建、提交审批、颗粒课发布等功能"
       courseType="granular"
-      courses={granularCourses}
       addHref="/admin/granular/add"
     />
   )
