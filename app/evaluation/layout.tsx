@@ -48,6 +48,7 @@ export default function EvaluationLayout({
   const config = {
     ...evaluationNavigationConfig,
     topNavItems: portalTopNavItems,
+    sideBackHref: "/portal/apps",
   }
 
   return (

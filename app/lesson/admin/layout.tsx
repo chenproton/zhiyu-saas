@@ -13,6 +13,7 @@ const ALLOWED_IDENTITIES = ["platform_admin", "school_admin", "teacher"]
 const config: PlatformNavigationConfig = {
   ...adminNavigationConfig,
   topNavItems: portalTopNavItems,
+  sideBackHref: "/portal/apps",
   platformSwitchItems: [
     { id: "teacher", label: "教学空间", href: "/lesson/teacher/claim", icon: "bookOpen" },
   ],

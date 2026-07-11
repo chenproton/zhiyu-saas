@@ -42,6 +42,7 @@ export default function JobLayout({
   const config = {
     ...jobNavigationConfig,
     topNavItems: portalTopNavItems,
+    sideBackHref: "/portal/apps",
   }
 
   return (

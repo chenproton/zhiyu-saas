@@ -42,6 +42,7 @@ export default function SceneLayout({
   const config = {
     ...sceneNavigationConfig,
     topNavItems: portalTopNavItems,
+    sideBackHref: "/portal/apps",
   }
 
   return (
