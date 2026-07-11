@@ -130,35 +130,8 @@ const typeToItemType: Partial<Record<ResourceType, ResourceItem["type"]>> = {
 const getItemType = (t: ResourceType): ResourceItem["type"] =>
   typeToItemType[t] || "custom"
 
-// ==================== Mock Data ====================
-
-const MOCK_LEARNING_RESOURCES: LearningResource[] = [
-  { id: "lr-1", name: "React 官方文档", type: "link", url: "https://react.dev", description: "React 框架官方中文文档", knowledgePoints: ["kp-1"], uploadedAt: "2024-01-10", uploadedBy: "张老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-2", name: "TypeScript 入门教程.pdf", type: "document", url: "/files/ts-guide.pdf", size: "2.3MB", description: "TypeScript 从入门到精通", knowledgePoints: ["kp-2"], uploadedAt: "2024-01-08", uploadedBy: "李老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-3", name: "CSS 布局实战视频", type: "video", url: "/videos/css-layout.mp4", size: "156MB", description: "CSS Flexbox 和 Grid 布局详解", knowledgePoints: ["kp-3"], uploadedAt: "2024-01-05", uploadedBy: "王老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-4", name: "API 设计规范文档.docx", type: "document", url: "/files/api-spec.docx", size: "1.2MB", description: "RESTful API 设计最佳实践", knowledgePoints: ["kp-4"], uploadedAt: "2024-01-12", uploadedBy: "张老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-5", name: "数据库建模工具", type: "software", url: "https://dbdiagram.io", description: "在线数据库设计工具", knowledgePoints: ["kp-5"], uploadedAt: "2024-01-15", uploadedBy: "赵老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-6", name: "JWT 认证流程图.png", type: "image", url: "/images/jwt-flow.png", size: "0.5MB", description: "JWT 认证工作流程图解", knowledgePoints: ["kp-6"], uploadedAt: "2024-01-18", uploadedBy: "李老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-7", name: "Git 协作开发指南", type: "document", url: "/files/git-guide.pdf", size: "3.1MB", description: "团队 Git 工作流最佳实践", knowledgePoints: ["kp-7"], uploadedAt: "2024-01-20", uploadedBy: "王老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-8", name: "实训室 A-301", type: "venue", url: "", description: "计算机实训室，配备50台电脑", knowledgePoints: [], uploadedAt: "2024-01-01", uploadedBy: "管理员", thumbnail: "/placeholder.svg" },
-  { id: "lr-9", name: "电商平台演示系统", type: "software", url: "https://demo.shop.edu", description: "电商运营模拟平台", knowledgePoints: ["kp-8"], uploadedAt: "2024-01-22", uploadedBy: "赵老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-10", name: "数据分析案例集", type: "document", url: "/files/data-cases.pdf", size: "5.6MB", description: "真实业务数据分析案例", knowledgePoints: ["kp-9"], uploadedAt: "2024-01-25", uploadedBy: "刘老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-11", name: "学生成绩统计表.xlsx", type: "spreadsheet", url: "/files/grades.xlsx", size: "0.8MB", description: "2024春季学期学生实训成绩汇总表", knowledgePoints: [], uploadedAt: "2024-02-01", uploadedBy: "教务老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-12", name: "项目需求讲解音频", type: "audio", url: "/audio/requirements.mp3", size: "12MB", description: "企业导师对项目需求的详细讲解录音", knowledgePoints: ["kp-1"], uploadedAt: "2024-02-05", uploadedBy: "企业导师", thumbnail: "/placeholder.svg" },
-  { id: "lr-13", name: "前端开发工具包.zip", type: "archive", url: "/files/frontend-toolkit.zip", size: "45MB", description: "包含常用前端工具、脚手架和配置文件", knowledgePoints: ["kp-1", "kp-2"], uploadedAt: "2024-02-08", uploadedBy: "张老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-14", name: "VS Code 开发环境", type: "software", url: "https://code.visualstudio.com", description: "推荐使用的代码编辑器及插件配置说明", knowledgePoints: ["kp-1"], uploadedAt: "2024-02-10", uploadedBy: "李老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-15", name: "3D打印机设备", type: "facility", url: "", description: "创想三维3D打印机，用于原型制作", knowledgePoints: [], uploadedAt: "2024-02-12", uploadedBy: "实验室管理员", thumbnail: "/placeholder.svg" },
-  { id: "lr-16", name: "服务器集群", type: "facility", url: "", description: "4台高性能服务器，用于部署和测试", knowledgePoints: ["kp-5"], uploadedAt: "2024-02-15", uploadedBy: "IT管理员", thumbnail: "/placeholder.svg" },
-  { id: "lr-17", name: "设计规范表格", type: "spreadsheet", url: "/files/design-spec.xlsx", size: "1.5MB", description: "UI设计规范参数对照表", knowledgePoints: ["kp-3"], uploadedAt: "2024-02-18", uploadedBy: "王老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-18", name: "代码审查清单", type: "document", url: "/files/code-review.pdf", size: "0.6MB", description: "团队代码审查标准检查清单", knowledgePoints: ["kp-7"], uploadedAt: "2024-02-20", uploadedBy: "张老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-19", name: "微服务架构讲解", type: "audio", url: "/audio/microservices.mp3", size: "28MB", description: "微服务架构设计原则讲解录音", knowledgePoints: ["kp-4"], uploadedAt: "2024-02-22", uploadedBy: "李老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-20", name: "项目素材压缩包", type: "archive", url: "/files/project-assets.zip", size: "120MB", description: "包含图片、图标、字体等项目素材", knowledgePoints: ["kp-3"], uploadedAt: "2024-02-25", uploadedBy: "王老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-21", name: "Postman API测试工具", type: "software", url: "https://www.postman.com", description: "API接口测试与协作平台", knowledgePoints: ["kp-4"], uploadedAt: "2024-03-01", uploadedBy: "赵老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-22", name: "多媒体教室 B-205", type: "venue", url: "", description: "配备投影仪、音响和80个座位", knowledgePoints: [], uploadedAt: "2024-03-05", uploadedBy: "管理员", thumbnail: "/placeholder.svg" },
-  { id: "lr-23", name: "无人机实训设备", type: "facility", url: "", description: "大疆无人机及配套飞行模拟器", knowledgePoints: [], uploadedAt: "2024-03-08", uploadedBy: "实验室管理员", thumbnail: "/placeholder.svg" },
-  { id: "lr-24", name: "React 18 新特性视频教程", type: "video", url: "/videos/react18-features.mp4", size: "230MB", description: "深入讲解 React 18 并发特性和自动批处理", knowledgePoints: ["kp-1"], uploadedAt: "2024-03-10", uploadedBy: "张老师", thumbnail: "/placeholder.svg" },
-  { id: "lr-25", name: "百度统计后台链接", type: "link", url: "https://tongji.baidu.com", description: "网站流量分析平台入口", knowledgePoints: ["kp-9"], uploadedAt: "2024-03-12", uploadedBy: "刘老师", thumbnail: "/placeholder.svg" },
-]
+// 教学资源数据待接入资源中心，默认空状态
+const INITIAL_LEARNING_RESOURCES: LearningResource[] = []
 
 // ==================== Component ====================
 
@@ -173,7 +146,7 @@ export function TeachingResourceSelector({ items, onChange }: TeachingResourceSe
   const [resSearchName, setResSearchName] = useState("")
   const [resSearchProvider, setResSearchProvider] = useState("")
 
-  const [learningResources, setLearningResources] = useState(MOCK_LEARNING_RESOURCES.map(r => ({ ...r })))
+  const [learningResources, setLearningResources] = useState(INITIAL_LEARNING_RESOURCES.map(r => ({ ...r })))
 
   const [selectedResIds, setSelectedResIds] = useState<string[]>([])
 

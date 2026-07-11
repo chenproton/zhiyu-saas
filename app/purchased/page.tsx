@@ -169,10 +169,15 @@ export default function PurchasedResourcesPage() {
                                 variant="outline"
                                 size="sm"
                                 className="gap-1"
-                                onClick={() => alert("开始下载附件（模拟）")}
+                                disabled={!resource.attachment}
+                                onClick={() => {
+                                  if (resource.attachment) {
+                                    window.open(resource.attachment, "_blank")
+                                  }
+                                }}
                               >
                                 <Download className="h-3.5 w-3.5" />
-                                下载
+                                {resource.attachment ? "下载" : "无附件"}
                               </Button>
                               <Button
                                 variant="outline"

@@ -39,14 +39,14 @@ export function SubmissionSuccess({ taskName, assessmentForm }: SubmissionSucces
         </div>
         <div className="flex justify-center gap-3">
           <Button variant="outline" asChild>
-            <Link href="/scene/ai/approvals/grading">
-              返回评分列表
+            <Link href="/scene/approvals">
+              返回审批列表
             </Link>
           </Button>
           <Button asChild>
-            <Link href="/scene/ai/approvals/grading">
+            <Link href="/scene">
               <ClipboardCheck className="h-4 w-4 mr-1" />
-              查看评分列表
+              查看场景列表
               <ArrowRight className="h-4 w-4 ml-1" />
             </Link>
           </Button>

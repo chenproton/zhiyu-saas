@@ -9,41 +9,50 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { SectionCard } from "./section-card"
 
-// ==================== Mock 收藏数据 ====================
+// 收藏数据暂由后端提供，当前无收藏 API，默认空状态
 
-const mockFavoriteJobs = [
-  { id: "fj1", name: "网络运维工程师", company: "华为技术有限公司", location: "深圳", salary: "8-12K", tags: ["五险一金", "技术成长"], matchScore: 82 },
-  { id: "fj2", name: "系统运维工程师", company: "腾讯云", location: "广州", salary: "10-15K", tags: ["弹性工作", "股票期权"], matchScore: 76 },
-  { id: "fj3", name: "网络安全工程师", company: "奇安信", location: "北京", salary: "9-14K", tags: ["专业培训", "项目奖金"], matchScore: 68 },
-  { id: "fj4", name: "售前网络工程师", company: "新华三", location: "杭州", salary: "8-13K", tags: ["客户对接", "方案设计"], matchScore: 71 },
-  { id: "fj5", name: "数据中心运维", company: "阿里云", location: "上海", salary: "12-18K", tags: ["大厂背景", "年终丰厚"], matchScore: 65 },
-]
+interface FavoriteJob {
+  id: string
+  name: string
+  company: string
+  location: string
+  salary: string
+  tags: string[]
+  matchScore: number
+}
 
-const mockFavoriteCourses = [
-  { id: "fc1", name: "Web前端开发实战", provider: "慕课网", duration: "32学时", level: "进阶", score: 4.8 },
-  { id: "fc2", name: "Python数据分析", provider: "中国大学MOOC", duration: "24学时", level: "入门", score: 4.6 },
-  { id: "fc3", name: "Docker容器化部署", provider: "极客时间", duration: "16学时", level: "进阶", score: 4.9 },
-  { id: "fc4", name: "Linux网络服务配置", provider: "实验楼", duration: "20学时", level: "中级", score: 4.5 },
-  { id: "fc5", name: "云计算与虚拟化技术", provider: "阿里云大学", duration: "40学时", level: "高级", score: 4.7 },
-  { id: "fc6", name: "数据库原理与应用", provider: "学堂在线", duration: "28学时", level: "入门", score: 4.4 },
-]
+interface FavoriteCourse {
+  id: string
+  name: string
+  provider: string
+  duration: string
+  level: string
+  score: number
+}
 
-const mockFavoriteScenes = [
-  { id: "fs1", name: "企业网络故障排查", tasks: 4, company: "华为", status: "进行中" },
-  { id: "fs2", name: "数据中心服务器部署", tasks: 3, company: "腾讯", status: "未开始" },
-  { id: "fs3", name: "校园网安全防护", tasks: 5, company: "奇安信", status: "已完成" },
-  { id: "fs4", name: "客户网络需求沟通", tasks: 2, company: "新华三", status: "未开始" },
-  { id: "fs5", name: "云计算平台搭建", tasks: 4, company: "阿里云", status: "未开始" },
-]
+interface FavoriteScene {
+  id: string
+  name: string
+  tasks: number
+  company: string
+  status: string
+}
 
-const mockFavoriteExams = [
-  { id: "fe1", name: "网络工程师软考真题库", type: "题库", questions: 1200, difficulty: "中等" },
-  { id: "fe2", name: "HCIA-Datacom模拟试卷", type: "试卷库", questions: 3, difficulty: "困难" },
-  { id: "fe3", name: "Linux认证真题汇编", type: "题库", questions: 800, difficulty: "中等" },
-  { id: "fe4", name: "英语四级模拟试卷", type: "试卷库", questions: 6, difficulty: "简单" },
-  { id: "fe5", name: "网络安全工程师知识题库", type: "题库", questions: 600, difficulty: "困难" },
-  { id: "fe6", name: "岗位能力认定模拟卷", type: "试卷库", questions: 4, difficulty: "中等" },
-]
+interface FavoriteExam {
+  id: string
+  name: string
+  type: string
+  questions: number
+  difficulty: string
+}
+
+const mockFavoriteJobs: FavoriteJob[] = []
+
+const mockFavoriteCourses: FavoriteCourse[] = []
+
+const mockFavoriteScenes: FavoriteScene[] = []
+
+const mockFavoriteExams: FavoriteExam[] = []
 
 const categoryConfig = {
   jobs: { label: "职业岗位", icon: Briefcase, color: "blue" as const },

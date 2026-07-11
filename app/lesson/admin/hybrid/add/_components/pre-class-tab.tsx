@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/table"
 import { Eye, Download, CheckCircle2, Circle } from "lucide-react"
 import { toast } from "sonner"
-import { MOCK_PREP_CONTENT, MOCK_RESOURCES } from "../_mock/registrar-task-mock"
 import type { TaskResource } from "../_types/registrar-adapted"
 
 const resourceTypeLabel: Record<string, string> = {
@@ -29,10 +28,14 @@ const resourceTypeLabel: Record<string, string> = {
 export function PreClassTab() {
   const [prepStage, setPrepStage] = useState<"pre" | "in" | "post">("pre")
   const [task] = useState({
-    objectives: ["了解 Web 前端开发岗位能力要求", "掌握 HTML/CSS/JavaScript 基础", "能够完成 Vue 组件开发"],
-    syllabus: "本课程系统介绍 Web 前端开发技术栈...",
-    prepContent: MOCK_PREP_CONTENT,
-    resources: MOCK_RESOURCES,
+    objectives: [] as string[],
+    syllabus: "",
+    prepContent: {
+      pre: { objectives: "", guidePlan: "", previewQuestions: [] },
+      in: { coursewareResources: [] as TaskResource[], quizQuestions: [], discussionTopics: [] },
+      post: { homework: "", quizQuestions: [], extensionResources: [] },
+    },
+    resources: [] as TaskResource[],
   })
 
   const resources = task.resources || []
@@ -40,7 +43,7 @@ export function PreClassTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button variant="outline" onClick={() => toast("前往备课（演示）")}>
+        <Button variant="outline" onClick={() => toast("备课功能开发中")}>
           前往备课
         </Button>
       </div>
@@ -279,13 +282,14 @@ export function PreClassTab() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => toast("预览资源（演示）")}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!r.url}
+                          onClick={() => r.url && window.open(r.url, "_blank")}
+                        >
                           <Eye className="h-3 w-3 mr-1" />
-                          预览
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => toast("下载资源（演示）")}>
-                          <Download className="h-3 w-3 mr-1" />
-                          下载
+                          {r.url ? "查看" : "无链接"}
                         </Button>
                       </div>
                     </TableCell>

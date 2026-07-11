@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 export default function SceneAiGradingSimulationRedirectPage() {
   const router = useRouter()
   useEffect(() => {
-    router.replace("/scene/ai/approvals/grading")
+    router.replace("/scene/approvals")
   }, [router])
   return null
 }

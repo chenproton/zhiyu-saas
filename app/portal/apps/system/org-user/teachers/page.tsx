@@ -50,15 +50,8 @@ const orgTreeData: OrgDeptNode[] = [
   { id: "dept-4", name: "学生处", majors: [] },
 ]
 
-const mockTeachers: Teacher[] = [
-  { id: "1", name: "张三", workNo: "T001", department: "信息学院", roles: ["超级管理员"], positions: ["系主任", "教授"], status: "在职" },
-  { id: "2", name: "李四", workNo: "T002", department: "信息学院", roles: ["教师"], positions: ["讲师"], status: "在职" },
-  { id: "3", name: "王五", workNo: "T003", department: "信息学院", roles: ["教师", "教研室主任"], positions: ["专业负责人"], status: "在职" },
-  { id: "4", name: "赵六", workNo: "T004", department: "经济管理学院", roles: ["教师"], positions: ["副教授"], status: "在职" },
-  { id: "5", name: "孙七", workNo: "T005", department: "经济管理学院", roles: ["教师", "班主任"], positions: ["教研室主任"], status: "在职" },
-  { id: "6", name: "钱八", workNo: "T006", department: "信息学院", roles: ["超级管理员", "教师"], positions: ["院长", "教授"], status: "在职" },
-  { id: "7", name: "周导师", workNo: "T007", department: "经济管理学院", roles: ["企业导师"], positions: ["企业导师"], status: "外聘" },
-]
+// 教师数据应由 userManagementApi 加载，当前默认空状态
+const mockTeachers: Teacher[] = []
 
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState<Teacher[]>(mockTeachers)
