@@ -21,25 +21,9 @@ import { useData } from "@/components/providers/data-provider"
 import { PrdAnnotation } from "@/components/prd-annotation"
 import { getAnnotation } from "@/lib/prd-annotations"
 
-/* 模拟我的认证岗位 */
-const myCertIds = ["pos-1", "pos-2"]
-
-/* 模拟我的感兴趣岗位 */
-const interestedCertIds = ["pos-3", "pos-4", "pos-8"]
-
-/* 模拟行业与专业映射 */
-const industryMap: Record<string, string> = {
-  "pos-1": "信息技术",
-  "pos-2": "信息技术",
-  "pos-3": "互联网",
-  "pos-4": "设计创意",
-  "pos-5": "信息技术",
-  "pos-6": "信息技术",
-  "pos-7": "数据分析",
-  "pos-8": "综合管理",
-  "pos-9": "综合管理",
-  "pos-10": "信息技术",
-}
+/* 我的认证/感兴趣岗位数据待后端接口支持，当前为空 */
+const myCertIds: string[] = []
+const interestedCertIds: string[] = []
 
 export default function CertificationsPage() {
   const [search, setSearch] = useState("")
@@ -56,15 +40,14 @@ export default function CertificationsPage() {
   }, [activeTab, myPositions, interestedPositions, positionsList, search])
 
   /* 统计数据 */
-  const industries = Array.from(new Set(positionsList.map((p) => industryMap[p.id] || "信息技术")))
   const majors = Array.from(new Set(positionsList.map((p) => p.professionalDirection)))
-  const avgPass = Math.round(positionsList.reduce((s, p) => s + (p.relatedAbilityCount * 7), 0) / (positionsList.length || 1))
+  const avgPass = "—"
 
   const stats = [
     { label: "认证岗位", value: positionsList.length, icon: Award, color: "#2563eb" },
-    { label: "面向行业", value: industries.length, icon: Building2, color: "#10b981" },
+    { label: "面向行业", value: "—", icon: Building2, color: "#10b981" },
     { label: "适用专业", value: majors.length, icon: GraduationCap, color: "#f59e0b" },
-    { label: "平均通过率", value: `${avgPass}%`, icon: TrendingUp, color: "#8b5cf6" },
+    { label: "平均通过率", value: avgPass, icon: TrendingUp, color: "#8b5cf6" },
   ]
 
   const covers = [

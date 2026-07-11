@@ -681,7 +681,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
               <Send className="mr-1 h-3 w-3" />
               提交审批
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled onClick={handleBatchWithdrawApproval}>
               <Undo2 className="mr-1 h-3 w-3" />
               撤回审批
             </Button>
@@ -852,7 +852,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => { alert(`导入${typeLabel}演示：文件已上传，正在解析...`); setIsImportDialogOpen(false) }}>开始导入</Button>
+            <Button disabled>开始导入</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -873,7 +873,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsResourceImportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsResourceImportDialogOpen(false)}>开始导入</Button>
+            <Button disabled>开始导入</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -939,7 +939,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => { alert(`已导出 ${selectedIds.length} 个${typeLabel}数据`); setIsExportDialogOpen(false); setSelectedIds([]) }}>确认导出</Button>
+            <Button disabled>确认导出</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

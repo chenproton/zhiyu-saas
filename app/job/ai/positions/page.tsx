@@ -1029,7 +1029,7 @@ export default function PositionsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => { alert(`已导出 ${selectedIds.length} 个岗位数据`); setIsExportDialogOpen(false); setSelectedIds([]) }}>确认导出</Button>
+            <Button disabled>确认导出</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

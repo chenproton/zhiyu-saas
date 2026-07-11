@@ -133,10 +133,7 @@ export function CourseList({
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs text-amber-600 hover:text-amber-700"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onWithdrawApproval(course)
-                      }}
+                      disabled
                     >
                       <Undo2 className="mr-1 h-3 w-3" />
                       撤回审批
@@ -161,10 +158,7 @@ export function CourseList({
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs text-indigo-600 hover:text-indigo-700"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onInviteCoBuild(course)
-                      }}
+                      disabled
                     >
                       <UserPlus className="mr-1 h-3 w-3" />
                       邀请共建
@@ -174,7 +168,7 @@ export function CourseList({
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 text-xs"
-                    onClick={() => alert(`导出课程：${course.name}（演示）`)}
+                    disabled
                   >
                     <Download className="mr-1 h-3 w-3" />
                     导出

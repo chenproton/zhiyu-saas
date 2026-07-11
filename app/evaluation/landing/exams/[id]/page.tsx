@@ -54,28 +54,20 @@ const typeLabelMap: Record<string, string> = {
 
 const pieColors = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"]
 
-function getExamTimeStatus(examId: string): { bg: string; color: string; label: string } {
+function getExamTimeStatus(status?: string): { bg: string; color: string; label: string } {
   const map: Record<string, { bg: string; color: string; label: string }> = {
-    "exam-1": { label: "进行中", bg: "#dbeafe", color: "#2563eb" },
-    "exam-2": { label: "未开始", bg: "#fef3c7", color: "#d97706" },
-    "exam-3": { label: "已完成", bg: "#dcfce7", color: "#16a34a" },
-    "exam-4": { label: "进行中", bg: "#dbeafe", color: "#2563eb" },
-    "exam-5": { label: "未开始", bg: "#fef3c7", color: "#d97706" },
-    "exam-6": { label: "已完成", bg: "#dcfce7", color: "#16a34a" },
+    published: { label: "进行中", bg: "#dbeafe", color: "#2563eb" },
+    draft: { label: "未开始", bg: "#fef3c7", color: "#d97706" },
+    archived: { label: "已完成", bg: "#dcfce7", color: "#16a34a" },
+    pending: { label: "审核中", bg: "#e0e7ff", color: "#4f46e5" },
+    rejected: { label: "已驳回", bg: "#fee2e2", color: "#dc2626" },
   }
-  return map[examId] || { label: "进行中", bg: "#dbeafe", color: "#2563eb" }
+  return map[status || ""] || { label: "进行中", bg: "#dbeafe", color: "#2563eb" }
 }
 
-function getMockTargetAudience(examId: string): { type: string; detail: string } {
-  const map: Record<string, { type: string; detail: string }> = {
-    "exam-1": { type: "学生", detail: "2024级前端1班、2024级前端2班" },
-    "exam-2": { type: "学生", detail: "2024级软件工程1班、2024级软件工程2班" },
-    "exam-3": { type: "学生", detail: "2023级计算机班" },
-    "exam-4": { type: "教师", detail: "张三、李四、王五" },
-    "exam-5": { type: "学生", detail: "2024级网络工程班" },
-    "exam-6": { type: "学生", detail: "2023级全栈开发班、2024级全栈开发班" },
-  }
-  return map[examId] || { type: "学生", detail: "2024级默认班" }
+function getTargetAudience(): { type: string; detail: string } {
+  // 考试对象名单由考试安排接口决定，当前不展示模拟学生
+  return { type: "学生", detail: "由考试安排指定" }
 }
 
 export default function ExamDetailPage() {
@@ -122,8 +114,8 @@ export default function ExamDetailPage() {
   const cfg = statusConfig[exam.status] || statusConfig.draft
   const totalScore = exam.questions.reduce((s, q) => s + (q.score || 0), 0)
   const answeredCount = Object.keys(answers).length
-  const timeStatus = getExamTimeStatus(exam.id)
-  const targetAudience = getMockTargetAudience(exam.id)
+  const timeStatus = getExamTimeStatus(exam.status)
+  const targetAudience = getTargetAudience()
 
   const questionTypeStats = useMemo(() => {
     const stats: Record<string, { count: number; score: number }> = {}
@@ -448,81 +440,8 @@ export default function ExamDetailPage() {
               本次考试面向 {targetAudience.type}：{targetAudience.detail}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2 space-y-4 max-h-[400px] overflow-y-auto">
-            {/* 说明提示 */}
-            <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-              <Info className="w-4 h-4 mt-0.5 shrink-0" />
-              <div>
-                <p className="font-medium">您不在本次考试范围内</p>
-                <p className="text-xs text-amber-700 mt-1">
-                  管理员从以下班级中指定了部分人员参加考试。下方橙色标记的人员为实际参考对象，灰色标记的人员未被选中。
-                </p>
-              </div>
-            </div>
-
-            {/* 班级分组展示 */}
-            {targetAudience.detail.split('、').map((className, classIdx) => {
-              // 模拟班级全体学生与实际参考学生
-              const allStudents = classIdx === 0
-                ? ['张小明', '李华', '王芳', '赵强', '孙丽', '周杰', '吴敏', '郑伟', '陈静', '刘洋']
-                : ['钱多多', '孙小美', '周大伟', '吴小敏', '郑小伟', '王小明', '李小华', '赵小芳']
-              const selectedStudents = classIdx === 0
-                ? ['张小明', '李华', '王芳', '赵强', '孙丽']
-                : ['钱多多', '孙小美', '周大伟']
-
-              return (
-                <div key={classIdx} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-slate-700">{className}</h4>
-                    <span className="text-xs text-slate-500">
-                      已选 {selectedStudents.length} / {allStudents.length} 人
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {allStudents.map((name, i) => {
-                      const isSelected = selectedStudents.includes(name)
-                      return (
-                        <div
-                          key={i}
-                          className={`flex items-center gap-2 p-2 rounded-md border text-sm ${
-                            isSelected
-                              ? 'bg-orange-50 border-orange-200 text-orange-800'
-                              : 'bg-slate-50 border-slate-100 text-slate-400'
-                          }`}
-                        >
-                          {isSelected ? (
-                            <UserCheck className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                          ) : (
-                            <UserX className="w-3.5 h-3.5 text-slate-300 shrink-0" />
-                          )}
-                          <span className="truncate">{name}</span>
-                          {!isSelected && (
-                            <span className="text-[10px] text-slate-300 ml-auto shrink-0">未选中</span>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-
-            {examId === 'exam-4' && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-slate-700">指定教师</h4>
-                  <span className="text-xs text-slate-500">已选 3 人</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {['张三', '李四', '王五'].map((name, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 rounded-md border bg-orange-50 border-orange-200 text-orange-800 text-sm">
-                      <UserCheck className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                      <span>{name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            参考人员名单由管理员在考试安排中指定，暂无明细数据。
           </div>
         </DialogContent>
       </Dialog>

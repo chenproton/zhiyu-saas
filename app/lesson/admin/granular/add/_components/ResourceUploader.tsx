@@ -20,25 +20,11 @@ const TYPE_ICONS: Record<ResourceItem["type"], React.ReactNode> = {
 }
 
 export default function ResourceUploader() {
-  const [resources, setResources] = useState<ResourceItem[]>([
-    { id: "1", name: "SQL注入原理课件.pptx", type: "doc", size: "2.4 MB" },
-    { id: "2", name: "渗透测试实验手册.pdf", type: "pdf", size: "5.1 MB" },
-  ])
+  const [resources, setResources] = useState<ResourceItem[]>([])
   const [dragOver, setDragOver] = useState(false)
 
   const handleUpload = () => {
-    const names = ["课堂练习题.docx", "教学演示视频.mp4", "知识图谱图解.png"]
-    const types: ResourceItem["type"][] = ["doc", "video", "image"]
-    const idx = resources.length % 3
-    setResources((prev) => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        name: names[idx],
-        type: types[idx],
-        size: `${(Math.random() * 10 + 1).toFixed(1)} MB`,
-      },
-    ])
+    // 文件上传功能待后端存储接口接入，当前不生成模拟文件
   }
 
   const removeResource = (id: string) => {

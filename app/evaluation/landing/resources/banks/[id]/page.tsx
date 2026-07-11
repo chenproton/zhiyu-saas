@@ -52,8 +52,8 @@ export default function QuestionBankDetailPage() {
     fill: "填空题", essay: "论述题", short_answer: "简答题",
   }
 
-  // 模拟浏览次数
-  const viewCount = bankId === "bank-1" ? 1256 : bankId === "bank-2" ? 892 : 567
+  // 浏览次数待后端统计接口支持
+  const viewCount = 0
 
   return (
     <PrdAnnotation data={getAnnotation("lb-page")}>
@@ -96,7 +96,7 @@ export default function QuestionBankDetailPage() {
             { icon: <ListOrdered style={{ width: 18, height: 18 }} />, label: "题目数量", value: `${bank.questionCount} 题`, aid: "lb-question-count" as const },
             { icon: <User style={{ width: 18, height: 18 }} />, label: "创建者", value: bank.creatorId || "系统", aid: "lb-creator" as const },
             { icon: <Clock style={{ width: 18, height: 18 }} />, label: "版本", value: bank.version, aid: "lb-version" as const },
-            { icon: <Database style={{ width: 18, height: 18 }} />, label: "共建人", value: "李老师" },
+            { icon: <Database style={{ width: 18, height: 18 }} />, label: "共建人", value: bank.creatorId || "-" },
             { icon: <Eye style={{ width: 18, height: 18 }} />, label: "浏览次数", value: `${viewCount} 次`, aid: "lb-view-count" as const },
           ].map((item, i) => {
             const inner = (

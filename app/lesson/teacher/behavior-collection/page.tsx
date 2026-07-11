@@ -24,62 +24,24 @@ import { CheckCircle2, Zap, MessageSquare, Trophy, Users, ClipboardList } from "
 import { CourseClassSelector } from "../_components/course-class-selector"
 
 const signInData = {
-  total: 42,
-  present: 38,
-  late: 3,
-  absent: 1,
-  rate: 90,
+  total: 0,
+  present: 0,
+  late: 0,
+  absent: 0,
+  rate: 0,
 }
 
-const signInDaily = [
-  { date: "周一", present: 40, late: 2, absent: 0 },
-  { date: "周二", present: 38, late: 3, absent: 1 },
-  { date: "周三", present: 39, late: 2, absent: 1 },
-  { date: "周四", present: 37, late: 4, absent: 1 },
-  { date: "周五", present: 36, late: 3, absent: 3 },
-]
+const signInDaily: Array<{ date: string; present: number; late: number; absent: number }> = []
 
-const quizResults = [
-  { id: "iq-1", name: "随堂测验1：HTML基础", avgScore: 85, passRate: 92, count: 40 },
-  { id: "iq-2", name: "随堂测验2：CSS布局", avgScore: 78, passRate: 85, count: 39 },
-  { id: "iq-3", name: "随堂测验3：JS语法基础", avgScore: 72, passRate: 78, count: 38 },
-]
+const quizResults: Array<{ id: string; name: string; avgScore: number; passRate: number; count: number }> = []
 
-const rushAnswerRanking = [
-  { rank: 1, name: "李明", correctCount: 8, avgTime: "0.9s", badge: "抢答达人" },
-  { rank: 2, name: "王芳", correctCount: 7, avgTime: "1.1s", badge: "积极参与" },
-  { rank: 3, name: "张伟", correctCount: 6, avgTime: "1.3s", badge: "" },
-  { rank: 4, name: "陈静", correctCount: 6, avgTime: "1.5s", badge: "" },
-  { rank: 5, name: "孙七", correctCount: 5, avgTime: "1.0s", badge: "" },
-]
+const rushAnswerRanking: Array<{ rank: number; name: string; correctCount: number; avgTime: string; badge: string }> = []
 
-const classInteraction = [
-  { name: "课堂提问", active: 8, total: 10 },
-  { name: "课堂测验", active: 5, total: 8 },
-  { name: "小组活动", active: 4, total: 5 },
-  { name: "讨论发言", active: 6, total: 8 },
-  { name: "实操演示", active: 3, total: 4 },
-]
+const classInteraction: Array<{ name: string; active: number; total: number }> = []
 
-const attendanceRateData = [
-  { name: "第1周", rate: 95 },
-  { name: "第2周", rate: 93 },
-  { name: "第3周", rate: 90 },
-  { name: "第4周", rate: 92 },
-  { name: "第5周", rate: 88 },
-  { name: "第6周", rate: 91 },
-  { name: "第7周", rate: 94 },
-  { name: "第8周", rate: 89 },
-]
+const attendanceRateData: Array<{ name: string; rate: number }> = []
 
-const studentDetails = [
-  { name: "李明", attendance: 95, quizAvg: 88, interaction: 8, praise: 5 },
-  { name: "王芳", attendance: 98, quizAvg: 91, interaction: 6, praise: 4 },
-  { name: "张伟", attendance: 85, quizAvg: 72, interaction: 3, praise: 1 },
-  { name: "陈静", attendance: 96, quizAvg: 85, interaction: 7, praise: 3 },
-  { name: "孙七", attendance: 92, quizAvg: 90, interaction: 5, praise: 4 },
-  { name: "刘洋", attendance: 88, quizAvg: 78, interaction: 4, praise: 2 },
-]
+const studentDetails: Array<{ name: string; attendance: number; quizAvg: number; interaction: number; praise: number }> = []
 
 export default function BehaviorCollectionPage() {
   return (

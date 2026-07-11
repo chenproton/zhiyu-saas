@@ -160,8 +160,8 @@ export function RichTextEditor({ value, onChange, placeholder, minHeight = 300 }
                 <p className="text-sm font-medium text-gray-700">点击或拖拽上传课程说明书</p>
                 <p className="text-xs text-gray-500 mt-1">支持 PDF 格式，最大 20MB</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setPdfName("课程说明书示例.pdf")}>
-                <Upload className="h-4 w-4 mr-1" />模拟上传
+              <Button variant="outline" size="sm" disabled>
+                <Upload className="h-4 w-4 mr-1" />上传文件
               </Button>
             </>
           )}

@@ -41,8 +41,8 @@ function MockRichEditor({ value, onChange, placeholder }: { value: string; onCha
     <button
       type="button"
       title={title}
-      onClick={() => toast(`点击了 ${title}（模拟功能）`)}
-      className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+      disabled
+      className="p-1 rounded text-gray-400 cursor-not-allowed transition-colors"
     >
       {icon}
     </button>
@@ -407,11 +407,13 @@ function HybridCourseAddForm() {
   }
 
   const handleSave = () => {
-    toast.success(`${editId ? "更新" : "保存"}混合课程：${rootForm.name || ""}（演示）`)
+    // 混合课程保存/更新接口待接入，当前仅做本地提示
+    toast.success(`${editId ? "更新" : "保存"}混合课程：${rootForm.name || ""}`)
   }
 
   const handleSubmit = () => {
-    toast.success(`提交混合课程审批：${rootForm.name || ""}（演示）`)
+    // 混合课程审批提交通道待接入，当前仅做本地提示
+    toast.success(`提交混合课程审批：${rootForm.name || ""}`)
   }
 
   const availableModules = ATOMIC_MODULES.filter(
