@@ -7,8 +7,8 @@ import {
   Download,
   FolderKanban,
   GitBranch,
-  LayoutList,
-  ListFilter,
+  List,
+  LayoutGrid,
   Plus,
   RotateCcw,
   Search,
@@ -17,7 +17,6 @@ import {
   Trash2,
   Undo2,
   Upload,
-  UserPlus,
   X,
   ArrowDownFromLine,
   ArrowUpFromLine,
@@ -25,9 +24,10 @@ import {
 import { useRouter } from "next/navigation"
 import { useState, useMemo } from "react"
 import { PositionList } from "@/components/job/positions/position-list"
+import { PageHeaderCard } from "@/components/shared/page-header-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Collapsible,
   CollapsibleContent,
@@ -51,7 +51,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 import { useData } from "@/lib/stores/data-context"
 import type { Position } from "@/lib/types/job-source"
@@ -83,6 +92,8 @@ export default function PositionsPage() {
   const [newBatchWorkflow, setNewBatchWorkflow] = useState("")
 
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+  const [isResourceImportDialogOpen, setIsResourceImportDialogOpen] = useState(false)
+  const [isApprovalWorkflowDialogOpen, setIsApprovalWorkflowDialogOpen] = useState(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [isBatchMoveDialogOpen, setIsBatchMoveDialogOpen] = useState(false)
   const [moveTargetBatchId, setMoveTargetBatchId] = useState("")
@@ -371,204 +382,172 @@ export default function PositionsPage() {
   return (
     <div className="space-y-6">
       {/* ===== Part 1: Top Title Card ===== */}
-      <Card className="border-slate-200 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900">岗位资源管理</h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                维护岗位信息、能力模型等岗位资源管理功能
-              </p>
-            </div>
+      <PageHeaderCard
+        title="岗位资源管理"
+        description="维护岗位信息、能力模型等岗位资源管理功能"
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setIsApprovalWorkflowDialogOpen(true)}>
+              <GitBranch className="mr-2 h-4 w-4" />
+              配置审批流程
+            </Button>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" disabled>
-                <GitBranch className="mr-2 h-4 w-4" />
-                配置审批流程
-              </Button>
-
-              <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <FolderKanban className="mr-2 h-4 w-4" />
-                    配置批次分组
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
-                  <DialogHeader>
-                    <div>
-                      <DialogTitle>批次分组管理</DialogTitle>
-                      <DialogDescription>管理岗位建设批次分组，关联审批流程</DialogDescription>
-                    </div>
-                  </DialogHeader>
-                  <div className="flex-1 overflow-y-auto py-4 space-y-4">
-                    <div className="flex justify-end">
-                      <Dialog open={isInnerBatchCreateOpen} onOpenChange={setIsInnerBatchCreateOpen}>
-                        <DialogTrigger asChild>
-                          <Button size="sm">
-                            <Plus className="mr-2 h-4 w-4" />
-                            新增批次
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[500px]">
-                          <DialogHeader>
-                            <div>
-                              <DialogTitle>新增批次</DialogTitle>
-                              <DialogDescription>创建新的岗位建设批次分组，并关联审批流程。</DialogDescription>
-                            </div>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                              <Label htmlFor="batchName">分组名称</Label>
-                              <Input
-                                id="batchName"
-                                value={newBatchName}
-                                onChange={(e) => setNewBatchName(e.target.value)}
-                                placeholder="例如：2026春季电商实训岗位开发"
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="batchCode">批次编号</Label>
-                              <Input
-                                id="batchCode"
-                                value={`BG-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`}
-                                disabled
-                                className="bg-gray-50 text-gray-500"
-                              />
-                              <p className="text-xs text-gray-500">批次编号自动生成，不可修改</p>
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="workflow">关联审批流 <span className="text-red-500">*</span></Label>
-                              <Select value={newBatchWorkflow} onValueChange={setNewBatchWorkflow}>
-                                <SelectTrigger id="workflow">
-                                  <SelectValue placeholder="选择审批流程" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {workflows.map((wf) => (
-                                    <SelectItem key={wf.id} value={wf.id}>
-                                      <span className="inline-flex items-center">
-                                        <span>{wf.name}</span>
-                                        <span className="text-xs text-gray-400 ml-2">({wf.steps.length}步)</span>
-                                      </span>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsInnerBatchCreateOpen(false)}>取消</Button>
-                            <Button onClick={handleAddBatch} disabled={!newBatchName || !newBatchWorkflow}>
-                              创建批次
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                    <div className="rounded-lg border overflow-hidden">
-                      <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-slate-50 text-xs font-medium text-slate-500 border-b">
-                        <div>分组名称</div>
-                        <div>批次编号</div>
-                        <div>审批流程</div>
-                      </div>
-                      {batches.map((batch) => (
-                        <div key={batch.id} className="grid grid-cols-3 gap-4 px-4 py-2 text-sm border-b last:border-0">
-                          <div className="font-medium">{batch.name}</div>
-                          <div className="text-gray-500">{batch.id.slice(0, 12)}</div>
+            <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FolderKanban className="mr-2 h-4 w-4" />
+                  配置批次分组
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+                <DialogHeader>
+                  <div>
+                    <DialogTitle>批次分组管理</DialogTitle>
+                    <DialogDescription>管理岗位建设批次分组，关联审批流程</DialogDescription>
+                  </div>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto py-4 space-y-4">
+                  <div className="flex justify-end">
+                    <Dialog open={isInnerBatchCreateOpen} onOpenChange={setIsInnerBatchCreateOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          新增批次
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
                           <div>
-                            <Badge variant="outline" className="text-xs">
-                              {workflows.find((w) => w.id === batch.workflowId)?.name || "-"}
-                            </Badge>
+                            <DialogTitle>新增批次</DialogTitle>
+                            <DialogDescription>创建新的岗位建设批次分组，并关联审批流程。</DialogDescription>
+                          </div>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="batchName">分组名称</Label>
+                            <Input
+                              id="batchName"
+                              value={newBatchName}
+                              onChange={(e) => setNewBatchName(e.target.value)}
+                              placeholder="例如：2026春季电商实训岗位开发"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="batchCode">批次编号</Label>
+                            <Input
+                              id="batchCode"
+                              value={`BG-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`}
+                              disabled
+                              className="bg-gray-50 text-gray-500"
+                            />
+                            <p className="text-xs text-gray-500">批次编号自动生成，不可修改</p>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="workflow">关联审批流 <span className="text-red-500">*</span></Label>
+                            <Select value={newBatchWorkflow} onValueChange={setNewBatchWorkflow}>
+                              <SelectTrigger id="workflow">
+                                <SelectValue placeholder="选择审批流程" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {workflows.map((wf) => (
+                                  <SelectItem key={wf.id} value={wf.id}>
+                                    <span className="inline-flex items-center">
+                                      <span>{wf.name}</span>
+                                      <span className="text-xs text-gray-400 ml-2">({wf.steps.length}步)</span>
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
-                      ))}
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsInnerBatchCreateOpen(false)}>取消</Button>
+                          <Button onClick={handleAddBatch} disabled={!newBatchName || !newBatchWorkflow}>
+                            创建批次
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="grid grid-cols-3 gap-4 px-4 py-2 bg-slate-50 text-xs font-medium text-slate-500 border-b">
+                      <div>分组名称</div>
+                      <div>批次编号</div>
+                      <div>审批流程</div>
                     </div>
+                    {batches.map((batch) => (
+                      <div key={batch.id} className="grid grid-cols-3 gap-4 px-4 py-2 text-sm border-b last:border-0">
+                        <div className="font-medium">{batch.name}</div>
+                        <div className="text-gray-500">{batch.id.slice(0, 12)}</div>
+                        <div>
+                          <Badge variant="outline" className="text-xs">
+                            {workflows.find((w) => w.id === batch.workflowId)?.name || "-"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsBatchDialogOpen(false)}>关闭</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsBatchDialogOpen(false)}>关闭</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
-              <Button variant="outline" size="sm" disabled>
-                <Upload className="mr-2 h-4 w-4" />
-                导入资源包
-              </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsResourceImportDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              导入资源包
+            </Button>
 
-              <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" />
-                导入岗位
-              </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              导入岗位
+            </Button>
 
-              <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={handleCreate}>
-                <Plus className="mr-2 h-4 w-4" />
-                新建岗位
-              </Button>
-            </div>
-          </div>
-
-          {/* Stats dashboard - hidden in public tab */}
-          {activeTab !== "public" && (
-            <div className="grid grid-cols-5 gap-3 mt-3">
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">岗位总数</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.total}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-blue-50 flex items-center justify-center">
-                    <SlidersHorizontal className="h-3 w-3 text-blue-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">未提交</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.draft}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-gray-50 flex items-center justify-center">
-                    <RotateCcw className="h-3 w-3 text-gray-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">审批中</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.pending}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-yellow-50 flex items-center justify-center">
-                    <GitBranch className="h-3 w-3 text-yellow-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">已驳回</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.rejected}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-red-50 flex items-center justify-center">
-                    <X className="h-3 w-3 text-red-500" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-slate-200 shadow-sm w-full">
-                <CardContent className="px-3 py-[3px] flex items-center justify-between">
-                  <div className="leading-none">
-                    <p className="text-xs text-slate-500 leading-none">已发布</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-[3px]">{stats.published}</p>
-                  </div>
-                  <div className="h-6 w-6 rounded-full bg-green-50 flex items-center justify-center">
-                    <ArrowUpFromLine className="h-3 w-3 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              新建岗位
+            </Button>
+          </>
+        }
+        stats={
+          activeTab !== "public"
+            ? [
+                {
+                  label: "岗位总数",
+                  value: stats.total,
+                  icon: <SlidersHorizontal className="h-3 w-3 text-blue-500" />,
+                  iconClassName: "bg-blue-50",
+                },
+                {
+                  label: "未提交",
+                  value: stats.draft,
+                  icon: <RotateCcw className="h-3 w-3 text-gray-500" />,
+                  iconClassName: "bg-gray-50",
+                },
+                {
+                  label: "审批中",
+                  value: stats.pending,
+                  icon: <GitBranch className="h-3 w-3 text-yellow-500" />,
+                  iconClassName: "bg-yellow-50",
+                },
+                {
+                  label: "已驳回",
+                  value: stats.rejected,
+                  icon: <X className="h-3 w-3 text-red-500" />,
+                  iconClassName: "bg-red-50",
+                },
+                {
+                  label: "已发布",
+                  value: stats.published,
+                  icon: <ArrowUpFromLine className="h-3 w-3 text-green-500" />,
+                  iconClassName: "bg-green-50",
+                },
+              ]
+            : undefined
+        }
+      />
 
       {/* ===== Part 2: View Switch Area ===== */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -580,28 +559,16 @@ export default function PositionsPage() {
           </TabsList>
         </Tabs>
 
-        <div className="flex items-center border rounded-md overflow-hidden">
-          <button
-            onClick={() => setViewMode("list")}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium flex items-center gap-1 transition-colors",
-              viewMode === "list" ? "bg-primary text-primary-foreground" : "bg-white text-slate-600 hover:bg-slate-50"
-            )}
-          >
-            <LayoutList className="h-3.5 w-3.5" />
-            资源列表
-          </button>
-          <button
-            onClick={() => setViewMode("group")}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium flex items-center gap-1 transition-colors",
-              viewMode === "group" ? "bg-primary text-primary-foreground" : "bg-white text-slate-600 hover:bg-slate-50"
-            )}
-          >
-            <ListFilter className="h-3.5 w-3.5" />
-            批次分组
-          </button>
-        </div>
+        <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
+          <ToggleGroupItem value="list" aria-label="资源列表">
+            <List className="h-4 w-4" />
+            <span className="ml-1.5">资源列表</span>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="group" aria-label="批次分组">
+            <LayoutGrid className="h-4 w-4" />
+            <span className="ml-1.5">批次分组</span>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {/* ===== Part 3: Data List Area ===== */}
@@ -826,6 +793,74 @@ export default function PositionsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
             <Button onClick={() => { alert("导入功能演示：文件已上传，正在解析..."); setIsImportDialogOpen(false) }}>开始导入</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resource Import Dialog */}
+      <Dialog open={isResourceImportDialogOpen} onOpenChange={setIsResourceImportDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>资源包导入</DialogTitle>
+            <DialogDescription>导入包含岗位、能力模型和资源的完整资源包</DialogDescription>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center">
+              <Upload className="h-10 w-10 text-slate-300 mb-3" />
+              <p className="text-sm text-slate-600 font-medium">点击或拖拽资源包到此处上传</p>
+              <p className="text-xs text-slate-400 mt-1">支持 .zip, .rar 格式</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResourceImportDialogOpen(false)}>取消</Button>
+            <Button onClick={() => setIsResourceImportDialogOpen(false)}>开始导入</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Workflow Config Dialog */}
+      <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <div>
+              <DialogTitle>配置审批流程</DialogTitle>
+              <DialogDescription>管理岗位审批流程模板</DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-4 space-y-4">
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>流程名称</TableHead>
+                    <TableHead>流程描述</TableHead>
+                    <TableHead>审批步骤</TableHead>
+                    <TableHead>创建时间</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {workflows.map((wf) => (
+                    <TableRow key={wf.id}>
+                      <TableCell className="font-medium text-sm">{wf.name}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{wf.description}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {wf.steps.map((step) => (
+                            <Badge key={step.id} variant="outline" className="text-xs">
+                              {step.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">{wf.createdAt}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsApprovalWorkflowDialogOpen(false)}>关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
