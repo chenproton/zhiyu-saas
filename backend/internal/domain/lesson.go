@@ -128,3 +128,19 @@ type LessonBatch struct {
 	CreatedAt   time.Time         `json:"createdAt"`
 	UpdatedAt   time.Time         `json:"updatedAt"`
 }
+
+type LessonBehaviorRecord struct {
+	ID               string     `json:"id"`
+	CourseID         string     `json:"courseId"`
+	StudentUserID    string     `json:"studentUserId"`
+	StudentName      string     `json:"studentName"`
+	RecordDate       string     `json:"recordDate"`
+	Attendance       string     `json:"attendance"`
+	QuizScore        *float64   `json:"quizScore,omitempty"`
+	InteractionCount int        `json:"interactionCount"`
+	PraiseCount      int        `json:"praiseCount"`
+	RushCorrectCount int        `json:"rushCorrectCount"`
+	RushAvgTimeSec   *int       `json:"rushAvgTimeSec,omitempty"`
+	CreatedAt        time.Time  `json:"createdAt"`
+	UpdatedAt        time.Time  `json:"updatedAt"`
+}

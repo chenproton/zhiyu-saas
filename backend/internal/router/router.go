@@ -87,6 +87,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	nodeHomeworkHandler := &handler.NodeHomeworkHandler{DB: db}
 	hybridModuleHandler := &handler.HybridModuleHandler{DB: db}
 	courseBatchHandler := &handler.CourseBatchHandler{DB: db}
+	lessonBehaviorHandler := &handler.LessonBehaviorHandler{DB: db}
 
 	// Phase 3.5: evaluation handlers
 	questionBankHandler := &handler.QuestionBankHandler{DB: db}
@@ -398,6 +399,9 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Put("/lesson/batches/{id}", courseBatchHandler.Update)
 			r.Delete("/lesson/batches/{id}", courseBatchHandler.Delete)
 			r.Post("/lesson/batches/{id}/status", courseBatchHandler.UpdateStatus)
+
+			r.Get("/lesson/behavior-collection/aggregate", lessonBehaviorHandler.Aggregate)
+			r.Post("/lesson/behavior-collection/records", lessonBehaviorHandler.Create)
 
 			// Phase 3.5: evaluation routes
 			r.Get("/evaluation/question-banks", questionBankHandler.List)

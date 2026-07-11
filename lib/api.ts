@@ -58,6 +58,8 @@ import type {
   NodeResource,
   CourseKnowledgeBinding,
   LessonBatch,
+  LessonBehaviorRecord,
+  LessonBehaviorAggregate,
 } from "./types/lesson"
 import type {
   QuestionBank,
@@ -748,6 +750,13 @@ export const lessonBatchApi = {
   update: (id: string, req: Partial<Omit<LessonBatch, "id" | "createdAt" | "updatedAt">>) =>
     request<LessonBatch>(`/lesson/batches/${id}`, { method: "PUT", body: JSON.stringify(req) }),
   delete: (id: string) => request<{ id: string }>(`/lesson/batches/${id}`, { method: "DELETE" }),
+}
+
+export const lessonBehaviorApi = {
+  aggregate: (params: { courseId: string; startDate?: string; endDate?: string }) =>
+    request<LessonBehaviorAggregate>(`/lesson/behavior-collection/aggregate${buildQuery(params)}`),
+  create: (req: Omit<LessonBehaviorRecord, "id" | "createdAt" | "updatedAt">) =>
+    request<LessonBehaviorRecord>("/lesson/behavior-collection/records", { method: "POST", body: JSON.stringify(req) }),
 }
 
 // ==================== Phase 3.5: Evaluation APIs ====================

@@ -205,3 +205,34 @@ export interface EvalPoint {
   gradeMapping?: GradeMapping[]
   weight?: number
 }
+
+export interface LessonBehaviorRecord {
+  id: string
+  courseId: string
+  studentUserId: string
+  recordDate: string
+  attendance: "present" | "late" | "absent"
+  quizScore?: number
+  interactionCount: number
+  praiseCount: number
+  rushCorrectCount: number
+  rushAvgTimeSec?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LessonBehaviorAggregate {
+  signIn: {
+    total: number
+    present: number
+    late: number
+    absent: number
+    rate: number
+  }
+  signInDaily: { date: string; present: number; late: number; absent: number }[]
+  quizResults: { id: string; name: string; avgScore: number; passRate: number; count: number }[]
+  rushAnswerRanking: { rank: number; name: string; correctCount: number; avgTime: string; badge: string }[]
+  classInteraction: { name: string; active: number; total: number }[]
+  attendanceRateData: { name: string; rate: number }[]
+  studentDetails: { name: string; attendance: number; quizAvg: number; interaction: number; praise: number }[]
+}

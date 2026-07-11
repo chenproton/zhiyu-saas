@@ -3,14 +3,12 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { courseApi } from "@/lib/api"
+import type { Course } from "@/lib/types"
 
-const semesters = [
-  "2025 年第一学期",
-  "2025 年第二学期",
-  "2026 年第一学期",
-]
+const fallbackSemesters = ["2025 年第一学期", "2025 年第二学期", "2026 年第一学期"]
 
-const courses = [
+const fallbackCourses = [
   { id: "cls-1", name: "软件工程2026级1班", course: "Web前端开发混合课程", term: "2025 年第一学期" },
   { id: "cls-2", name: "软件工程2026级2班", course: "软件测试技术混合课程", term: "2025 年第一学期" },
   { id: "cls-3", name: "人工智能2026级1班", course: "机器学习混合课程", term: "2025 年第一学期" },
@@ -53,19 +51,65 @@ interface CourseClassSelectorProps {
   showSession?: boolean
 }
 
+interface CourseOption {
+  id: string
+  name: string
+  course: string
+  term: string
+}
+
 export function CourseClassSelector({ onSelect, showSession = true }: CourseClassSelectorProps) {
-  const [semester, setSemester] = useState(semesters[0])
+  const [semesters, setSemesters] = useState<string[]>(fallbackSemesters)
+  const [courses, setCourses] = useState<CourseOption[]>(fallbackCourses)
+  const [semester, setSemester] = useState<string>(fallbackSemesters[0])
   const [courseId, setCourseId] = useState<string>("")
   const [sessionId, setSessionId] = useState<string>("")
   const [initialized, setInitialized] = useState(false)
+
+  useEffect(() => {
+    courseApi
+      .list({ limit: 200 })
+      .then((res) => {
+        const items = (res.items || []).filter((c: Course) => c.status === "published")
+        if (items.length === 0) return
+        const mapped: CourseOption[] = items.map((c: Course) => ({
+          id: c.id,
+          name: c.className || c.name,
+          course: c.name,
+          term: c.semester || "未分类",
+        }))
+        const terms = Array.from(new Set(mapped.map((c) => c.term)))
+        setCourses(mapped)
+        setSemesters(terms.length > 0 ? terms : fallbackSemesters)
+        const firstTerm = terms[0] || fallbackSemesters[0]
+        setSemester(firstTerm)
+        const firstCourse = mapped.find((c) => c.term === firstTerm)
+        if (firstCourse) {
+          setCourseId(firstCourse.id)
+          const firstSession = sessions
+            .filter((s) => s.classId === firstCourse.id)
+            .sort((a, b) => a.week - b.week || weekdayOrder.indexOf(a.weekday) - weekdayOrder.indexOf(b.weekday))[0]
+          if (firstSession) {
+            setSessionId(firstSession.id)
+            emitSelection(mapped, firstTerm, firstCourse.id, firstSession.id)
+          } else {
+            emitSelection(mapped, firstTerm, firstCourse.id)
+          }
+          setInitialized(true)
+        }
+      })
+      .catch(() => {
+        // keep fallback static data
+      })
+  }, [])
 
   const filteredCourses = courses.filter((c) => c.term === semester)
   const filteredSessions = sessions
     .filter((s) => s.classId === courseId)
     .sort((a, b) => a.week - b.week || weekdayOrder.indexOf(a.weekday) - weekdayOrder.indexOf(b.weekday))
 
-  const emitSelection = (sem: string, cid: string, sid?: string) => {
-    const course = courses.find((c) => c.id === cid)
+  const emitSelection = (allCourses: CourseOption[], sem: string, cid: string, sid?: string) => {
+    const course = allCourses.find((c) => c.id === cid)
     const session = sid ? sessions.find((s) => s.id === sid) : undefined
     if (course) {
       onSelect({
@@ -79,7 +123,6 @@ export function CourseClassSelector({ onSelect, showSession = true }: CourseClas
     }
   }
 
-  // 默认选中第一个课程和第一个课时节次
   useEffect(() => {
     if (initialized) return
     const firstCourse = filteredCourses[0]
@@ -90,13 +133,13 @@ export function CourseClassSelector({ onSelect, showSession = true }: CourseClas
         .sort((a, b) => a.week - b.week || weekdayOrder.indexOf(a.weekday) - weekdayOrder.indexOf(b.weekday))[0]
       if (firstSession) {
         setSessionId(firstSession.id)
-        emitSelection(semester, firstCourse.id, firstSession.id)
+        emitSelection(courses, semester, firstCourse.id, firstSession.id)
       } else {
-        emitSelection(semester, firstCourse.id)
+        emitSelection(courses, semester, firstCourse.id)
       }
       setInitialized(true)
     }
-  }, [])
+  }, [initialized, filteredCourses, semester, courses])
 
   const handleSemesterChange = (value: string) => {
     setSemester(value)
@@ -108,10 +151,10 @@ export function CourseClassSelector({ onSelect, showSession = true }: CourseClas
         .sort((a, b) => a.week - b.week || weekdayOrder.indexOf(a.weekday) - weekdayOrder.indexOf(b.weekday))[0]
       if (firstSession) {
         setSessionId(firstSession.id)
-        emitSelection(value, first.id, firstSession.id)
+        emitSelection(courses, value, first.id, firstSession.id)
       } else {
         setSessionId("")
-        emitSelection(value, first.id)
+        emitSelection(courses, value, first.id)
       }
     } else {
       setCourseId("")
@@ -126,16 +169,16 @@ export function CourseClassSelector({ onSelect, showSession = true }: CourseClas
       .sort((a, b) => a.week - b.week || weekdayOrder.indexOf(a.weekday) - weekdayOrder.indexOf(b.weekday))[0]
     if (firstSession) {
       setSessionId(firstSession.id)
-      emitSelection(semester, value, firstSession.id)
+      emitSelection(courses, semester, value, firstSession.id)
     } else {
       setSessionId("")
-      emitSelection(semester, value)
+      emitSelection(courses, semester, value)
     }
   }
 
   const handleSessionChange = (value: string) => {
     setSessionId(value)
-    emitSelection(semester, courseId, value)
+    emitSelection(courses, semester, courseId, value)
   }
 
   return (
@@ -168,7 +211,7 @@ export function CourseClassSelector({ onSelect, showSession = true }: CourseClas
               </SelectContent>
             </Select>
           </div>
-        {showSession && filteredSessions.length > 0 && (
+          {showSession && filteredSessions.length > 0 && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">课时节次</label>
               <Select value={sessionId || ""} onValueChange={handleSessionChange}>
@@ -181,9 +224,6 @@ export function CourseClassSelector({ onSelect, showSession = true }: CourseClas
                       第{s.week}周 {s.weekday} {s.period} · {s.venue}
                     </SelectItem>
                   ))}
-                  {filteredSessions.length === 0 && (
-                    <SelectItem value="none" disabled>暂无课时节次</SelectItem>
-                  )}
                 </SelectContent>
               </Select>
             </div>
