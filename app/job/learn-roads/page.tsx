@@ -41,12 +41,15 @@ import {
   Layers,
   ChevronLeft,
   GripVertical,
+  Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useData } from '@/lib/stores/data-context'
-import { getUserById } from '@/lib/mock-data/job'
+import { learnRoadApi } from '@/lib/api'
+import { useToast } from '@/hooks/use-toast'
 import type { Position, PositionStatus } from '@/lib/types/job-source'
+import type { LearnRoad, LearnRoadStep } from '@/lib/types/job'
 
 interface Task {
   id: string
@@ -58,8 +61,6 @@ interface Scene {
   name: string
   tasks: Task[]
 }
-
-const STORAGE_KEY_PREFIX = 'learn-roads-scenes'
 
 const NODE_ICONS = [Flag, ShoppingCart, Smartphone, BarChart3, GitBranch, Users, Layers]
 const NODE_COLORS = [
@@ -167,24 +168,22 @@ const defaultScenes: Scene[] = [
   },
 ]
 
-function getStorageKey(positionId: string) {
-  return `${STORAGE_KEY_PREFIX}-${positionId}`
+function stepsToScenes(steps?: LearnRoadStep[]): Scene[] {
+  return (steps || []).map((step, idx) => ({
+    id: `scene-${idx}`,
+    name: step.name,
+    tasks: Array.isArray(step.tasks)
+      ? step.tasks.map((t) => ({ id: String(t.id), name: String(t.name) }))
+      : [],
+  }))
 }
 
-function loadScenesForPosition(positionId: string): Scene[] {
-  try {
-    const stored = localStorage.getItem(getStorageKey(positionId))
-    if (stored) {
-      return JSON.parse(stored)
-    }
-  } catch {
-    // ignore
-  }
-  return defaultScenes
+function scenesToSteps(scenes: Scene[]): LearnRoadStep[] {
+  return scenes.map((scene) => ({ name: scene.name, tasks: scene.tasks }))
 }
 
-function countScenesAndTasks(positionId: string): { sceneCount: number; taskCount: number } {
-  const scenes = loadScenesForPosition(positionId)
+function countScenesAndTasks(road?: LearnRoad): { sceneCount: number; taskCount: number } {
+  const scenes = road?.steps?.length ? stepsToScenes(road.steps) : defaultScenes
   return {
     sceneCount: scenes.length,
     taskCount: scenes.reduce((sum, scene) => sum + scene.tasks.length, 0),
@@ -193,6 +192,7 @@ function countScenesAndTasks(positionId: string): { sceneCount: number; taskCoun
 
 export default function LearnRoadsPage() {
   const { positions, batches } = useData()
+  const { toast } = useToast()
 
   const [view, setView] = useState<'list' | 'edit'>('list')
   const [editingPosition, setEditingPosition] = useState<Position | null>(null)
@@ -200,18 +200,41 @@ export default function LearnRoadsPage() {
   const [scenes, setScenes] = useState<Scene[]>(defaultScenes)
   const [selectedSceneId, setSelectedSceneId] = useState<string>(defaultScenes[0].id)
   const [saved, setSaved] = useState(false)
+  const [learnRoadId, setLearnRoadId] = useState<string | null>(null)
+  const [learnRoads, setLearnRoads] = useState<LearnRoad[]>([])
+
+  const [listLoading, setListLoading] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | PositionStatus>('all')
 
   useEffect(() => {
-    if (view === 'edit' && editingPosition) {
-      const loaded = loadScenesForPosition(editingPosition.id)
-      setScenes(loaded)
-      setSelectedSceneId(loaded[0]?.id || defaultScenes[0].id)
-      setSaved(false)
+    let cancelled = false
+    setListLoading(true)
+    learnRoadApi
+      .list({ limit: 1000 })
+      .then((res) => {
+        if (!cancelled) setLearnRoads(res.items || [])
+      })
+      .catch((err) => {
+        toast({
+          title: '加载失败',
+          description: err instanceof Error ? err.message : '无法获取学习路径数据',
+          variant: 'destructive',
+        })
+      })
+      .finally(() => {
+        if (!cancelled) setListLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
-  }, [view, editingPosition])
+  }, [toast])
+
+  const getRoadForPosition = (positionId: string) =>
+    learnRoads.find((r) => r.positionIds?.includes(positionId))
 
   const filteredPositions = useMemo(() => {
     let result = positions
@@ -229,15 +252,58 @@ export default function LearnRoadsPage() {
     return result
   }, [positions, searchQuery, filterStatus])
 
-  const handleEdit = (position: Position) => {
+  const handleEdit = async (position: Position) => {
     setEditingPosition(position)
     setView('edit')
+    setSaved(false)
+    setEditLoading(true)
+
+    try {
+      const res = await learnRoadApi.list({ limit: 1000 })
+      const roads = res.items || []
+      setLearnRoads(roads)
+
+      const existing = roads.find((r) => r.positionIds?.includes(position.id))
+      if (existing?.id) {
+        setLearnRoadId(existing.id)
+        const loaded = stepsToScenes(existing.steps).length
+          ? stepsToScenes(existing.steps)
+          : defaultScenes
+        setScenes(loaded)
+        setSelectedSceneId(loaded[0]?.id || defaultScenes[0].id)
+      } else {
+        const created = await learnRoadApi.create({
+          name: `${position.name}学习路径`,
+          positionIds: [position.id],
+          steps: scenesToSteps(defaultScenes),
+        })
+        setLearnRoads((prev) => [created, ...prev])
+        setLearnRoadId(created.id)
+        const loaded = stepsToScenes(created.steps).length
+          ? stepsToScenes(created.steps)
+          : defaultScenes
+        setScenes(loaded)
+        setSelectedSceneId(loaded[0]?.id || defaultScenes[0].id)
+      }
+    } catch (err) {
+      toast({
+        title: '加载失败',
+        description: err instanceof Error ? err.message : '请稍后重试',
+        variant: 'destructive',
+      })
+      setLearnRoadId(null)
+      setScenes(defaultScenes)
+      setSelectedSceneId(defaultScenes[0].id)
+    } finally {
+      setEditLoading(false)
+    }
   }
 
   const handleBack = () => {
     setView('list')
     setEditingPosition(null)
     setSaved(false)
+    setLearnRoadId(null)
   }
 
   const moveScene = (index: number, direction: -1 | 1) => {
@@ -250,14 +316,29 @@ export default function LearnRoadsPage() {
     setSaved(false)
   }
 
-  const handleSave = () => {
-    if (!editingPosition) return
+  const handleSave = async () => {
+    if (!learnRoadId || !editingPosition) return
+    setSaving(true)
     try {
-      localStorage.setItem(getStorageKey(editingPosition.id), JSON.stringify(scenes))
+      const updated = await learnRoadApi.update(learnRoadId, {
+        name: `${editingPosition.name}学习路径`,
+        positionIds: [editingPosition.id],
+        steps: scenesToSteps(scenes),
+      })
+      setLearnRoads((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r))
+      )
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-    } catch {
-      // ignore
+      toast({ title: '保存成功', description: '学习路径顺序已更新' })
+    } catch (err) {
+      toast({
+        title: '保存失败',
+        description: err instanceof Error ? err.message : '请稍后重试',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -325,7 +406,12 @@ export default function LearnRoadsPage() {
       {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>岗位列表</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>岗位列表</CardTitle>
+            {listLoading && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
           <CardDescription>共 {filteredPositions.length} 个岗位</CardDescription>
         </CardHeader>
         <CardContent>
@@ -357,12 +443,9 @@ export default function LearnRoadsPage() {
               ) : (
                 filteredPositions.map((position) => {
                   const batch = batches.find((b) => b.id === position.batchId)
-                  const { sceneCount, taskCount } = countScenesAndTasks(position.id)
-                  const creator = getUserById(position.createdBy)
-                  const collaborators = position.collaborators
-                    .map((id) => getUserById(id)?.name)
-                    .filter(Boolean)
-                    .join('，')
+                  const { sceneCount, taskCount } = countScenesAndTasks(
+                    getRoadForPosition(position.id)
+                  )
 
                   return (
                     <TableRow key={position.id} className="group">
@@ -375,8 +458,8 @@ export default function LearnRoadsPage() {
                       <TableCell>
                         {position.majors.length > 0 ? position.majors.join('，') : '-'}
                       </TableCell>
-                      <TableCell>{creator?.name || '-'}</TableCell>
-                      <TableCell>{collaborators || '-'}</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="bg-blue-50 text-blue-600 hover:bg-blue-50">
                           {sceneCount}
@@ -394,6 +477,7 @@ export default function LearnRoadsPage() {
                             size="sm"
                             className="h-7 px-2 text-xs"
                             onClick={() => handleEdit(position)}
+                            disabled={editLoading}
                           >
                             <Pencil className="mr-1 h-3 w-3" />
                             编辑学习路径
@@ -453,11 +537,17 @@ export default function LearnRoadsPage() {
     }
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 relative">
+        {editLoading && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={handleBack}>
+            <Button variant="outline" size="sm" onClick={handleBack} disabled={editLoading}>
               <ArrowLeft className="mr-1 h-4 w-4" />
               返回岗位列表
             </Button>
@@ -469,18 +559,22 @@ export default function LearnRoadsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleReset}>
+            <Button variant="outline" onClick={handleReset} disabled={editLoading || saving}>
               <RotateCcw className="mr-2 h-4 w-4" />
               重置
             </Button>
             <Link href="/learning-route">
-              <Button variant="outline">
+              <Button variant="outline" disabled={editLoading || saving}>
                 <Eye className="mr-2 h-4 w-4" />
                 预览
               </Button>
             </Link>
-            <Button onClick={handleSave}>
-              <Save className="mr-2 h-4 w-4" />
+            <Button onClick={handleSave} disabled={editLoading || saving || !learnRoadId}>
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
               {saved ? '已保存' : '保存顺序'}
             </Button>
           </div>

@@ -111,6 +111,7 @@ export interface LearnRoadStep {
   name: string
   description?: string
   resourceIds?: string[]
+  tasks?: { id: string; name: string }[]
 }
 
 export interface LearnRoad {
