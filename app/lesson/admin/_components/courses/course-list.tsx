@@ -44,10 +44,10 @@ export function CourseList({
   const someSelected = courses.some((c) => selectedIds.includes(c.id)) && !allSelected
 
   const editPath = courseType === "system"
-    ? "/admin/system/add?mode=edit"
+    ? "/lesson/admin/system/add?mode=edit"
     : courseType === "granular"
-      ? "/admin/granular/add?mode=edit"
-      : `/admin/hybrid/add`
+      ? "/lesson/admin/granular/add?mode=edit"
+      : `/lesson/admin/hybrid/add`
 
   return (
     <div className={cn("rounded-lg border border-slate-200 bg-white overflow-hidden", className)}>

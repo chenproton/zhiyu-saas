@@ -21,10 +21,10 @@ export const unifiedNavigationConfig: PlatformNavigationConfig = {
   brandTitle: "数字课程服务平台",
   currentPlatformId: "lesson-unified",
   currentPlatformLabel: "数字课程服务平台",
-  brandHref: "/teacher/claim",
+  brandHref: "/lesson/teacher/claim",
   brandIcon: "bookOpen",
   platformIcon: "bookOpen",
-  sideBackHref: "/teacher/claim",
+  sideBackHref: "/lesson/teacher/claim",
   currentUserName: "教师",
   currentUserRoleLabel: "教学用户",
   showCurrentTime: true,
@@ -45,8 +45,8 @@ export const unifiedNavigationConfig: PlatformNavigationConfig = {
       label: "在线课资源库",
       icon: "folderKanban",
       children: [
-        { id: "system", label: "体系课管理", href: "/admin/system", matchers: ["/admin/system$", "/admin/system/add"] },
-        { id: "granular", label: "颗粒课管理", href: "/admin/granular", matchers: ["/admin/granular$", "/admin/granular/add"] },
+        { id: "system", label: "体系课管理", href: "/lesson/admin/system", matchers: ["/lesson/admin/system$", "/lesson/admin/system/add"] },
+        { id: "granular", label: "颗粒课管理", href: "/lesson/admin/granular", matchers: ["/lesson/admin/granular$", "/lesson/admin/granular/add"] },
       ],
     },
     {
@@ -54,8 +54,8 @@ export const unifiedNavigationConfig: PlatformNavigationConfig = {
       label: "混合课资源库",
       icon: "layers3",
       children: [
-        { id: "hybrid", label: "混合课模板管理", href: "/admin/hybrid", matchers: ["/admin/hybrid$", "/admin/hybrid/add"] },
-        { id: "hybrid-archive", label: "混合课历史档案库", href: "/admin/hybrid-archive", matchers: ["/admin/hybrid-archive"] },
+        { id: "hybrid", label: "混合课模板管理", href: "/lesson/admin/hybrid", matchers: ["/lesson/admin/hybrid$", "/lesson/admin/hybrid/add"] },
+        { id: "hybrid-archive", label: "混合课历史档案库", href: "/lesson/admin/archive", matchers: ["/lesson/admin/archive"] },
       ],
     },
     {
@@ -63,12 +63,12 @@ export const unifiedNavigationConfig: PlatformNavigationConfig = {
       label: "教学空间",
       icon: "layoutGrid",
       children: [
-        { id: "claim", label: "开课计划管理", href: "/teacher/claim", matchers: ["/teacher/claim"] },
-        { id: "behavior-collection", label: "课程学习跟踪", href: "/teacher/behavior-collection", matchers: ["/teacher/behavior-collection"] },
-        { id: "progress-tracking", label: "课程测评跟踪", href: "/teacher/progress-tracking", matchers: ["/teacher/progress-tracking"] },
-        { id: "final-assessment", label: "课程期末总评", href: "/teacher/final-assessment", matchers: ["/teacher/final-assessment"] },
-        { id: "grade-submit", label: "成绩确认与提交", href: "/teacher/grade-submit", matchers: ["/teacher/grade-submit"] },
-        { id: "learning-portrait", label: "我的学生画像", href: "/teacher/learning-portrait", matchers: ["/teacher/learning-portrait"] },
+        { id: "claim", label: "开课计划管理", href: "/lesson/teacher/claim", matchers: ["/lesson/teacher/claim"] },
+        { id: "behavior-collection", label: "课程学习跟踪", href: "/lesson/teacher/behavior-collection", matchers: ["/lesson/teacher/behavior-collection"] },
+        { id: "progress-tracking", label: "课程测评跟踪", href: "/lesson/teacher/progress-tracking", matchers: ["/lesson/teacher/progress-tracking"] },
+        { id: "final-assessment", label: "课程期末总评", href: "/lesson/teacher/final-assessment", matchers: ["/lesson/teacher/final-assessment"] },
+        { id: "grade-submit", label: "成绩确认与提交", href: "/lesson/teacher/grade-submit", matchers: ["/lesson/teacher/grade-submit"] },
+        { id: "learning-portrait", label: "我的学生画像", href: "/lesson/teacher/learning-portrait", matchers: ["/lesson/teacher/learning-portrait"] },
       ],
     },
     {
@@ -76,9 +76,9 @@ export const unifiedNavigationConfig: PlatformNavigationConfig = {
       label: "资源审批与质量",
       icon: "badgeCheck",
       children: [
-        { id: "approvals", label: "审批管理", href: "/admin/approvals", matchers: ["/admin/approvals"] },
-        { id: "batches", label: "批次分组管理", href: "/admin/batches", matchers: ["/admin/batches"] },
-        { id: "workflows", label: "审批流程管理", href: "/admin/workflows", matchers: ["/admin/workflows"] },
+        { id: "approvals", label: "审批管理", href: "/lesson/admin/approvals", matchers: ["/lesson/admin/approvals"] },
+        { id: "batches", label: "批次分组管理", href: "/lesson/admin/batches", matchers: ["/lesson/admin/batches"] },
+        { id: "workflows", label: "审批流程管理", href: "/lesson/admin/workflows", matchers: ["/lesson/admin/workflows"] },
       ],
     },
   ],
@@ -97,18 +97,18 @@ export const unifiedNavigationConfig: PlatformNavigationConfig = {
    以下为旧子平台配置，保留用于兼容，layout 已统一使用 unifiedNavigationConfig
    ============================================================ */
 const platformSwitchItems: PlatformNavigationConfig["platformSwitchItems"] = [
-  { id: "admin", label: "课程资源中心", href: "/admin/system", icon: "folderKanban" },
-  { id: "teacher", label: "课程建设与教学运行", href: "/teacher/claim", icon: "bookOpen" },
+  { id: "admin", label: "课程资源中心", href: "/lesson/admin/system", icon: "folderKanban" },
+  { id: "teacher", label: "课程建设与教学运行", href: "/lesson/teacher/claim", icon: "bookOpen" },
 ]
 
 export const adminNavigationConfig: PlatformNavigationConfig = {
   brandTitle: "数字课程服务平台",
   currentPlatformId: "lesson-admin",
   currentPlatformLabel: "课程资源中心",
-  brandHref: "/admin/system",
+  brandHref: "/lesson/admin/system",
   brandIcon: "folderKanban",
   platformIcon: "folderKanban",
-  sideBackHref: "/admin/system",
+  sideBackHref: "/lesson/admin/system",
   currentUserName: "教研管理员",
   currentUserRoleLabel: "课程资源中心",
   showCurrentTime: true,
@@ -129,8 +129,8 @@ export const adminNavigationConfig: PlatformNavigationConfig = {
       label: "在线课资源库",
       icon: "folderKanban",
       children: [
-        { id: "system", label: "体系课管理", href: "/admin/system", matchers: ["/admin/system$", "/admin/system/add"] },
-        { id: "granular", label: "颗粒课管理", href: "/admin/granular", matchers: ["/admin/granular$", "/admin/granular/add"] },
+        { id: "system", label: "体系课管理", href: "/lesson/admin/system", matchers: ["/lesson/admin/system$", "/lesson/admin/system/add"] },
+        { id: "granular", label: "颗粒课管理", href: "/lesson/admin/granular", matchers: ["/lesson/admin/granular$", "/lesson/admin/granular/add"] },
       ],
     },
     {
@@ -138,8 +138,8 @@ export const adminNavigationConfig: PlatformNavigationConfig = {
       label: "混合课资源库",
       icon: "layers3",
       children: [
-        { id: "hybrid", label: "混合课模板管理", href: "/admin/hybrid", matchers: ["/admin/hybrid$", "/admin/hybrid/add"] },
-        { id: "hybrid-archive", label: "混合课历史档案库", href: "/admin/hybrid-archive", matchers: ["/admin/hybrid-archive"] },
+        { id: "hybrid", label: "混合课模板管理", href: "/lesson/admin/hybrid", matchers: ["/lesson/admin/hybrid$", "/lesson/admin/hybrid/add"] },
+        { id: "hybrid-archive", label: "混合课历史档案库", href: "/lesson/admin/archive", matchers: ["/lesson/admin/archive"] },
       ],
     },
     {
@@ -147,9 +147,9 @@ export const adminNavigationConfig: PlatformNavigationConfig = {
       label: "资源审批与质量",
       icon: "badgeCheck",
       children: [
-        { id: "approvals", label: "审批管理", href: "/admin/approvals", matchers: ["/admin/approvals"] },
-        { id: "batches", label: "批次分组管理", href: "/admin/batches", matchers: ["/admin/batches"] },
-        { id: "workflows", label: "审批流程管理", href: "/admin/workflows", matchers: ["/admin/workflows"] },
+        { id: "approvals", label: "审批管理", href: "/lesson/admin/approvals", matchers: ["/lesson/admin/approvals"] },
+        { id: "batches", label: "批次分组管理", href: "/lesson/admin/batches", matchers: ["/lesson/admin/batches"] },
+        { id: "workflows", label: "审批流程管理", href: "/lesson/admin/workflows", matchers: ["/lesson/admin/workflows"] },
       ],
     },
   ],

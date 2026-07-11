@@ -639,7 +639,7 @@ export function TeacherCoursesTab({ prepAssociations = {}, onAssociate }: Teache
                   const courseTypeTag = ["混合课程", "实践场景", "混合课程", "实践场景", "混合课程", "实践场景"][planIndex % 2]
                   const isHybrid = courseTypeTag === "混合课程"
                   const accentColors = isHybrid
-                  ? { bg: "from-blue-50 to-indigo-50", border: "border-blue-100 hover:border-blue-300", iconBg: "bg-gradient-to-br from-blue-500 to-indigo-600", badgeBg: "bg-gradient-to-r from-blue-500 to-indigo-500", prepUrl: "http://111.170.170.202:3006/admin/hybrid/add?id=hybrid-1", learnUrl: "http://111.170.170.202:3006/learn/courses/hybrid/hybrid-1/teacherlearn" }
+                  ? { bg: "from-blue-50 to-indigo-50", border: "border-blue-100 hover:border-blue-300", iconBg: "bg-gradient-to-br from-blue-500 to-indigo-600", badgeBg: "bg-gradient-to-r from-blue-500 to-indigo-500", prepUrl: "/lesson/admin/hybrid/add?id=hybrid-1", learnUrl: "http://111.170.170.202:3006/learn/courses/hybrid/hybrid-1/teacherlearn" }
                   : { bg: "from-emerald-50 to-teal-50", border: "border-emerald-100 hover:border-emerald-300", iconBg: "bg-gradient-to-br from-emerald-500 to-teal-600", badgeBg: "bg-gradient-to-r from-emerald-500 to-teal-500", prepUrl: "http://111.170.170.202:3003/student_teacher.html?task=task-1-1", learnUrl: "http://111.170.170.202:3003/student_teacher.html?task=task-1-1" }
                 return (
                   <div key={plan.id} className={`group rounded-xl border shadow-sm hover:shadow-md transition-all overflow-hidden ${accentColors.border}`}>

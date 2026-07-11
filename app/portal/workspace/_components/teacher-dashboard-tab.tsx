@@ -268,7 +268,7 @@ function getCourseUrls(event: TeacherScheduleEvent) {
   if (isHybrid) {
     return {
       isHybrid: true,
-      prepUrl: "http://111.170.170.202:3006/admin/hybrid/add?id=hybrid-1",
+      prepUrl: "/lesson/admin/hybrid/add?id=hybrid-1",
       learnUrl: "http://111.170.170.202:3006/learn/courses/hybrid/hybrid-1/teacherlearn",
     }
   }
