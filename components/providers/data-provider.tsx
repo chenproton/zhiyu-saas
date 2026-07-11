@@ -209,7 +209,9 @@ const parseExam = (exam: Exam): Exam => ({
 
 const parseSceneResult = (r: SceneEvaluationResult): SceneEvaluationResult => ({
   ...r,
-  evaluationTime: parseDate(r.evaluationTime as unknown as string | Date),
+  gradedAt: parseOptDate(r.gradedAt as unknown as string | Date),
+  createdAt: parseOptDate(r.createdAt as unknown as string | Date),
+  updatedAt: parseOptDate(r.updatedAt as unknown as string | Date),
 })
 
 const parseTopic = (t: GraduationProjectTopic): GraduationProjectTopic => ({
@@ -664,7 +666,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   )
 
   const getResultsByMethod = useCallback(
-    (methodId: string) => sceneEvaluationResults.filter((res) => res.methodId === methodId),
+    (methodId: string) => sceneEvaluationResults.filter((res) => res.methodKey === methodId),
     [sceneEvaluationResults]
   )
 

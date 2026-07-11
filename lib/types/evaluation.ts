@@ -407,21 +407,24 @@ export interface SceneTask {
 // 场景任务测评结果
 export interface SceneEvaluationResult {
   id: string
-  methodId: string
-  evaluationTime: Date
   taskId: string
-  taskName: string
-  sceneName: string
-  evaluateeType: 'student' | 'group'
+  sceneId?: string
+  methodKey: string
   evaluateeId: string
-  evaluateeName: string
-  evaluatorIds: string[]
-  evaluatorNames: string[]
-  evaluatorType: 'teacher' | 'expert'
-  evaluationStatus: 'evaluated' | 'pending'
-  score: number
+  evaluatorId?: string
+  evaluatorType?: string
+  status: "pending" | "evaluated"
+  totalScore?: number
   maxScore: number
+  evalPointScores: Record<string, any>
+  objectiveAnswers: Record<string, any>
+  subjectiveContent: Record<string, any>
+  drawnQuestions: Record<string, any>
   comment?: string
+  gradedAt?: Date
+  gradedBy?: string
+  createdAt?: Date
+  updatedAt?: Date
 }
 
 // 岗位能力测评结果
