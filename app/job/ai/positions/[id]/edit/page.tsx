@@ -3,11 +3,12 @@
 import { useState, useCallback, useEffect, use } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useData } from '@/lib/stores/data-context'
+import { useAuth } from '@/components/auth-provider'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -15,11 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { X, Save, Eye, ArrowRight, ArrowLeft, Sparkles, ImagePlus, UserPlus } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { X, Save, Eye, ArrowRight, ArrowLeft, ImagePlus } from 'lucide-react'
 import { Step1BasicInfo, type Step1Draft } from '@/components/job/position-builder/ai-assisted-2/step1-basic-info'
 import { Step2AbilityModel } from '@/components/job/position-builder/ai-assisted-2/step2-ability-model'
 import { Step3ResultTable } from '@/components/job/position-builder/ai-assisted-2/step3-result-table'
+import { CoBuilderSelector } from '@/components/job/position-builder/co-builder-selector'
 import type { Position } from '@/lib/types/job-source'
 import {
   Dialog,
@@ -29,8 +30,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-
-const CURRENT_USER = { id: 'user-1', name: '张建设' }
 
 type WizardStep = 'basic' | 'ability' | 'result'
 
@@ -57,15 +56,14 @@ export default function AiAssisted2EditPositionPage({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user: currentUser } = useAuth()
   const { positions, batches, updatePosition } = useData()
 
   const [step, setStep] = useState<WizardStep>('basic')
   const [draft, setDraft] = useState<Step1Draft | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const [coverRegenOpen, setCoverRegenOpen] = useState(false)
-  const [coverRegenPrompt, setCoverRegenPrompt] = useState('')
-  const [coverRegenLoading, setCoverRegenLoading] = useState(false)
-  const [coverRegenProgress, setCoverRegenProgress] = useState(0)
+  const [coverInputOpen, setCoverInputOpen] = useState(false)
+  const [coverUrl, setCoverUrl] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
   // 加载岗位数据
@@ -92,35 +90,32 @@ export default function AiAssisted2EditPositionPage({ params }: PageProps) {
     setDraft((prev) => (prev ? { ...prev, ...data } : null))
   }, [])
 
-  const handleAiGenerateCover = () => {
-    setCoverRegenLoading(true)
-    setCoverRegenProgress(0)
-    let p = 0
-    const interval = setInterval(() => {
-      p += Math.floor(Math.random() * 15) + 10
-      if (p >= 100) {
-        p = 100
-        clearInterval(interval)
-        setCoverRegenProgress(100)
-        setTimeout(() => {
-          const covers = ['/cover-wms-1.png', '/cover-wms-2.png', '/cover-wms-3.png']
-          const nextIdx = Math.floor(Math.random() * covers.length)
-          updateDraft({ coverImage: covers[nextIdx] })
-          setCoverRegenLoading(false)
-          setCoverRegenProgress(0)
-          setCoverRegenPrompt('')
-        }, 400)
-      } else {
-        setCoverRegenProgress(p)
+  const handleCoverUpload = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        const url = URL.createObjectURL(file)
+        updateDraft({ coverImage: url })
       }
-    }, 150)
+    }
+    input.click()
+  }
+
+  const handleConfirmCoverUrl = () => {
+    if (coverUrl.trim()) {
+      updateDraft({ coverImage: coverUrl.trim() })
+    }
+    setCoverUrl('')
+    setCoverInputOpen(false)
   }
 
   const handleSave = async () => {
     if (!draft) return
     setIsSaving(true)
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    updatePosition(id, draft)
+    await updatePosition(id, draft)
     setIsSaving(false)
     router.push('/job/ai/positions')
   }
@@ -195,7 +190,7 @@ export default function AiAssisted2EditPositionPage({ params }: PageProps) {
                   <Label className="mb-3 block">岗位封面</Label>
                   <div
                     className="aspect-video bg-gray-100 rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors overflow-hidden relative group"
-                    onClick={() => !draft.coverImage && updateDraft({ coverImage: '/placeholder.svg?height=200&width=300' })}
+                    onClick={handleCoverUpload}
                   >
                     {draft.coverImage ? (
                       <>
@@ -209,14 +204,24 @@ export default function AiAssisted2EditPositionPage({ params }: PageProps) {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="bg-white/90 text-gray-800 border-white hover:bg-white gap-1"
+                            className="bg-white/90 text-gray-800 border-white hover:bg-white"
                             onClick={(e) => {
                               e.stopPropagation()
-                              setCoverRegenOpen(true)
+                              handleCoverUpload()
                             }}
                           >
-                            <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                            重新生成
+                            上传封面
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-white/90 text-gray-800 border-white hover:bg-white"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setCoverInputOpen(true)
+                            }}
+                          >
+                            URL 封面
                           </Button>
                           <Button
                             variant="outline"
@@ -234,19 +239,18 @@ export default function AiAssisted2EditPositionPage({ params }: PageProps) {
                     ) : (
                       <div className="flex flex-col items-center">
                         <ImagePlus className="h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-500">点击设置封面图片</p>
+                        <p className="text-sm text-gray-500">点击上传封面图片</p>
                         <p className="text-xs text-gray-400 mt-1">建议尺寸 320x200</p>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="mt-3 gap-1 border-purple-200 text-purple-700 hover:bg-purple-50 hover:text-purple-800"
+                          className="mt-3 gap-1"
                           onClick={(e) => {
                             e.stopPropagation()
-                            setCoverRegenOpen(true)
+                            setCoverInputOpen(true)
                           }}
                         >
-                          <Sparkles className="h-3.5 w-3.5" />
-                          AI 生成封面
+                          使用图片链接
                         </Button>
                       </div>
                     )}
@@ -278,24 +282,14 @@ export default function AiAssisted2EditPositionPage({ params }: PageProps) {
                   </div>
                   <div>
                     <Label className="text-gray-500 text-xs">创建人</Label>
-                    <p className="font-medium text-gray-800 mt-1">{CURRENT_USER.name}</p>
+                    <p className="font-medium text-gray-800 mt-1">{currentUser?.name || '-'}</p>
                   </div>
                   <div>
                     <Label className="text-gray-500 text-xs">共建人</Label>
-                    <div className="mt-1 border rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                      {draft.collaborators.length === 0 ? (
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <UserPlus className="h-4 w-4" />
-                          <span className="text-sm">点击选择共建人</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">
-                            <span>{CURRENT_USER.name}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <CoBuilderSelector
+                      selectedIds={draft.collaborators || []}
+                      onChange={(ids) => updateDraft({ collaborators: ids })}
+                    />
                   </div>
                   <div className="pt-3 border-t border-gray-100">
                     <Label className="text-gray-500 text-xs">当前版本号</Label>
@@ -367,71 +361,24 @@ export default function AiAssisted2EditPositionPage({ params }: PageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Cover Regeneration Prompt Dialog */}
-      <Dialog open={coverRegenOpen} onOpenChange={setCoverRegenOpen}>
+      {/* Cover URL Input Dialog */}
+      <Dialog open={coverInputOpen} onOpenChange={setCoverInputOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              AI 生成封面
-            </DialogTitle>
-            <DialogDescription>输入您对封面图的要求，AI 将为您生成新的岗位封面</DialogDescription>
+            <DialogTitle>设置封面图片</DialogTitle>
+            <DialogDescription>输入岗位封面图片的 URL 地址</DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-3">
-            <Label htmlFor="cover-prompt">封面描述要求</Label>
-            <Textarea
-              id="cover-prompt"
-              placeholder="例如：蓝色科技风格，展现软件开发工作场景..."
-              value={coverRegenPrompt}
-              onChange={(e) => setCoverRegenPrompt(e.target.value)}
-              className="min-h-[80px] text-sm"
+          <div className="py-4">
+            <Input
+              placeholder="https://..."
+              value={coverUrl}
+              onChange={(e) => setCoverUrl(e.target.value)}
             />
-            <p className="text-xs text-gray-400">留空将随机生成封面图</p>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setCoverRegenOpen(false)}>取消</Button>
-            <Button
-              size="sm"
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-              onClick={() => {
-                setCoverRegenOpen(false)
-                handleAiGenerateCover()
-              }}
-            >
-              确认生成
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCoverInputOpen(false)}>取消</Button>
+            <Button size="sm" onClick={handleConfirmCoverUrl}>确认</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Cover Regeneration Progress Dialog */}
-      <Dialog open={coverRegenLoading} onOpenChange={(v) => !v && setCoverRegenLoading(false)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              AI 正在生成封面
-            </DialogTitle>
-            <DialogDescription>
-              {coverRegenPrompt ? `正在根据要求生成封面：${coverRegenPrompt}` : '正在为您生成新的岗位封面...'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-6 space-y-4">
-            <div className="flex items-center justify-between text-sm text-purple-700">
-              <span>生成进度</span>
-              <span>{coverRegenProgress}%</span>
-            </div>
-            <div className="w-full bg-purple-100 rounded-full h-2.5">
-              <div
-                className="bg-purple-600 h-2.5 rounded-full transition-all"
-                style={{ width: `${coverRegenProgress}%` }}
-              />
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <div className="h-4 w-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-              <span>AI 正在绘制封面图像...</span>
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
     </div>

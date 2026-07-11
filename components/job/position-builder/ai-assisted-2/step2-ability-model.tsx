@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,11 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Sparkles, ArrowRight, CheckCircle2, Trash2, AlertCircle, Loader2 } from 'lucide-react'
-import { AiProgressDialog } from './ai-progress-dialog'
+import { Sparkles, ArrowRight, CheckCircle2, Trash2, AlertCircle } from 'lucide-react'
 import type { Position, PositionAbilityBinding, CompetencyLevel } from '@/lib/types/job-source'
 import { COMPETENCY_LEVEL_LABELS } from '@/lib/types/job-source'
-import { mockAbilityRecommendations } from '@/lib/ai-mock-data-job'
 
 const COMPETENCY_LEVELS: { value: CompetencyLevel; label: string; description: string }[] = [
   { value: 'understand', label: '了解', description: '了解基本概念，能在指导下完成简单任务' },
@@ -47,29 +45,10 @@ interface Step2AbilityModelProps {
 
 export function Step2AbilityModel({ position, onUpdate, onNext }: Step2AbilityModelProps) {
   const [currentRespIndex, setCurrentRespIndex] = useState(0)
-  const [aiOpen, setAiOpen] = useState(false)
-  const [aiProgress, setAiProgress] = useState(0)
-  const [aiStep, setAiStep] = useState(0)
-  const aiStepRef = useRef(aiStep)
-  useEffect(() => {
-    aiStepRef.current = aiStep
-  }, [aiStep])
-  const pendingAutoAiRef = useRef(false)
-  const startAiAssistRef = useRef<() => void>(() => {})
-  const isRunningRef = useRef(false)
+  const [aiNotice, setAiNotice] = useState<string | null>(null)
 
   const responsibilities = position.responsibilities
   const currentResp = responsibilities[currentRespIndex]
-
-  const currentRespIndexRef = useRef(currentRespIndex)
-  useEffect(() => {
-    currentRespIndexRef.current = currentRespIndex
-  }, [currentRespIndex])
-
-  const responsibilitiesRef = useRef(responsibilities)
-  useEffect(() => {
-    responsibilitiesRef.current = responsibilities
-  }, [responsibilities])
 
   const currentBindings = useMemo(
     () => position.abilityBindings.filter((b) => b.responsibilityId === currentResp?.id),
@@ -84,64 +63,25 @@ export function Step2AbilityModel({ position, onUpdate, onNext }: Step2AbilityMo
     : 0
 
   const startAiAssist = () => {
-    if (!currentResp || isRunningRef.current) return
-    isRunningRef.current = true
-    setAiOpen(true)
-    setAiStep(0)
-    setAiProgress(0)
-
-    let progress = 0
-    const interval = setInterval(() => {
-      progress += Math.floor(Math.random() * 8) + 2
-      if (progress >= 100) progress = 100
-      setAiProgress(progress)
-      if (progress >= 40 && aiStepRef.current === 0) {
-        setAiStep(1)
-      }
-    }, 250)
-
-    setTimeout(() => {
-      clearInterval(interval)
-      setAiProgress(100)
-      setTimeout(() => {
-        setAiOpen(false)
-        generateAbilitiesForCurrentResp()
-        isRunningRef.current = false
-
-        // 自动切换到下一个职责并继续拆解
-        if (currentRespIndexRef.current < responsibilitiesRef.current.length - 1) {
-          pendingAutoAiRef.current = true
-          setCurrentRespIndex((i) => i + 1)
-        }
-      }, 400)
-    }, 5000)
+    setAiNotice('AI 生成服务暂未接入，请手动填写')
   }
-  startAiAssistRef.current = startAiAssist
-
-  useEffect(() => {
-    if (pendingAutoAiRef.current) {
-      pendingAutoAiRef.current = false
-      startAiAssistRef.current()
-    }
-  }, [currentRespIndex])
 
   const generateAbilitiesForCurrentResp = () => {
     if (!currentResp) return
-    const recs = mockAbilityRecommendations(currentResp.name)
-    const newBindings: PositionAbilityBinding[] = recs
-      .filter((_, i) => i < 4)
-      .map((rec, i) => ({
-        id: `bind-${Date.now()}-${i}`,
+    const newBindings: PositionAbilityBinding[] = [
+      {
+        id: `bind-${Date.now()}-1`,
         responsibilityId: currentResp.id,
         source: 'custom',
-        name: rec.name,
-        category: rec.category,
+        name: '',
+        category: '专业技能',
         level: 'understand',
         rubricDescription: '',
         description: '',
         attributes: ['技能'],
-        domain: ABILITY_DOMAINS[i % ABILITY_DOMAINS.length],
-      }))
+        domain: ABILITY_DOMAINS[0],
+      },
+    ]
 
     const cleaned = position.abilityBindings.filter(
       (b) => b.responsibilityId !== currentResp.id
@@ -193,7 +133,7 @@ export function Step2AbilityModel({ position, onUpdate, onNext }: Step2AbilityMo
             variant="outline"
             className="border-purple-200 text-purple-700 hover:bg-purple-50 hover:text-purple-800 gap-1"
             onClick={startAiAssist}
-            disabled={!currentResp || isRunningRef.current}
+            disabled={!currentResp}
           >
             <Sparkles className="h-4 w-4" />
             AI 辅助编写
@@ -205,6 +145,13 @@ export function Step2AbilityModel({ position, onUpdate, onNext }: Step2AbilityMo
           )}
         </div>
       </div>
+
+      {aiNotice && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 flex items-start gap-2 text-sm text-amber-800">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{aiNotice}</span>
+        </div>
+      )}
 
       {/* Top progress */}
       <Card className="border-purple-100 bg-purple-50/20">
@@ -272,19 +219,13 @@ export function Step2AbilityModel({ position, onUpdate, onNext }: Step2AbilityMo
                   当前职责：{currentResp?.name || '未命名'}
                 </p>
               </div>
-              {aiOpen && (
-                <div className="flex items-center gap-2 text-sm text-purple-700">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  AI 生成中...
-                </div>
-              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {currentBindings.length === 0 ? (
                 <div className="text-center py-10 text-gray-500 border border-dashed border-gray-200 rounded-xl">
                   <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-40" />
                   <p className="text-sm">当前职责暂无能力点</p>
-                  <p className="text-xs mt-1 text-gray-400">点击右上角「AI 辅助编写」或下方按钮添加</p>
+                  <p className="text-xs mt-1 text-gray-400">点击下方按钮添加能力点</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -425,16 +366,6 @@ export function Step2AbilityModel({ position, onUpdate, onNext }: Step2AbilityMo
           </Card>
         </div>
       )}
-
-      <AiProgressDialog
-        open={aiOpen}
-        onOpenChange={setAiOpen}
-        title="AI 辅助拆解能力点"
-        description="大模型正在阅读岗位信息并为当前职责生成能力点"
-        steps={['阅读岗位基础信息', `生成「${currentResp?.name || ''}」对应能力点`]}
-        currentStep={aiStep}
-        progress={aiProgress}
-      />
     </div>
   )
 }

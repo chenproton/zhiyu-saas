@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { UserPlus, X, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,11 +16,16 @@ import {
 } from '@/components/ui/dialog'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useAuth } from '@/components/auth-provider'
+import { userManagementApi, orgApi } from '@/lib/api'
+import type { User } from '@/lib/api'
+import type { Organization } from '@/lib/types/backend'
 
 interface OrgUser {
   id: string
   name: string
   role: string
+  orgNodeId?: string
 }
 
 interface OrgDepartment {
@@ -29,60 +34,98 @@ interface OrgDepartment {
   users: OrgUser[]
 }
 
-const MOCK_DEPARTMENTS: OrgDepartment[] = [
-  {
-    id: 'dept-1',
-    name: '信息工程系',
-    users: [
-      { id: 'user-1', name: '张老师', role: '建设者' },
-      { id: 'user-2', name: '李老师', role: '建设者' },
-      { id: 'user-3', name: '陈老师', role: '建设者' },
-      { id: 'user-4', name: '杨老师', role: '建设者' },
-    ],
-  },
-  {
-    id: 'dept-2',
-    name: '经济管理系',
-    users: [
-      { id: 'user-5', name: '王老师', role: '审批人' },
-      { id: 'user-6', name: '赵老师', role: '建设者' },
-      { id: 'user-7', name: '吴老师', role: '建设者' },
-    ],
-  },
-  {
-    id: 'dept-3',
-    name: '教务处',
-    users: [
-      { id: 'user-8', name: '刘老师', role: '管理员' },
-      { id: 'user-9', name: '何老师', role: '管理员' },
-    ],
-  },
-]
-
 interface CoBuilderSelectorProps {
   selectedIds: string[]
   onChange: (ids: string[]) => void
 }
 
 export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorProps) {
+  const { user: currentUser } = useAuth()
   const [open, setOpen] = useState(false)
   const [draftIds, setDraftIds] = useState<string[]>(selectedIds)
   const [searchQuery, setSearchQuery] = useState('')
-  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(
-    () => new Set(MOCK_DEPARTMENTS.map((d) => d.id))
-  )
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set())
+  const [users, setUsers] = useState<User[]>([])
+  const [orgs, setOrgs] = useState<Organization[]>([])
+  const [loading, setLoading] = useState(false)
 
-  const selectedUsers = useMemo(() => {
-    const list: OrgUser[] = []
-    MOCK_DEPARTMENTS.forEach((dept) => {
-      dept.users.forEach((user) => {
-        if (draftIds.includes(user.id)) {
-          list.push({ ...user, deptName: dept.name } as OrgUser & { deptName: string })
-        }
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    Promise.all([
+      userManagementApi.list({ limit: 1000 }),
+      orgApi.tree(),
+    ])
+      .then(([usersRes, orgsRes]) => {
+        if (cancelled) return
+        setUsers(usersRes.items || [])
+        setOrgs(orgsRes || [])
+        setExpandedDepts(new Set((orgsRes || []).map((o) => o.id)))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setUsers([])
+        setOrgs([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const userMap = useMemo(() => {
+    const map = new Map<string, User>()
+    users.forEach((u) => map.set(u.id, u))
+    return map
+  }, [users])
+
+  const orgMap = useMemo(() => {
+    const map = new Map<string, Organization>()
+    orgs.forEach((o) => map.set(o.id, o))
+    return map
+  }, [orgs])
+
+  const departments: OrgDepartment[] = useMemo(() => {
+    const grouped = new Map<string, OrgUser[]>()
+    users.forEach((u) => {
+      const deptId = u.orgNodeId || 'unassigned'
+      if (!grouped.has(deptId)) grouped.set(deptId, [])
+      grouped.get(deptId)!.push({
+        id: u.id,
+        name: u.name || u.username,
+        role: u.role,
+        orgNodeId: u.orgNodeId,
       })
     })
-    return list as (OrgUser & { deptName: string })[]
-  }, [draftIds])
+
+    const result: OrgDepartment[] = []
+    orgs.forEach((org) => {
+      const deptUsers = grouped.get(org.id) || []
+      if (deptUsers.length > 0) {
+        result.push({ id: org.id, name: org.name, users: deptUsers })
+      }
+    })
+
+    const unassigned = grouped.get('unassigned') || []
+    if (unassigned.length > 0) {
+      result.push({ id: 'unassigned', name: '未分配部门', users: unassigned })
+    }
+
+    return result
+  }, [users, orgs])
+
+  const selectedUsers = useMemo(() => {
+    return draftIds
+      .map((id) => userMap.get(id))
+      .filter(Boolean)
+      .map((u) => ({
+        id: u!.id,
+        name: u!.name || u!.username,
+        deptName: u!.orgNodeId ? orgMap.get(u!.orgNodeId)?.name : undefined,
+      }))
+  }, [draftIds, userMap, orgMap])
 
   const toggleUser = (userId: string) => {
     setDraftIds((prev) =>
@@ -91,7 +134,7 @@ export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorPr
   }
 
   const toggleDepartment = (deptId: string) => {
-    const dept = MOCK_DEPARTMENTS.find((d) => d.id === deptId)
+    const dept = departments.find((d) => d.id === deptId)
     if (!dept) return
     const deptUserIds = dept.users.map((u) => u.id)
     const allSelected = deptUserIds.every((id) => draftIds.includes(id))
@@ -115,20 +158,22 @@ export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorPr
   }
 
   const filteredDepartments = useMemo(() => {
-    if (!searchQuery.trim()) return MOCK_DEPARTMENTS
+    if (!searchQuery.trim()) return departments
     const q = searchQuery.trim().toLowerCase()
-    return MOCK_DEPARTMENTS.map((dept) => ({
-      ...dept,
-      users: dept.users.filter(
-        (u) => u.name.toLowerCase().includes(q) || u.role.toLowerCase().includes(q)
-      ),
-    })).filter((dept) => dept.name.toLowerCase().includes(q) || dept.users.length > 0)
-  }, [searchQuery])
+    return departments
+      .map((dept) => ({
+        ...dept,
+        users: dept.users.filter(
+          (u) => u.name.toLowerCase().includes(q) || u.role.toLowerCase().includes(q)
+        ),
+      }))
+      .filter((dept) => dept.name.toLowerCase().includes(q) || dept.users.length > 0)
+  }, [searchQuery, departments])
 
   const handleOpen = () => {
     setDraftIds(selectedIds)
     setSearchQuery('')
-    setExpandedDepts(new Set(MOCK_DEPARTMENTS.map((d) => d.id)))
+    setExpandedDepts(new Set(orgs.map((o) => o.id)))
     setOpen(true)
   }
 
@@ -142,22 +187,12 @@ export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorPr
     setOpen(false)
   }
 
-  const allUserIds = useMemo(
-    () => MOCK_DEPARTMENTS.flatMap((d) => d.users.map((u) => u.id)),
-    []
-  )
-
   const displayNames = useMemo(() => {
     return selectedIds
-      .map((id) => {
-        for (const dept of MOCK_DEPARTMENTS) {
-          const user = dept.users.find((u) => u.id === id)
-          if (user) return user.name
-        }
-        return null
-      })
-      .filter(Boolean) as string[]
-  }, [selectedIds])
+      .map((id) => userMap.get(id))
+      .filter(Boolean)
+      .map((u) => u!.name || u!.username)
+  }, [selectedIds, userMap])
 
   return (
     <>
@@ -207,7 +242,8 @@ export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorPr
               <p className="mb-3 text-sm font-medium text-gray-700">组织架构</p>
               <ScrollArea className="h-[320px]">
                 <div className="space-y-2 pr-3">
-                  {filteredDepartments.map((dept) => {
+                  {loading && <p className="py-8 text-center text-sm text-muted-foreground">加载中...</p>}
+                  {!loading && filteredDepartments.map((dept) => {
                     const deptUserIds = dept.users.map((u) => u.id)
                     const selectedCount = deptUserIds.filter((id) => draftIds.includes(id)).length
                     const isAllSelected =
@@ -261,6 +297,9 @@ export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorPr
                                       onCheckedChange={() => toggleUser(user.id)}
                                     />
                                     <span className="text-sm">{user.name}</span>
+                                    {currentUser?.id === user.id && (
+                                      <span className="text-[10px] text-muted-foreground">(我)</span>
+                                    )}
                                   </div>
                                   <span className="text-xs text-muted-foreground">{user.role}</span>
                                 </div>
@@ -271,7 +310,7 @@ export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorPr
                       </Collapsible>
                     )
                   })}
-                  {filteredDepartments.length === 0 && (
+                  {!loading && filteredDepartments.length === 0 && (
                     <p className="py-8 text-center text-sm text-muted-foreground">未找到匹配结果</p>
                   )}
                 </div>
@@ -297,7 +336,7 @@ export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorPr
                     >
                       <div>
                         <p className="text-sm font-medium text-blue-700">{user.name}</p>
-                        <p className="text-xs text-blue-600/70">{user.deptName}</p>
+                        <p className="text-xs text-blue-600/70">{user.deptName || '未分配部门'}</p>
                       </div>
                       <button
                         type="button"

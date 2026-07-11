@@ -22,27 +22,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Sparkles,
   Plus,
   Search,
   Trash2,
-  Lightbulb,
   BookOpen,
   Brain,
   CheckCircle2,
   AlertCircle,
-  Loader2,
   Check,
   X,
   Pencil,
 } from 'lucide-react'
-import { AiGenerateButton } from '@/components/job/ai/ai-generate-button'
-import { AiConfidenceBadge } from '@/components/job/ai/ai-confidence-badge'
-import { mockAbilityRecommendations, type AiAbilityRecommendation, mockPositionResponsibilitiesGeneration } from '@/lib/ai-mock-data-job'
 import { useData } from '@/lib/stores/data-context'
-import type { Position, PositionAbilityBinding, CompetencyLevel, PositionResponsibility } from '@/lib/types/job-source'
+import type { Position, PositionAbilityBinding, CompetencyLevel } from '@/lib/types/job-source'
 import { COMPETENCY_LEVEL_LABELS } from '@/lib/types/job-source'
 
 interface StepAbilityModelingProps {
@@ -96,18 +90,10 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
   const [newAbilityName, setNewAbilityName] = useState('')
   const [newAbilityCategory, setNewAbilityCategory] = useState('专业技能')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [aiRecommendations, setAiRecommendations] = useState<AiAbilityRecommendation[]>([])
-  const [selectedAiRecIds, setSelectedAiRecIds] = useState<string[]>([])
+  const [aiNotice, setAiNotice] = useState<string | null>(null)
   const [editingRespId, setEditingRespId] = useState<string | null>(null)
   const [editRespName, setEditRespName] = useState('')
   const [expandedBindingId, setExpandedBindingId] = useState<string | null>(null)
-
-  // AI 补充工作职责弹窗状态
-  const [aiRespDialogOpen, setAiRespDialogOpen] = useState(false)
-  const [aiRespDirection, setAiRespDirection] = useState('')
-  const [aiRespLoading, setAiRespLoading] = useState(false)
-  const [aiRespSuggestions, setAiRespSuggestions] = useState<PositionResponsibility[]>([])
-  const [selectedAiRespIds, setSelectedAiRespIds] = useState<string[]>([])
 
   const selectedResp = position.responsibilities.find(r => r.id === selectedRespId)
 
@@ -190,87 +176,9 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
   const handleAIGenerate = async () => {
     if (!selectedRespId) return
     setIsGenerating(true)
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    if (aiMode) {
-      const recs = mockAbilityRecommendations(selectedResp?.name)
-      setAiRecommendations(recs)
-      setSelectedAiRecIds(recs.map(r => r.id))
-    } else {
-      const mockBindings: PositionAbilityBinding[] = ([
-        {
-          id: `bind-ai-1-${Date.now()}`,
-          responsibilityId: selectedRespId,
-          source: 'public' as const,
-          publicAbilityId: abilities[0]?.id,
-          name: abilities[0]?.name || '编程开发',
-          category: abilities[0]?.category || '专业技能',
-          level: 'proficient' as const,
-          domain: ABILITY_DOMAINS[0],
-          rubricDescription: '能够独立完成复杂业务模块的编码实现，代码质量达到团队规范要求',
-          description: '掌握至少一门主流编程语言，熟悉常用开发框架和工具链',
-          attributes: ['知识', '技能'],
-        },
-        {
-          id: `bind-ai-2-${Date.now()}`,
-          responsibilityId: selectedRespId,
-          source: 'public' as const,
-          publicAbilityId: abilities[1]?.id,
-          name: abilities[1]?.name || '系统设计',
-          category: abilities[1]?.category || '专业技能',
-          level: 'master' as const,
-          domain: ABILITY_DOMAINS[1 % ABILITY_DOMAINS.length],
-          rubricDescription: '能够进行模块级设计，理解并能运用常见设计模式',
-          description: '具备系统架构设计能力，能进行需求分析和方案选型',
-          attributes: ['知识', '技能'],
-        },
-        {
-          id: `bind-ai-3-${Date.now()}`,
-          responsibilityId: selectedRespId,
-          source: 'custom' as const,
-          name: '代码审查',
-          category: '通用能力',
-          level: 'comprehend' as const,
-          domain: ABILITY_DOMAINS[2 % ABILITY_DOMAINS.length],
-          rubricDescription: '能够发现代码中的明显缺陷，并提出改进建议',
-          description: '熟悉代码规范和质量标准，能进行有效的代码评审',
-          attributes: ['素养', '技能'],
-        },
-      ] as PositionAbilityBinding[]).filter(b => b.name)
-
-      const cleaned = position.abilityBindings.filter(b => b.responsibilityId !== selectedRespId)
-      onUpdate({ abilityBindings: [...cleaned, ...mockBindings] })
-    }
+    setAiNotice('AI 生成服务暂未接入，请手动填写')
+    await new Promise(resolve => setTimeout(resolve, 300))
     setIsGenerating(false)
-  }
-
-  const handleAdoptAiRecommendations = () => {
-    if (!selectedRespId || aiRecommendations.length === 0) return
-
-    const toAdopt = aiRecommendations.filter(r => selectedAiRecIds.includes(r.id))
-    const newBindings: PositionAbilityBinding[] = toAdopt.map((rec, i) => ({
-      id: `bind-${Date.now()}-${rec.id}`,
-      responsibilityId: selectedRespId,
-      source: rec.id.startsWith('ai-ab-') && abilities.some(a => a.name === rec.name) ? 'public' : 'custom',
-      publicAbilityId: abilities.find(a => a.name === rec.name)?.id,
-      name: rec.name,
-      category: rec.category,
-      level: rec.level,
-      domain: ABILITY_DOMAINS[i % ABILITY_DOMAINS.length],
-      rubricDescription: rec.rubricDescription,
-      description: '',
-      attributes: [],
-    }))
-
-    const cleaned = position.abilityBindings.filter(b => b.responsibilityId !== selectedRespId)
-    onUpdate({ abilityBindings: [...cleaned, ...newBindings] })
-    setAiRecommendations([])
-    setSelectedAiRecIds([])
-  }
-
-  const handleDismissAiRecommendations = () => {
-    setAiRecommendations([])
-    setSelectedAiRecIds([])
   }
 
   const handleAddResponsibility = () => {
@@ -292,8 +200,6 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
     })
     if (selectedRespId === respId) {
       setSelectedRespId(null)
-      setAiRecommendations([])
-      setSelectedAiRecIds([])
     }
   }
 
@@ -306,7 +212,6 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
     if (!editingRespId) return
     const trimmed = editRespName.trim()
     if (!trimmed) {
-      // Delete empty responsibility
       onUpdate({
         responsibilities: position.responsibilities.filter(r => r.id !== editingRespId),
       })
@@ -324,57 +229,6 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
     })
     setEditingRespId(null)
     setEditRespName('')
-  }
-
-  const toggleAiRecSelection = (id: string) => {
-    setSelectedAiRecIds(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    )
-  }
-
-  const handleOpenAiRespDialog = () => {
-    setAiRespDialogOpen(true)
-    setAiRespDirection('')
-    setAiRespSuggestions([])
-    setSelectedAiRespIds([])
-  }
-
-  const handleAiGenerateResponsibilities = async () => {
-    setAiRespLoading(true)
-    await new Promise(resolve => setTimeout(resolve, 1200))
-
-    const generated = mockPositionResponsibilitiesGeneration(position.name, position.industry)
-    // 去重：过滤掉已存在的同名职责
-    const existingNames = new Set(position.responsibilities.map(r => r.name))
-    const filtered = generated.filter(g => !existingNames.has(g.name))
-    // 如果全部重复，生成一些带后缀的
-    const suggestions: PositionResponsibility[] = filtered.length > 0
-      ? filtered.map(g => ({ ...g, id: `ai-resp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }))
-      : generated.map((g, i) => ({
-          ...g,
-          id: `ai-resp-${Date.now()}-${i}`,
-          name: `${g.name}（补充${i + 1}）`,
-        }))
-
-    setAiRespSuggestions(suggestions.slice(0, 5))
-    setSelectedAiRespIds(suggestions.slice(0, 5).map(s => s.id))
-    setAiRespLoading(false)
-  }
-
-  const handleAdoptAiResponsibilities = () => {
-    const toAdopt = aiRespSuggestions.filter(r => selectedAiRespIds.includes(r.id))
-    if (toAdopt.length === 0) return
-    onUpdate({ responsibilities: [...position.responsibilities, ...toAdopt] })
-    setAiRespDialogOpen(false)
-    setAiRespSuggestions([])
-    setSelectedAiRespIds([])
-    setAiRespDirection('')
-  }
-
-  const toggleAiRespSelection = (id: string) => {
-    setSelectedAiRespIds(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    )
   }
 
   const totalBindings = position.abilityBindings.length
@@ -531,96 +385,30 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
                 >
                   查看全部
                 </Button>
-                {aiMode ? (
-                  <AiGenerateButton
-                    onClick={handleAIGenerate}
-                    loading={isGenerating}
-                    label="AI 智能匹配"
-                    size="sm"
-                  />
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAIGenerate}
-                    disabled={isGenerating}
-                    className="h-8 text-xs border-gray-200 hover:bg-gray-50"
-                  >
-                    {isGenerating ? (
-                      <Sparkles className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                    )}
-                    AI 智能匹配
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAIGenerate}
+                  disabled={isGenerating || !selectedRespId}
+                  className="h-8 text-xs border-gray-200 hover:bg-gray-50"
+                >
+                  {isGenerating ? (
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  AI 智能匹配
+                </Button>
               </>
             )}
-
           </div>
         </CardHeader>
 
         <CardContent className="flex-1 overflow-y-auto space-y-6">
-          {/* AI Recommendations */}
-          {aiMode && selectedResp && aiRecommendations.length > 0 && (
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/20 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-indigo-500" />
-                  <span className="text-sm font-semibold text-gray-800">AI 智能推荐能力点</span>
-                  <Badge variant="outline" className="text-[10px] rounded-md bg-white text-indigo-600 border-indigo-100 px-1.5 py-0">
-                    {selectedAiRecIds.length}/{aiRecommendations.length} 已选
-                  </Badge>
-                </div>
-                <button onClick={handleDismissAiRecommendations} className="p-1 rounded-md text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="text-xs text-gray-400">
-                根据「{selectedResp.name}」职责特征推荐以下能力点
-              </p>
-              <div className="space-y-2">
-                {aiRecommendations.map((rec) => (
-                  <div
-                    key={rec.id}
-                    onClick={() => toggleAiRecSelection(rec.id)}
-                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                      selectedAiRecIds.includes(rec.id)
-                        ? 'border-indigo-200 bg-white shadow-sm'
-                        : 'border-gray-100 bg-white/60 hover:bg-white hover:border-gray-200'
-                    }`}
-                  >
-                    <div className={`mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                      selectedAiRecIds.includes(rec.id) ? 'bg-indigo-500 border-indigo-500' : 'border-gray-300'
-                    }`}>
-                      {selectedAiRecIds.includes(rec.id) && <Check className="h-3 w-3 text-white" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-gray-700">{rec.name}</span>
-                        <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0 border-gray-200">{rec.category}</Badge>
-                        <AiConfidenceBadge confidence={rec.confidence} />
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1">{rec.reason}</p>
-                      <p className="text-xs text-indigo-500 mt-0.5 font-medium">
-                        建议等级：{COMPETENCY_LEVEL_LABELS[rec.level]}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-end gap-2 pt-1">
-                <AiGenerateButton onClick={handleAIGenerate} loading={isGenerating} label="重新推荐" size="sm" />
-                <Button
-                  size="sm"
-                  onClick={handleAdoptAiRecommendations}
-                  disabled={selectedAiRecIds.length === 0}
-                  className="gap-1 bg-gray-900 hover:bg-gray-800 text-white"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  采纳选中项 ({selectedAiRecIds.length})
-                </Button>
-              </div>
+          {aiNotice && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 flex items-start gap-2 text-sm text-amber-800">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{aiNotice}</span>
             </div>
           )}
 
@@ -706,7 +494,7 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
                 {selectedRespId ? '该职责暂无能力点' : '暂无能力点'}
               </p>
               <p className="text-xs mt-1 text-gray-300">
-                {selectedRespId ? '点击 AI 智能匹配或搜索添加' : '搜索公共库或新建能力点进行添加'}
+                {selectedRespId ? '点击添加能力点或从公共库搜索' : '搜索公共库或新建能力点进行添加'}
               </p>
             </div>
           ) : (
@@ -907,104 +695,6 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
             >
               创建并关联
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* AI 补充工作职责弹窗 */}
-      <Dialog open={aiRespDialogOpen} onOpenChange={setAiRespDialogOpen}>
-        <DialogContent className="sm:max-w-[560px] rounded-xl border-gray-200">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-gray-800">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              AI 补充工作职责
-            </DialogTitle>
-            <DialogDescription className="text-gray-400">
-              {aiRespSuggestions.length === 0
-                ? '请描述您希望 AI 补充的工作职责方向，留空则使用默认策略'
-                : `已生成 ${aiRespSuggestions.length} 条工作职责建议，勾选后点击确认添加`}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-2 space-y-4">
-            {aiRespSuggestions.length === 0 && (
-              <Textarea
-                value={aiRespDirection}
-                onChange={(e) => setAiRespDirection(e.target.value)}
-                placeholder="例如：侧重于仓储物流自动化方向、需要强调数据分析能力、面向电商行业等..."
-                rows={3}
-                className="border-gray-200 focus:border-gray-400 resize-none"
-              />
-            )}
-
-            {aiRespSuggestions.length > 0 && (
-              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                {aiRespSuggestions.map((resp) => (
-                  <div
-                    key={resp.id}
-                    onClick={() => toggleAiRespSelection(resp.id)}
-                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                      selectedAiRespIds.includes(resp.id)
-                        ? 'border-indigo-200 bg-indigo-50/30 shadow-sm'
-                        : 'border-gray-100 bg-white hover:bg-gray-50 hover:border-gray-200'
-                    }`}
-                  >
-                    <div className={`mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                      selectedAiRespIds.includes(resp.id) ? 'bg-indigo-500 border-indigo-500' : 'border-gray-300'
-                    }`}>
-                      {selectedAiRespIds.includes(resp.id) && <Check className="h-3 w-3 text-white" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-700">{resp.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{resp.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              className="border-gray-200 hover:bg-gray-50"
-              onClick={() => {
-                setAiRespDialogOpen(false)
-                setAiRespSuggestions([])
-                setSelectedAiRespIds([])
-                setAiRespDirection('')
-              }}
-            >
-              取消
-            </Button>
-            {aiRespSuggestions.length === 0 ? (
-              <Button
-                onClick={handleAiGenerateResponsibilities}
-                disabled={aiRespLoading}
-                className="gap-1 bg-purple-600 hover:bg-purple-700"
-              >
-                {aiRespLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    生成中...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4" />
-                    确认生成
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button
-                onClick={handleAdoptAiResponsibilities}
-                disabled={selectedAiRespIds.length === 0}
-                className="gap-1 bg-gray-900 hover:bg-gray-800 text-white"
-              >
-                <Check className="h-4 w-4" />
-                确认添加 ({selectedAiRespIds.length})
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

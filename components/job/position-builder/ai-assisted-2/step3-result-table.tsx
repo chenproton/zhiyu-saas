@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,11 +20,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Save, CheckCircle2, Sparkles } from 'lucide-react'
-import { AiProgressDialog } from './ai-progress-dialog'
+import { Save, CheckCircle2, Sparkles, AlertCircle } from 'lucide-react'
 import type { Position, PositionAbilityBinding, CompetencyLevel } from '@/lib/types/job-source'
 import { COMPETENCY_LEVEL_LABELS } from '@/lib/types/job-source'
-import { mockAbilityRecommendations } from '@/lib/ai-mock-data-job'
 
 const COMPETENCY_LEVELS: { value: CompetencyLevel; label: string }[] = [
   { value: 'understand', label: '了解' },
@@ -44,13 +42,7 @@ interface Step3ResultTableProps {
 
 export function Step3ResultTable({ position, onUpdate, onPrev, onSave, showAiFill = true }: Step3ResultTableProps) {
   const bindings = position.abilityBindings
-  const [aiOpen, setAiOpen] = useState(false)
-  const [aiProgress, setAiProgress] = useState(0)
-  const [aiStep, setAiStep] = useState(0)
-  const aiStepRef = useRef(aiStep)
-  useEffect(() => {
-    aiStepRef.current = aiStep
-  }, [aiStep])
+  const [aiNotice, setAiNotice] = useState<string | null>(null)
 
   const handleUpdateBinding = (bindingId: string, updates: Partial<PositionAbilityBinding>) => {
     onUpdate({
@@ -61,38 +53,7 @@ export function Step3ResultTable({ position, onUpdate, onPrev, onSave, showAiFil
   }
 
   const handleAiFillAll = () => {
-    if (bindings.length === 0) return
-    setAiOpen(true)
-    setAiStep(0)
-    setAiProgress(0)
-
-    let progress = 0
-    const interval = setInterval(() => {
-      progress += Math.floor(Math.random() * 8) + 2
-      if (progress >= 100) progress = 100
-      setAiProgress(progress)
-      if (progress >= 40 && aiStepRef.current === 0) {
-        setAiStep(1)
-      }
-    }, 250)
-
-    setTimeout(() => {
-      clearInterval(interval)
-      setAiProgress(100)
-      setTimeout(() => {
-        setAiOpen(false)
-        const recs = mockAbilityRecommendations()
-        const updated = position.abilityBindings.map((b, i) => {
-          const rec = recs[i % recs.length]
-          return {
-            ...b,
-            level: rec.level,
-            rubricDescription: rec.rubricDescription,
-          }
-        })
-        onUpdate({ abilityBindings: updated })
-      }, 400)
-    }, 5000)
+    setAiNotice('AI 生成服务暂未接入，请手动填写')
   }
 
   return (
@@ -109,14 +70,25 @@ export function Step3ResultTable({ position, onUpdate, onPrev, onSave, showAiFil
               variant="outline"
               className="border-purple-200 text-purple-700 hover:bg-purple-50 hover:text-purple-800 gap-1"
               onClick={handleAiFillAll}
-              disabled={aiOpen || bindings.length === 0}
+              disabled={bindings.length === 0}
             >
               <Sparkles className="h-4 w-4" />
-              {aiOpen ? 'AI 填充中...' : 'AI 辅助编写'}
+              AI 辅助编写
             </Button>
           )}
+          <Button onClick={onSave} className="gap-1">
+            <Save className="h-4 w-4" />
+            保存岗位
+          </Button>
         </div>
       </div>
+
+      {aiNotice && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 flex items-start gap-2 text-sm text-amber-800">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{aiNotice}</span>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
@@ -227,16 +199,6 @@ export function Step3ResultTable({ position, onUpdate, onPrev, onSave, showAiFil
           )}
         </CardContent>
       </Card>
-
-      <AiProgressDialog
-        open={aiOpen}
-        onOpenChange={setAiOpen}
-        title="AI 辅助编写"
-        description="大模型正在为所有能力点生成掌握程度与胜任标准描述"
-        steps={['分析能力点特征', '生成掌握程度与胜任标准']}
-        currentStep={aiStep}
-        progress={aiProgress}
-      />
     </div>
   )
 }
