@@ -175,6 +175,7 @@ function HybridCourseAddForm() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareSelectedIds, setShareSelectedIds] = useState<string[]>([])
   const [globalInfoOpen, setGlobalInfoOpen] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   const rootForm = nodeDataMap[FIRST_NODE_ID]?.form || createDefaultNodeModuleData().form
 
@@ -406,14 +407,64 @@ function HybridCourseAddForm() {
     setShareDialogOpen(false)
   }
 
-  const handleSave = () => {
-    // 混合课程保存/更新接口待接入，当前仅做本地提示
-    toast.success(`${editId ? "更新" : "保存"}混合课程：${rootForm.name || ""}`)
+  const buildCoursePayload = (): Omit<Course, "id" | "nodeCount" | "resourceCount" | "viewCount" | "studyCount" | "createdAt" | "updatedAt"> => ({
+    code: rootForm.code || "",
+    name: rootForm.name || "",
+    type: "hybrid",
+    category: rootForm.category || "专业核心课程",
+    major: rootForm.major,
+    semester: rootForm.semester,
+    className: "",
+    coverImage: rootForm.coverImage,
+    status: "draft",
+    creatorId: "",
+    coCreatorIds: [],
+  })
+
+  const handleSave = async () => {
+    if (!rootForm.name || !rootForm.code) {
+      toast.error("请填写课程名称和课程编码")
+      return
+    }
+    setSaving(true)
+    try {
+      const payload = buildCoursePayload()
+      if (editId) {
+        const updated = await courseApi.update(editId, payload)
+        setExisting(updated)
+        toast.success(`已更新混合课程：${updated.name}`)
+      } else {
+        const created = await courseApi.create(payload)
+        setExisting(created)
+        toast.success(`已保存混合课程：${created.name}`)
+      }
+    } catch (e) {
+      toast.error("保存失败，请检查表单后重试")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleSubmit = () => {
-    // 混合课程审批提交通道待接入，当前仅做本地提示
-    toast.success(`提交混合课程审批：${rootForm.name || ""}`)
+  const handleSubmit = async () => {
+    if (!rootForm.name || !rootForm.code) {
+      toast.error("请填写课程名称和课程编码")
+      return
+    }
+    setSaving(true)
+    try {
+      let courseId = editId || existing?.id
+      if (!courseId) {
+        const created = await courseApi.create(buildCoursePayload())
+        setExisting(created)
+        courseId = created.id
+      }
+      await courseApi.submit(courseId)
+      toast.success(`已提交混合课程审批：${rootForm.name}`)
+    } catch (e) {
+      toast.error("提交失败，请重试")
+    } finally {
+      setSaving(false)
+    }
   }
 
   const availableModules = ATOMIC_MODULES.filter(
@@ -494,13 +545,13 @@ function HybridCourseAddForm() {
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1" onClick={handleSave}>
+              <Button variant="outline" size="sm" className="gap-1" onClick={handleSave} disabled={saving}>
                 <Save className="h-4 w-4" />
-                保存草稿
+                {saving ? "保存中..." : "保存草稿"}
               </Button>
-              <Button size="sm" className="gap-1 bg-[#1890ff] hover:bg-[#40a9ff]" onClick={handleSubmit}>
+              <Button size="sm" className="gap-1 bg-[#1890ff] hover:bg-[#40a9ff]" onClick={handleSubmit} disabled={saving}>
                 <Send className="h-4 w-4" />
-                提交审批
+                {saving ? "提交中..." : "提交审批"}
               </Button>
             </div>
           </div>
