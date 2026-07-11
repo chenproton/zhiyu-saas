@@ -18,7 +18,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { ShoppingCart, CheckCircle, FileText, Building2, ArrowRight, Loader2, AlertCircle } from "lucide-react"
 import { resourceApi, institutionApi, orderApi, type Resource, type Institution, type OrderDetail } from "@/lib/api"
-import { RESOURCE_CATEGORIES } from "@/lib/mock-data"
+import { RESOURCE_CATEGORIES } from "@/lib/resource-constants"
 
 export default function CheckoutPage() {
   const params = useParams()

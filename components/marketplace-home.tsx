@@ -45,7 +45,7 @@ import {
   getCategoryName,
   getCategoryColor,
   type ResourceCategoryId,
-} from "@/lib/mock-data"
+} from "@/lib/resource-constants"
 import { resourceApi, institutionApi, bannerApi, type Resource, type Institution, type Banner } from "@/lib/api"
 
 const CATEGORY_ICONS: Record<ResourceCategoryId, React.ElementType> = {

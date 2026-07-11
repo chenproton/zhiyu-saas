@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Building2, Lock, Save, Loader2 } from "lucide-react"
 import { institutionApi, type Institution } from "@/lib/api"
-import { MAJOR_TAGS } from "@/lib/mock-data"
+import { MAJOR_TAGS } from "@/lib/resource-constants"
 
 export default function InstitutionSettingsPage() {
   const { institutionId } = useRole()

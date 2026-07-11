@@ -31,7 +31,7 @@ import {
   type Institution,
   type Order,
 } from "@/lib/api"
-import { getCategoryName, getCategoryColor } from "@/lib/mock-data"
+import { getCategoryName, getCategoryColor } from "@/lib/resource-constants"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function PurchasedResourcesPage() {

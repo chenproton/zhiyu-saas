@@ -48,7 +48,7 @@ import {
   getCategoryName,
   getCategoryColor,
   type ResourceCategoryId,
-} from "@/lib/mock-data"
+} from "@/lib/resource-constants"
 
 type ResourceStatus = Resource["status"]
 

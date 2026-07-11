@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Search, Eye, RotateCcw, Loader2, AlertCircle } from "lucide-react"
-import { getCategoryName, RESOURCE_CATEGORIES } from "@/lib/mock-data"
+import { getCategoryName, RESOURCE_CATEGORIES } from "@/lib/resource-constants"
 import { orderApi, resourceApi, institutionApi, type Order, type Resource, type Institution } from "@/lib/api"
 
 export default function AdminOrdersPage() {

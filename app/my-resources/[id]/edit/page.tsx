@@ -30,7 +30,7 @@ import {
   getCategoryName,
   getCategoryColor,
   type ResourceCategoryId,
-} from "@/lib/mock-data"
+} from "@/lib/resource-constants"
 
 function buildTags(resourceId: string, majors: string[], industries: string[], level: string, difficulty: string): ResourceTag[] {
   const tags: ResourceTag[] = []

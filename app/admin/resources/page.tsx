@@ -32,7 +32,7 @@ import {
   getCategoryName,
   getCategoryColor,
   type ResourceStatus,
-} from "@/lib/mock-data"
+} from "@/lib/resource-constants"
 import { resourceApi, institutionApi, type Resource, type Institution } from "@/lib/api"
 
 export default function AdminResourcesPage() {

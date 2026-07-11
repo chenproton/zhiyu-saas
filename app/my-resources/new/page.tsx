@@ -28,7 +28,7 @@ import {
   getCategoryName,
   getCategoryColor,
   type ResourceCategoryId,
-} from "@/lib/mock-data"
+} from "@/lib/resource-constants"
 import { resourceApi } from "@/lib/api"
 
 export default function NewResourcePage() {
