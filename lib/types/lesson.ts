@@ -14,7 +14,7 @@ export interface Course {
   offlineWeight?: number
   semester?: string
   className?: string
-  status: "draft" | "pending" | "rejected" | "published"
+  status: "draft" | "pending" | "rejected" | "published" | "archived"
   coverColor?: string
   coverImage?: string
   courseTag?: string

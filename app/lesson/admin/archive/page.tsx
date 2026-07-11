@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,165 +18,85 @@ import {
   Pencil,
   Archive,
   GraduationCap,
-  BookOpen,
-  ChevronRight,
-  ChevronDown,
   Building2,
+  RotateCcw,
 } from "lucide-react"
+import { courseApi, lessonBatchApi } from "@/lib/api"
+import type { Course, LessonBatch } from "@/lib/types/lesson"
 import { COURSE_STATUS_LABELS, COURSE_STATUS_COLORS } from "@/lib/types/lesson-source"
-import {
-  archiveTree,
-  archiveEntries,
-  filterArchiveEntries,
-  type ArchiveTreeNode,
-} from "@/lib/hybrid-archive-mock"
+import { useToast } from "@/hooks/use-toast"
 
-function TreeNode({
-  node,
-  selectedCollege,
-  selectedMajor,
-  selectedGrade,
-  onSelect,
-  expandedIds,
-  onToggle,
-  depth,
-}: {
-  node: ArchiveTreeNode
-  selectedCollege: string | null
-  selectedMajor: string | null
-  selectedGrade: string | null
-  onSelect: (node: ArchiveTreeNode) => void
-  expandedIds: Set<string>
-  onToggle: (id: string) => void
-  depth: number
-}) {
-  const hasChildren = node.children && node.children.length > 0
-  const isExpanded = expandedIds.has(node.id)
-
-  const isSelected =
-    (node.level === "college" && selectedCollege === node.label && !selectedMajor) ||
-    (node.level === "major" && selectedMajor === node.label && !selectedGrade) ||
-    (node.level === "grade" && selectedGrade === node.label)
-
-  return (
-    <div>
-      <div
-        onClick={() => {
-          if (hasChildren) {
-            onToggle(node.id)
-          }
-          onSelect(node)
-        }}
-        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-sm transition-colors
-          ${isSelected
-            ? "bg-primary/10 text-primary font-medium"
-            : "text-gray-600 hover:bg-gray-100"
-          }`}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
-      >
-        {hasChildren ? (
-          isExpanded ? (
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-          )
-        ) : (
-          <div className="w-3.5 shrink-0" />
-        )}
-        <span className="truncate">{node.label}</span>
-      </div>
-      {hasChildren && isExpanded && (
-        <div>
-          {node.children!.map((child) => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              selectedCollege={selectedCollege}
-              selectedMajor={selectedMajor}
-              selectedGrade={selectedGrade}
-              onSelect={onSelect}
-              expandedIds={expandedIds}
-              onToggle={onToggle}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-
-export default function HybridArchivePage() {
+export default function LessonArchivePage() {
+  const { toast } = useToast()
+  const [courses, setCourses] = useState<Course[]>([])
+  const [batches, setBatches] = useState<LessonBatch[]>([])
+  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
-  const [selectedCollege, setSelectedCollege] = useState<string | null>(null)
   const [selectedMajor, setSelectedMajor] = useState<string | null>(null)
-  const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
-  const allExpandableIds = useMemo(() => {
-    const ids: string[] = []
-    const walk = (nodes: ArchiveTreeNode[]) => {
-      for (const node of nodes) {
-        if (node.children?.length) {
-          ids.push(node.id)
-          walk(node.children)
-        }
-      }
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [courseRes, batchRes] = await Promise.all([
+        courseApi.list({ status: "archived", limit: 1000 }),
+        lessonBatchApi.list({ limit: 1000 }),
+      ])
+      setCourses(courseRes.items)
+      setBatches(batchRes.items)
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "加载失败", description: err.message || "无法获取归档数据" })
+    } finally {
+      setLoading(false)
     }
-    walk(archiveTree)
-    return ids
+  }
+
+  useEffect(() => {
+    loadData()
   }, [])
 
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(allExpandableIds))
-
-  const handleToggle = (id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
+  const majors = useMemo(() => {
+    const set = new Set<string>()
+    courses.forEach((c) => {
+      if (c.major) set.add(c.major)
     })
-  }
+    return Array.from(set).sort()
+  }, [courses])
 
-  const handleSelect = (node: ArchiveTreeNode) => {
-    if (node.level === "college") {
-      if (selectedCollege === node.label && !selectedMajor) {
-        setSelectedCollege(null)
-        setSelectedMajor(null)
-        setSelectedGrade(null)
-      } else {
-        setSelectedCollege(node.label)
-        setSelectedMajor(null)
-        setSelectedGrade(null)
-      }
-    } else if (node.level === "major") {
-      if (selectedMajor === node.label && !selectedGrade) {
-        setSelectedMajor(null)
-        setSelectedGrade(null)
-      } else {
-        setSelectedMajor(node.label)
-        setSelectedGrade(null)
-      }
-    } else if (node.level === "grade") {
-      if (selectedGrade === node.label) {
-        setSelectedGrade(null)
-      } else {
-        setSelectedGrade(node.label)
-      }
+  const filtered = useMemo(() => {
+    let result = courses
+    if (selectedMajor) {
+      result = result.filter((c) => c.major === selectedMajor)
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.code.toLowerCase().includes(q) ||
+          (c.major || "").toLowerCase().includes(q) ||
+          (c.category || "").toLowerCase().includes(q)
+      )
+    }
+    return result
+  }, [courses, selectedMajor, search])
+
+  const batchMap = useMemo(() => new Map(batches.map((b) => [b.name, b])), [batches])
+
+  const handleRestore = async (course: Course) => {
+    try {
+      await courseApi.update(course.id, { status: "draft" })
+      await loadData()
+      toast({ title: "已恢复" })
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "恢复失败", description: err.message || "请稍后重试" })
     }
   }
 
-  const filtered = useMemo(
-    () => filterArchiveEntries(selectedCollege, selectedMajor, selectedGrade, search),
-    [selectedCollege, selectedMajor, selectedGrade, search]
-  )
-
-  const breadcrumb = useMemo(() => {
-    const parts: string[] = []
-    if (selectedCollege) parts.push(selectedCollege)
-    if (selectedMajor) parts.push(selectedMajor)
-    if (selectedGrade) parts.push(selectedGrade)
-    return parts
-  }, [selectedCollege, selectedMajor, selectedGrade])
+  const listHref = (type: Course["type"]) => {
+    if (type === "system") return "/lesson/admin/system"
+    if (type === "granular") return "/lesson/admin/granular"
+    return "/lesson/admin/hybrid"
+  }
 
   return (
     <div className="flex gap-6 h-full -m-6">
@@ -185,22 +105,32 @@ export default function HybridArchivePage() {
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Archive className="h-4 w-4 text-primary" />
-            <h2 className="font-medium text-sm text-gray-800">历史档案目录</h2>
+            <h2 className="font-medium text-sm text-gray-800">按专业归档</h2>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
-          {archiveTree.map((college) => (
-            <TreeNode
-              key={college.id}
-              node={college}
-              selectedCollege={selectedCollege}
-              selectedMajor={selectedMajor}
-              selectedGrade={selectedGrade}
-              onSelect={handleSelect}
-              expandedIds={expandedIds}
-              onToggle={handleToggle}
-              depth={0}
-            />
+          <div
+            onClick={() => setSelectedMajor(null)}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-sm transition-colors ${
+              selectedMajor === null
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            <span className="truncate">全部专业</span>
+          </div>
+          {majors.map((major) => (
+            <div
+              key={major}
+              onClick={() => setSelectedMajor(major)}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-sm transition-colors ${
+                selectedMajor === major
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <span className="truncate">{major}</span>
+            </div>
           ))}
         </div>
       </div>
@@ -208,27 +138,11 @@ export default function HybridArchivePage() {
       {/* Right Content */}
       <div className="flex-1 min-w-0 p-6 pl-0 space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold">混合课历史档案库</h1>
+          <h1 className="text-2xl font-semibold">课程历史档案库</h1>
           <p className="text-muted-foreground mt-1">
-            按学院、专业、年级查看历史开课归档记录，每个学期开课后自动归档至对应目录
+            查看已归档的课程记录，支持恢复为草稿继续编辑
           </p>
         </div>
-
-        {/* Breadcrumb */}
-        {breadcrumb.length > 0 && (
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <BookOpen className="h-3.5 w-3.5" />
-            {breadcrumb.map((part, i) => (
-              <span key={i} className="flex items-center gap-1.5">
-                {i > 0 && <ChevronRight className="h-3 w-3" />}
-                <span className="font-medium text-gray-700">{part}</span>
-              </span>
-            ))}
-            <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">
-              {filtered.length} 门课程
-            </span>
-          </div>
-        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-4">
@@ -237,7 +151,7 @@ export default function HybridArchivePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">归档课程总数</p>
-                  <p className="text-2xl font-bold mt-1">{archiveEntries.length}</p>
+                  <p className="text-2xl font-bold mt-1">{courses.length}</p>
                 </div>
                 <div className="p-2.5 rounded-lg bg-purple-100 text-purple-600">
                   <Archive className="h-5 w-5" />
@@ -249,8 +163,8 @@ export default function HybridArchivePage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">覆盖学院</p>
-                  <p className="text-2xl font-bold mt-1">{archiveTree.length}</p>
+                  <p className="text-xs text-muted-foreground">覆盖专业</p>
+                  <p className="text-2xl font-bold mt-1">{majors.length}</p>
                 </div>
                 <div className="p-2.5 rounded-lg bg-blue-100 text-blue-600">
                   <Building2 className="h-5 w-5" />
@@ -262,9 +176,9 @@ export default function HybridArchivePage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">覆盖专业</p>
+                  <p className="text-xs text-muted-foreground">课程类型</p>
                   <p className="text-2xl font-bold mt-1">
-                    {archiveTree.reduce((sum, c) => sum + (c.children?.length || 0), 0)}
+                    {new Set(courses.map((c) => c.type)).size}
                   </p>
                 </div>
                 <div className="p-2.5 rounded-lg bg-green-100 text-green-600">
@@ -281,7 +195,7 @@ export default function HybridArchivePage() {
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="搜索课程名称/编码"
+                placeholder="搜索课程名称 / 编码 / 专业 / 分类"
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -293,60 +207,75 @@ export default function HybridArchivePage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>混合课名称</TableHead>
-                  <TableHead>混合课编码</TableHead>
-                  <TableHead>版本号</TableHead>
+                  <TableHead>课程名称</TableHead>
+                  <TableHead>课程编码</TableHead>
+                  <TableHead>课程类型</TableHead>
+                  <TableHead>版本</TableHead>
+                  <TableHead>适用专业</TableHead>
                   <TableHead>所属批次分组</TableHead>
-                  <TableHead>创建人</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead>共建人</TableHead>
+                  <TableHead>归档时间</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      <div>
-                        <span className="font-medium">
-                          {entry.course.name}
-                        </span>
-                        <p className="text-xs text-muted-foreground">
-                          {entry.college} · {entry.major} · {entry.grade}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{entry.course.code}</TableCell>
-                    <TableCell className="text-sm">{entry.course.version}</TableCell>
-                    <TableCell className="text-sm">{entry.course.batchGroup || "-"}</TableCell>
-                    <TableCell className="text-sm">{entry.course.creator || "-"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{entry.course.createDate || "-"}</TableCell>
-                    <TableCell className="text-sm">{entry.course.coCreator || "-"}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${COURSE_STATUS_COLORS[entry.course.status]}`}>
-                        {COURSE_STATUS_LABELS[entry.course.status]}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" asChild>
-                        <Link
-                          href="/lesson/admin/hybrid/add?id=hybrid-1"
-                          className="flex items-center"
-                        >
-                          <Pencil className="mr-1 h-3 w-3" />
-                          编辑
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
+                {loading ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
-                      暂无匹配的归档课程
+                      加载中...
                     </TableCell>
                   </TableRow>
+                ) : filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
+                      暂无归档课程
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map((course) => (
+                    <TableRow key={course.id}>
+                      <TableCell>
+                        <div>
+                          <span className="font-medium">{course.name}</span>
+                          <p className="text-xs text-muted-foreground">
+                            {course.category || "-"} · {course.major || "-"}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{course.code}</TableCell>
+                      <TableCell className="text-sm">{course.type === "system" ? "体系课" : course.type === "granular" ? "颗粒课" : "混合课"}</TableCell>
+                      <TableCell className="text-sm">{course.version || "-"}</TableCell>
+                      <TableCell className="text-sm">{course.major || "-"}</TableCell>
+                      <TableCell className="text-sm">{course.batchGroup ? batchMap.get(course.batchGroup)?.name || course.batchGroup : "-"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(course.updatedAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${COURSE_STATUS_COLORS[course.status]}`}>
+                          {COURSE_STATUS_LABELS[course.status]}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" asChild>
+                            <Link href={listHref(course.type)}>
+                              <Pencil className="mr-1 h-3 w-3" />
+                              查看
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
+                            onClick={() => handleRestore(course)}
+                          >
+                            <RotateCcw className="mr-1 h-3 w-3" />
+                            恢复
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
