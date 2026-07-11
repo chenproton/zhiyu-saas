@@ -15,6 +15,7 @@ const statusConfig = {
   approved: { label: "已通过", className: "bg-blue-50 text-blue-600" },
   rejected: { label: "已驳回", className: "bg-red-50 text-red-500" },
   published: { label: "已发布", className: "bg-green-50 text-green-600" },
+  archived: { label: "已归档", className: "bg-purple-50 text-purple-600" },
 }
 
 export interface ScenarioListItem {
@@ -22,7 +23,7 @@ export interface ScenarioListItem {
   name: string
   code: string
   version: string
-  status: "draft" | "pending" | "approved" | "rejected" | "published"
+  status: "draft" | "pending" | "approved" | "rejected" | "published" | "archived"
   positionName?: string
   batchName?: string
   creatorName?: string
