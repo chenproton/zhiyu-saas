@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AiConfidenceBadge } from "./ai-confidence-badge"
 import { cn } from "@/lib/utils"
-import type { AiSubjectivePreScore, AiInitialReview } from "@/lib/ai-mock-data"
+import type { AiSubjectivePreScore, AiInitialReview } from "@/lib/types/ai"
 
 interface AiPreScorePanelProps {
   preScore?: AiSubjectivePreScore

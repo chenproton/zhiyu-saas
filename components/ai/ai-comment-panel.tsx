@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import type { AiGeneratedComment } from "@/lib/ai-mock-data"
+import type { AiGeneratedComment } from "@/lib/types/ai"
 
 interface AiCommentPanelProps {
   comment: AiGeneratedComment
