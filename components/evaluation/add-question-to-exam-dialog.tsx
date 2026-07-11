@@ -200,7 +200,7 @@ export function AddQuestionToExamDialog({
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!isValid()) return
 
     const formData: QuestionFormData = {
@@ -214,7 +214,7 @@ export function AddQuestionToExamDialog({
       knowledgePoints: selectedKnowledgePoints.length > 0 ? selectedKnowledgePoints : undefined,
     }
 
-    const newQuestion = createQuestion(selectedBankId, formData)
+    const newQuestion = await createQuestion(selectedBankId, formData)
     onAddQuestion(newQuestion)
     onOpenChange(false)
   }

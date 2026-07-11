@@ -1,7 +1,6 @@
-// @ts-nocheck
 "use client"
 
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import type {
   QuestionBank,
   Question,
@@ -46,78 +45,67 @@ import type {
 } from '@/lib/types'
 import { getNextStatus, canPerformAction } from '@/lib/types'
 import {
-  mockQuestionBanks,
-  mockQuestions,
-  mockExams,
-  mockEvaluationCategories,
-  mockEvaluationMethods,
-  mockSceneTasks,
-  mockSceneEvaluationResults,
-  mockJobAbilityResults,
-  positionsList,
-  mockApprovalItems,
-  mockGraduationProjectTopics,
-  mockGraduationProjectArchives,
-  mockGraduationProjectEvaluations,
-  mockGraduationQueryResults,
-  mockStudentAbilityArchives,
-  mockStudentAbilityPortraits,
-  mockProcessEvaluations,
-  mockRectificationDetails,
-  mockAppealRecords,
+  questionBankApi,
+  questionApi,
+  examApi,
+  evaluationMethodApi,
+  evaluationResultApi,
+  approvalApi,
+  graduationApi,
+  portraitApi,
+  microCertApi,
+} from '@/lib/api'
+import type { ApprovalRecord } from '@/lib/types/backend'
+import {
   mockCreditConversionRules,
   mockArchiveVersions,
-  mockEvaluationStandards,
-  mockTopicApplications,
+  mockCertTypes,
+  mockOnlineClassrooms,
+  mockSmartCourses,
   sceneGradingStudents,
   sceneGradingScenarios,
   sceneGradingSubmissions,
-  mockOnlineClassrooms,
-  mockSmartCourses,
   positionAbilityItemsMap,
   abilityItems,
-  mockCertTypes,
-  mockMicroCertTemplates,
-  mockCertIssuanceRecords,
 } from '@/lib/mock-data-evaluation'
 
 interface DataContextValue {
   // 题库相关
   questionBanks: QuestionBank[]
   getQuestionBank: (id: string) => QuestionBank | undefined
-  createQuestionBank: (data: QuestionBankFormData) => QuestionBank
-  updateQuestionBank: (id: string, data: QuestionBankFormData) => void
-  deleteQuestionBank: (id: string) => void
-  updateQuestionBankStatus: (id: string, action: StatusAction) => void
+  createQuestionBank: (data: QuestionBankFormData) => Promise<QuestionBank>
+  updateQuestionBank: (id: string, data: QuestionBankFormData) => Promise<void>
+  deleteQuestionBank: (id: string) => Promise<void>
+  updateQuestionBankStatus: (id: string, action: StatusAction) => Promise<void>
 
   // 题目相关
   questions: Question[]
   getQuestionsByBank: (bankId: string) => Question[]
   getQuestion: (id: string) => Question | undefined
-  createQuestion: (bankId: string, data: QuestionFormData) => Question
-  updateQuestion: (id: string, data: QuestionFormData) => void
-  deleteQuestion: (id: string) => void
-  updateQuestionStatus: (id: string, action: StatusAction) => void
-  moveQuestions: (questionIds: string[], targetBankId: string) => void
+  createQuestion: (bankId: string, data: QuestionFormData) => Promise<Question>
+  updateQuestion: (id: string, data: QuestionFormData) => Promise<void>
+  deleteQuestion: (id: string) => Promise<void>
+  updateQuestionStatus: (id: string, action: StatusAction) => Promise<void>
+  moveQuestions: (questionIds: string[], targetBankId: string) => Promise<void>
 
   // 试卷相关
   exams: Exam[]
   getExam: (id: string) => Exam | undefined
-  createExam: (data: ExamFormData) => Exam
-  updateExam: (id: string, data: Partial<Exam>) => void
-  deleteExam: (id: string) => void
-  updateExamStatus: (id: string, action: StatusAction) => void
-  addQuestionToExam: (examId: string, question: Question, score?: number) => void
-  removeQuestionFromExam: (examId: string, examQuestionId: string) => void
-  updateExamQuestionScore: (examId: string, examQuestionId: string, score: number) => void
-  reorderExamQuestions: (examId: string, questions: ExamQuestion[]) => void
+  createExam: (data: ExamFormData) => Promise<Exam>
+  updateExam: (id: string, data: Partial<Exam>) => Promise<void>
+  deleteExam: (id: string) => Promise<void>
+  updateExamStatus: (id: string, action: StatusAction) => Promise<void>
+  addQuestionToExam: (examId: string, question: Question, score?: number) => Promise<void>
+  removeQuestionFromExam: (examId: string, examQuestionId: string) => Promise<void>
+  updateExamQuestionScore: (examId: string, examQuestionId: string, score: number) => Promise<void>
+  reorderExamQuestions: (examId: string, questions: ExamQuestion[]) => Promise<void>
 
   // 场景任务测评相关
   evaluationCategories: EvaluationMethodCategory[]
   evaluationMethods: EvaluationMethod[]
   sceneTasks: SceneTask[]
   sceneEvaluationResults: SceneEvaluationResult[]
-  updateEvaluationMethod: (id: string, data: Partial<EvaluationMethod>) => void
+  updateEvaluationMethod: (id: string, data: Partial<EvaluationMethod>) => Promise<void>
   getSceneTasksByMethod: (methodId: string) => SceneTask[]
   getResultsByMethod: (methodId: string) => SceneEvaluationResult[]
 
@@ -139,8 +127,8 @@ interface DataContextValue {
 
   // 审批中心
   approvalItems: ApprovalItem[]
-  approveItem: (id: string, remark?: string) => void
-  rejectItem: (id: string, remark?: string) => void
+  approveItem: (id: string, remark?: string) => Promise<void>
+  rejectItem: (id: string, remark?: string) => Promise<void>
 
   // 毕业设计管理
   graduationProjectTopics: GraduationProjectTopic[]
@@ -169,17 +157,17 @@ interface DataContextValue {
   portraitUpdateConfig: PortraitUpdateConfig
 
   // 毕业设计管理操作
-  createGraduationProjectTopic: (data: any) => GraduationProjectTopic
-  updateGraduationProjectTopic: (id: string, data: any) => void
-  deleteGraduationProjectTopic: (id: string) => void
-  updateGraduationProjectArchive: (id: string, data: Partial<GraduationProjectArchive>) => void
-  updateGraduationProjectEvaluation: (id: string, data: Partial<GraduationProjectEvaluation>) => void
+  createGraduationProjectTopic: (data: any) => Promise<GraduationProjectTopic>
+  updateGraduationProjectTopic: (id: string, data: any) => Promise<void>
+  deleteGraduationProjectTopic: (id: string) => Promise<void>
+  updateGraduationProjectArchive: (id: string, data: Partial<GraduationProjectArchive>) => Promise<void>
+  updateGraduationProjectEvaluation: (id: string, data: Partial<GraduationProjectEvaluation>) => Promise<void>
 
   // 学生能力画像管理操作
-  createStudentAbilityArchive: (data: any) => StudentAbilityArchive
-  updateStudentAbilityArchive: (id: string, data: Partial<StudentAbilityArchive>) => void
-  deleteStudentAbilityArchive: (id: string) => void
-  updateStudentAbilityPortrait: (id: string, data: Partial<StudentAbilityPortrait>) => void
+  createStudentAbilityArchive: (data: any) => Promise<StudentAbilityArchive>
+  updateStudentAbilityArchive: (id: string, data: Partial<StudentAbilityArchive>) => Promise<void>
+  deleteStudentAbilityArchive: (id: string) => Promise<void>
+  updateStudentAbilityPortrait: (id: string, data: Partial<StudentAbilityPortrait>) => Promise<void>
   updateCreditConversionRules: (rules: CreditConversionRule[]) => void
   updatePortraitUpdateConfig: (config: Partial<PortraitUpdateConfig>) => void
 
@@ -187,30 +175,121 @@ interface DataContextValue {
   certTypes: CertType[]
   updateCertTypes: (types: CertType[]) => void
   microCertTemplates: MicroCertTemplate[]
-  createMicroCertTemplate: (data: MicroCertTemplateFormData) => MicroCertTemplate
-  updateMicroCertTemplate: (id: string, data: MicroCertTemplateFormData) => void
-  deleteMicroCertTemplate: (id: string) => void
+  createMicroCertTemplate: (data: MicroCertTemplateFormData) => Promise<MicroCertTemplate>
+  updateMicroCertTemplate: (id: string, data: MicroCertTemplateFormData) => Promise<void>
+  deleteMicroCertTemplate: (id: string) => Promise<void>
   certIssuanceRecords: CertIssuanceRecord[]
-  issueCert: (data: Omit<CertIssuanceRecord, 'id' | 'certNumber' | 'status'>) => CertIssuanceRecord
-  issueBatchCerts: (records: Omit<CertIssuanceRecord, 'id' | 'certNumber' | 'status'>[]) => CertIssuanceRecord[]
-  revokeCert: (id: string, reason: string) => void
+  issueCert: (data: Omit<CertIssuanceRecord, 'id' | 'certNumber' | 'status'>) => Promise<CertIssuanceRecord>
+  issueBatchCerts: (records: Omit<CertIssuanceRecord, 'id' | 'certNumber' | 'status'>[]) => Promise<CertIssuanceRecord[]>
+  revokeCert: (id: string, reason: string) => Promise<void>
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
 
+// ==================== Date parsing helpers ====================
+const parseDate = (v: string | Date | undefined): Date => (v ? new Date(v) : new Date())
+const parseOptDate = (v: string | Date | undefined): Date | undefined => (v ? new Date(v) : undefined)
+
+const parseQuestionBank = (bank: QuestionBank): QuestionBank => ({
+  ...bank,
+  createdAt: parseDate(bank.createdAt as unknown as string | Date),
+  updatedAt: parseDate(bank.updatedAt as unknown as string | Date),
+})
+
+const parseQuestion = (q: Question): Question => ({
+  ...q,
+  createdAt: parseDate(q.createdAt as unknown as string | Date),
+})
+
+const parseExam = (exam: Exam): Exam => ({
+  ...exam,
+  createdAt: parseDate(exam.createdAt as unknown as string | Date),
+  updatedAt: parseDate(exam.updatedAt as unknown as string | Date),
+})
+
+const parseSceneResult = (r: SceneEvaluationResult): SceneEvaluationResult => ({
+  ...r,
+  evaluationTime: parseDate(r.evaluationTime as unknown as string | Date),
+})
+
+const parseTopic = (t: GraduationProjectTopic): GraduationProjectTopic => ({
+  ...t,
+  startDate: parseDate(t.startDate as unknown as string | Date),
+  endDate: parseDate(t.endDate as unknown as string | Date),
+  createdAt: parseDate(t.createdAt as unknown as string | Date),
+})
+
+const parseArchive = (a: GraduationProjectArchive): GraduationProjectArchive => ({
+  ...a,
+  lastUpdated: parseDate(a.lastUpdated as unknown as string | Date),
+})
+
+const parseEvaluation = (e: GraduationProjectEvaluation): GraduationProjectEvaluation => ({
+  ...e,
+  evaluationTime: parseDate(e.evaluationTime as unknown as string | Date),
+})
+
+const parseStudentArchive = (a: StudentAbilityArchive): StudentAbilityArchive => ({
+  ...a,
+  obtainDate: parseDate(a.obtainDate as unknown as string | Date),
+  createdAt: parseDate(a.createdAt as unknown as string | Date),
+})
+
+const parsePortrait = (p: StudentAbilityPortrait): StudentAbilityPortrait => ({
+  ...p,
+  updatedAt: parseDate(p.updatedAt as unknown as string | Date),
+})
+
+const parseMicroCertTemplate = (t: MicroCertTemplate): MicroCertTemplate => ({
+  ...t,
+  createdAt: parseDate(t.createdAt as unknown as string | Date),
+  updatedAt: parseDate(t.updatedAt as unknown as string | Date),
+})
+
+const parseCertRecord = (r: CertIssuanceRecord): CertIssuanceRecord => ({
+  ...r,
+  issueDate: parseDate(r.issueDate as unknown as string | Date),
+  expireDate: parseOptDate(r.expireDate as unknown as string | Date | undefined),
+  revokedAt: parseOptDate(r.revokedAt as unknown as string | Date | undefined),
+})
+
+const APPROVAL_TYPE_MAP: Record<string, ApprovalItem['type']> = {
+  question: 'question',
+  question_bank: 'questionBank',
+  questionBank: 'questionBank',
+  exam: 'exam',
+  online_exam: 'onlineExam',
+  onlineExam: 'onlineExam',
+}
+
+const mapApprovalRecord = (record: ApprovalRecord): ApprovalItem => {
+  const type = APPROVAL_TYPE_MAP[record.targetType] || 'question'
+  const lastHistory = record.history?.[record.history.length - 1]
+  return {
+    id: record.id,
+    type,
+    title: `${type}审批 - ${record.targetId}`,
+    description: undefined,
+    submitterName: lastHistory?.reviewerName || record.submitterId,
+    submitTime: parseDate(record.createdAt),
+    status: record.status,
+    remark: lastHistory?.comment,
+  }
+}
+
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [questionBanks, setQuestionBanks] = useState<QuestionBank[]>(mockQuestionBanks)
-  const [questions, setQuestions] = useState<Question[]>(mockQuestions)
-  const [exams, setExams] = useState<Exam[]>(mockExams)
+  const [questionBanks, setQuestionBanks] = useState<QuestionBank[]>([])
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [exams, setExams] = useState<Exam[]>([])
 
   // 场景任务测评状态
-  const [evaluationCategories] = useState<EvaluationMethodCategory[]>(mockEvaluationCategories)
-  const [evaluationMethods, setEvaluationMethods] = useState<EvaluationMethod[]>(mockEvaluationMethods)
-  const [sceneTasks] = useState<SceneTask[]>(mockSceneTasks)
-  const [sceneEvaluationResults] = useState<SceneEvaluationResult[]>(mockSceneEvaluationResults)
-  const [jobAbilityResults] = useState<JobAbilityResult[]>(mockJobAbilityResults)
-  const [positionsListState] = useState<Position[]>(positionsList)
-  const [approvalItems, setApprovalItems] = useState<ApprovalItem[]>(mockApprovalItems)
+  const [evaluationCategories, setEvaluationCategories] = useState<EvaluationMethodCategory[]>([])
+  const [evaluationMethods, setEvaluationMethods] = useState<EvaluationMethod[]>([])
+  const [sceneTasks] = useState<SceneTask[]>([])
+  const [sceneEvaluationResults, setSceneEvaluationResults] = useState<SceneEvaluationResult[]>([])
+  const [jobAbilityResults] = useState<JobAbilityResult[]>([])
+  const [positionsListState] = useState<Position[]>([])
+  const [approvalItems, setApprovalItems] = useState<ApprovalItem[]>([])
 
   // 场景任务评价状态
   const [sceneGradingStudentsState] = useState<SceneGradingStudent[]>(sceneGradingStudents)
@@ -224,19 +303,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [smartCoursesState] = useState<SmartCourse[]>(mockSmartCourses)
 
   // 毕业设计管理状态
-  const [graduationProjectTopics, setGraduationProjectTopics] = useState<GraduationProjectTopic[]>(mockGraduationProjectTopics)
-  const [graduationProjectArchives, setGraduationProjectArchives] = useState<GraduationProjectArchive[]>(mockGraduationProjectArchives)
-  const [graduationProjectEvaluations, setGraduationProjectEvaluations] = useState<GraduationProjectEvaluation[]>(mockGraduationProjectEvaluations)
-  const [graduationQueryResults] = useState<GraduationQueryResult[]>(mockGraduationQueryResults)
-  const [processEvaluations, setProcessEvaluations] = useState<ProcessEvaluation[]>(mockProcessEvaluations)
-  const [rectificationDetails, setRectificationDetails] = useState<RectificationDetail[]>(mockRectificationDetails)
-  const [appealRecords, setAppealRecords] = useState<AppealRecord[]>(mockAppealRecords)
-  const [evaluationStandards, setEvaluationStandards] = useState<EvaluationStandard[]>(mockEvaluationStandards)
-  const [topicApplications, setTopicApplications] = useState<TopicApplication[]>(mockTopicApplications)
+  const [graduationProjectTopics, setGraduationProjectTopics] = useState<GraduationProjectTopic[]>([])
+  const [graduationProjectArchives, setGraduationProjectArchives] = useState<GraduationProjectArchive[]>([])
+  const [graduationProjectEvaluations, setGraduationProjectEvaluations] = useState<GraduationProjectEvaluation[]>([])
+  const [graduationQueryResults, setGraduationQueryResults] = useState<GraduationQueryResult[]>([])
+  const [processEvaluations, setProcessEvaluations] = useState<ProcessEvaluation[]>([])
+  const [rectificationDetails, setRectificationDetails] = useState<RectificationDetail[]>([])
+  const [appealRecords, setAppealRecords] = useState<AppealRecord[]>([])
+  const [evaluationStandards, setEvaluationStandards] = useState<EvaluationStandard[]>([])
+  const [topicApplications, setTopicApplications] = useState<TopicApplication[]>([])
 
   // 学生能力画像管理状态
-  const [studentAbilityArchives, setStudentAbilityArchives] = useState<StudentAbilityArchive[]>(mockStudentAbilityArchives)
-  const [studentAbilityPortraits, setStudentAbilityPortraits] = useState<StudentAbilityPortrait[]>(mockStudentAbilityPortraits)
+  const [studentAbilityArchives, setStudentAbilityArchives] = useState<StudentAbilityArchive[]>([])
+  const [studentAbilityPortraits, setStudentAbilityPortraits] = useState<StudentAbilityPortrait[]>([])
   const [creditConversionRules, setCreditConversionRules] = useState<CreditConversionRule[]>(mockCreditConversionRules)
   const [archiveVersions] = useState<ArchiveVersion[]>(mockArchiveVersions)
   const [portraitUpdateConfig, setPortraitUpdateConfig] = useState<PortraitUpdateConfig>({
@@ -248,81 +327,197 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // 微证书管理状态
   const [certTypes, setCertTypes] = useState<CertType[]>(mockCertTypes)
-  const [microCertTemplates, setMicroCertTemplates] = useState<MicroCertTemplate[]>(mockMicroCertTemplates)
-  const [certIssuanceRecords, setCertIssuanceRecords] = useState<CertIssuanceRecord[]>(mockCertIssuanceRecords)
+  const [microCertTemplates, setMicroCertTemplates] = useState<MicroCertTemplate[]>([])
+  const [certIssuanceRecords, setCertIssuanceRecords] = useState<CertIssuanceRecord[]>([])
 
-  const approveItem = useCallback((id: string, remark?: string) => {
-    setApprovalItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: 'approved' as const, remark } : item
-      )
-    )
+  // ==================== Data loading ====================
+  const loadQuestionBanks = useCallback(async () => {
+    const res = await questionBankApi.list()
+    setQuestionBanks(res.items.map(parseQuestionBank))
   }, [])
 
-  const rejectItem = useCallback((id: string, remark?: string) => {
-    setApprovalItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: 'rejected' as const, remark } : item
-      )
-    )
+  const loadQuestions = useCallback(async () => {
+    const res = await questionApi.list()
+    setQuestions(res.items.map(parseQuestion))
   }, [])
 
-  // 题库操作
+  const loadExams = useCallback(async () => {
+    const res = await examApi.list()
+    setExams(res.items.map(parseExam))
+  }, [])
+
+  const loadEvaluationMethods = useCallback(async () => {
+    const [categoriesRes, methodsRes] = await Promise.all([
+      evaluationMethodApi.listCategories(),
+      evaluationMethodApi.listMethods(),
+    ])
+    setEvaluationCategories(categoriesRes.items)
+    setEvaluationMethods(methodsRes.items)
+  }, [])
+
+  const loadSceneResults = useCallback(async () => {
+    const res = await evaluationResultApi.list()
+    setSceneEvaluationResults(res.items.map(parseSceneResult))
+  }, [])
+
+  const loadApprovalItems = useCallback(async () => {
+    const res = await approvalApi.list()
+    setApprovalItems(res.items.map(mapApprovalRecord))
+  }, [])
+
+  const loadGraduationTopics = useCallback(async () => {
+    const res = await graduationApi.listTopics()
+    setGraduationProjectTopics(res.items.map(parseTopic))
+  }, [])
+
+  const loadGraduationArchives = useCallback(async () => {
+    const res = await graduationApi.listArchives()
+    setGraduationProjectArchives(res.items.map(parseArchive))
+  }, [])
+
+  const loadGraduationEvaluations = useCallback(async () => {
+    const res = await graduationApi.listEvaluations()
+    setGraduationProjectEvaluations(res.items.map(parseEvaluation))
+  }, [])
+
+  const loadGraduationQueryResults = useCallback(async () => {
+    const res = await graduationApi.queryResults()
+    setGraduationQueryResults(res.items)
+  }, [])
+
+  const loadStudentAbilityArchives = useCallback(async () => {
+    const res = await portraitApi.listArchives()
+    setStudentAbilityArchives(res.items.map(parseStudentArchive))
+  }, [])
+
+  const loadStudentAbilityPortraits = useCallback(async () => {
+    const res = await portraitApi.list()
+    setStudentAbilityPortraits(res.items.map(parsePortrait))
+  }, [])
+
+  const loadMicroCertTemplates = useCallback(async () => {
+    const res = await microCertApi.listTemplates()
+    setMicroCertTemplates(res.items.map(parseMicroCertTemplate))
+  }, [])
+
+  const loadCertIssuanceRecords = useCallback(async () => {
+    const res = await microCertApi.listHistory()
+    setCertIssuanceRecords(res.items.map(parseCertRecord))
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadAll = async () => {
+      try {
+        await Promise.all([
+          loadQuestionBanks(),
+          loadQuestions(),
+          loadExams(),
+          loadEvaluationMethods(),
+          loadSceneResults(),
+          loadApprovalItems(),
+          loadGraduationTopics(),
+          loadGraduationArchives(),
+          loadGraduationEvaluations(),
+          loadGraduationQueryResults(),
+          loadStudentAbilityArchives(),
+          loadStudentAbilityPortraits(),
+          loadMicroCertTemplates(),
+          loadCertIssuanceRecords(),
+        ])
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load evaluation data', err)
+        }
+      }
+    }
+    loadAll()
+    return () => { cancelled = true }
+  }, [
+    loadQuestionBanks,
+    loadQuestions,
+    loadExams,
+    loadEvaluationMethods,
+    loadSceneResults,
+    loadApprovalItems,
+    loadGraduationTopics,
+    loadGraduationArchives,
+    loadGraduationEvaluations,
+    loadGraduationQueryResults,
+    loadStudentAbilityArchives,
+    loadStudentAbilityPortraits,
+    loadMicroCertTemplates,
+    loadCertIssuanceRecords,
+  ])
+
+  // ==================== Approval actions ====================
+  const approveItem = useCallback(async (id: string, remark?: string) => {
+    await approvalApi.review(id, { status: 'approved', comment: remark })
+    await loadApprovalItems()
+  }, [loadApprovalItems])
+
+  const rejectItem = useCallback(async (id: string, remark?: string) => {
+    await approvalApi.review(id, { status: 'rejected', comment: remark })
+    await loadApprovalItems()
+  }, [loadApprovalItems])
+
+  // ==================== Question bank actions ====================
   const getQuestionBank = useCallback(
     (id: string) => questionBanks.find((bank) => bank.id === id),
     [questionBanks]
   )
 
-  const createQuestionBank = useCallback((data: QuestionBankFormData): QuestionBank => {
-    const newBank: QuestionBank = {
-      id: `bank-${Date.now()}`,
-      name: data.name,
-      description: data.description,
-      coverUrl: data.coverUrl,
-      collaboratorIds: data.collaboratorIds,
-      collaboratorDeptIds: data.collaboratorDeptIds,
-      batchId: data.batchId,
+  const createQuestionBank = useCallback(async (data: QuestionBankFormData): Promise<QuestionBank> => {
+    const created = await questionBankApi.create({
+      ...data,
       status: 'draft',
-      questionCount: 0,
       version: 'v0.1.0',
       ownerType: 'mine',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-    setQuestionBanks((prev) => [...prev, newBank])
-    return newBank
-  }, [])
+    } as Omit<QuestionBank, 'id' | 'questionCount' | 'createdAt' | 'updatedAt'>)
+    await loadQuestionBanks()
+    return parseQuestionBank(created)
+  }, [loadQuestionBanks])
 
-  const updateQuestionBank = useCallback((id: string, data: QuestionBankFormData) => {
-    setQuestionBanks((prev) =>
-      prev.map((bank) =>
-        bank.id === id ? { ...bank, ...data, updatedAt: new Date() } : bank
-      )
-    )
-  }, [])
+  const updateQuestionBank = useCallback(async (id: string, data: QuestionBankFormData) => {
+    await questionBankApi.update(id, data)
+    await loadQuestionBanks()
+  }, [loadQuestionBanks])
 
-  const deleteQuestionBank = useCallback((id: string) => {
+  const deleteQuestionBank = useCallback(async (id: string) => {
     const bank = questionBanks.find((b) => b.id === id)
     if (bank?.isDraftPool) return
-    setQuestionBanks((prev) => prev.filter((bank) => bank.id !== id))
-    setQuestions((prev) => prev.filter((q) => q.bankId !== id))
-  }, [questionBanks])
+    await questionBankApi.delete(id)
+    await Promise.all([loadQuestionBanks(), loadQuestions()])
+  }, [questionBanks, loadQuestionBanks, loadQuestions])
 
-  const updateQuestionBankStatus = useCallback((id: string, action: StatusAction) => {
-    setQuestionBanks((prev) =>
-      prev.map((bank) => {
-        if (bank.id !== id) return bank
-        if (!canPerformAction(bank.status, action)) return bank
-        return {
-          ...bank,
-          status: getNextStatus(action),
-          updatedAt: new Date(),
-        }
-      })
-    )
-  }, [])
+  const updateQuestionBankStatus = useCallback(async (id: string, action: StatusAction) => {
+    switch (action) {
+      case 'save_draft':
+        await questionBankApi.update(id, { status: 'draft' })
+        break
+      case 'submit':
+        await questionBankApi.submit(id)
+        break
+      case 'withdraw':
+        await questionBankApi.update(id, { status: 'unsubmitted' })
+        break
+      case 'approve':
+        await questionBankApi.review(id, { status: 'approved' })
+        break
+      case 'reject':
+        await questionBankApi.review(id, { status: 'rejected' })
+        break
+      case 'publish':
+        await questionBankApi.publish(id)
+        break
+      case 'unpublish':
+        await questionBankApi.archive(id)
+        break
+    }
+    await loadQuestionBanks()
+  }, [loadQuestionBanks])
 
-  // 题目操作
+  // ==================== Question actions ====================
   const getQuestionsByBank = useCallback(
     (bankId: string) => questions.filter((q) => q.bankId === bankId),
     [questions]
@@ -333,229 +528,135 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [questions]
   )
 
-  const createQuestion = useCallback((bankId: string, data: QuestionFormData): Question => {
-    const newQuestion: Question = {
-      id: `q-${Date.now()}`,
-      bankId,
+  const createQuestion = useCallback(async (bankId: string, data: QuestionFormData): Promise<Question> => {
+    const created = await questionApi.create({
       ...data,
+      bankId,
       status: 'draft',
-      createdAt: new Date(),
-    }
-    setQuestions((prev) => [...prev, newQuestion])
-    // 更新题库题目数量
-    setQuestionBanks((prev) =>
-      prev.map((bank) =>
-        bank.id === bankId
-          ? { ...bank, questionCount: bank.questionCount + 1, updatedAt: new Date() }
-          : bank
-      )
-    )
-    return newQuestion
-  }, [])
+    } as Omit<Question, 'id' | 'createdAt'>)
+    await Promise.all([loadQuestions(), loadQuestionBanks()])
+    return parseQuestion(created)
+  }, [loadQuestions, loadQuestionBanks])
 
-  const updateQuestion = useCallback((id: string, data: QuestionFormData) => {
-    setQuestions((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, ...data } : q))
-    )
-  }, [])
+  const updateQuestion = useCallback(async (id: string, data: QuestionFormData) => {
+    await questionApi.update(id, data)
+    await loadQuestions()
+  }, [loadQuestions])
 
-  const updateQuestionStatus = useCallback((id: string, action: StatusAction) => {
-    setQuestions((prev) =>
-      prev.map((q) => {
-        if (q.id !== id) return q
-        if (!canPerformAction(q.status, action)) return q
-        return { ...q, status: getNextStatus(action) }
-      })
-    )
-  }, [])
+  const updateQuestionStatus = useCallback(async (id: string, action: StatusAction) => {
+    if (!canPerformAction(getQuestion(id)?.status || 'draft', action)) return
+    await questionApi.update(id, { status: getNextStatus(action) })
+    await loadQuestions()
+  }, [getQuestion, loadQuestions])
 
-  const deleteQuestion = useCallback((id: string) => {
-    const question = questions.find((q) => q.id === id)
-    if (question) {
-      setQuestions((prev) => prev.filter((q) => q.id !== id))
-      setQuestionBanks((prev) =>
-        prev.map((bank) =>
-          bank.id === question.bankId
-            ? { ...bank, questionCount: Math.max(0, bank.questionCount - 1), updatedAt: new Date() }
-            : bank
-        )
-      )
-    }
-  }, [questions])
+  const deleteQuestion = useCallback(async (id: string) => {
+    await questionApi.delete(id)
+    await Promise.all([loadQuestions(), loadQuestionBanks()])
+  }, [loadQuestions, loadQuestionBanks])
 
-  const moveQuestions = useCallback((questionIds: string[], targetBankId: string) => {
+  const moveQuestions = useCallback(async (questionIds: string[], targetBankId: string) => {
     const targetBank = questionBanks.find((b) => b.id === targetBankId)
     if (!targetBank) return
-    
-    const movedQuestions = questions.filter((q) => questionIds.includes(q.id))
-    const sourceBankIds = new Set(movedQuestions.map((q) => q.bankId))
-    
-    setQuestions((prev) =>
-      prev.map((q) => (questionIds.includes(q.id) ? { ...q, bankId: targetBankId } : q))
+    await Promise.all(
+      questionIds.map((qid) => questionApi.update(qid, { bankId: targetBankId }))
     )
-    
-    setQuestionBanks((prev) =>
-      prev.map((bank) => {
-        if (bank.id === targetBankId) {
-          return { ...bank, questionCount: bank.questionCount + movedQuestions.length, updatedAt: new Date() }
-        }
-        if (sourceBankIds.has(bank.id)) {
-          const count = movedQuestions.filter((q) => q.bankId === bank.id).length
-          return { ...bank, questionCount: Math.max(0, bank.questionCount - count), updatedAt: new Date() }
-        }
-        return bank
-      })
-    )
-  }, [questions, questionBanks])
+    await Promise.all([loadQuestions(), loadQuestionBanks()])
+  }, [questionBanks, loadQuestions, loadQuestionBanks])
 
-  // 试卷操作
+  // ==================== Exam actions ====================
   const getExam = useCallback(
     (id: string) => exams.find((exam) => exam.id === id),
     [exams]
   )
 
-  const createExam = useCallback((data: ExamFormData): Exam => {
-    const newExam: Exam = {
-      id: `exam-${Date.now()}`,
-      name: data.name,
-      description: data.description,
-      duration: data.duration,
-      coverUrl: data.coverUrl,
-      collaboratorIds: data.collaboratorIds,
-      collaboratorDeptIds: data.collaboratorDeptIds,
-      batchId: data.batchId,
+  const createExam = useCallback(async (data: ExamFormData): Promise<Exam> => {
+    const created = await examApi.create({
+      ...data,
       status: 'draft',
-      totalScore: 0,
-      questions: [],
       version: 'v0.1.0',
       ownerType: 'mine',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      questions: [],
+    } as Omit<Exam, 'id' | 'totalScore' | 'createdAt' | 'updatedAt'>)
+    await loadExams()
+    return parseExam(created)
+  }, [loadExams])
+
+  const updateExam = useCallback(async (id: string, data: Partial<Exam>) => {
+    await examApi.update(id, data)
+    await loadExams()
+  }, [loadExams])
+
+  const deleteExam = useCallback(async (id: string) => {
+    await examApi.delete(id)
+    await loadExams()
+  }, [loadExams])
+
+  const updateExamStatus = useCallback(async (id: string, action: StatusAction) => {
+    switch (action) {
+      case 'save_draft':
+        await examApi.update(id, { status: 'draft' })
+        break
+      case 'submit':
+        await examApi.submit(id)
+        break
+      case 'withdraw':
+        await examApi.update(id, { status: 'unsubmitted' })
+        break
+      case 'approve':
+        await examApi.review(id, { status: 'approved' })
+        break
+      case 'reject':
+        await examApi.review(id, { status: 'rejected' })
+        break
+      case 'publish':
+        await examApi.publish(id)
+        break
+      case 'unpublish':
+        await examApi.archive(id)
+        break
     }
-    setExams((prev) => [...prev, newExam])
-    return newExam
-  }, [])
+    await loadExams()
+  }, [loadExams])
 
-  const updateExam = useCallback((id: string, data: Partial<Exam>) => {
-    setExams((prev) =>
-      prev.map((exam) =>
-        exam.id === id ? { ...exam, ...data, updatedAt: new Date() } : exam
-      )
+  const addQuestionToExam = useCallback(async (examId: string, question: Question, score?: number) => {
+    const exam = exams.find((e) => e.id === examId)
+    if (!exam || exam.questions.some((q) => q.questionId === question.id)) return
+    await examApi.addQuestion(examId, question.id, score ?? question.score)
+    await loadExams()
+  }, [exams, loadExams])
+
+  const removeQuestionFromExam = useCallback(async (examId: string, examQuestionId: string) => {
+    const exam = exams.find((e) => e.id === examId)
+    if (!exam) return
+    const eq = exam.questions.find((q) => q.id === examQuestionId)
+    if (!eq) return
+    await examApi.removeQuestion(examId, eq.questionId)
+    await loadExams()
+  }, [exams, loadExams])
+
+  const updateExamQuestionScore = useCallback(async (examId: string, examQuestionId: string, score: number) => {
+    const exam = exams.find((e) => e.id === examId)
+    if (!exam) return
+    const newQuestions = exam.questions.map((q) =>
+      q.id === examQuestionId ? { ...q, score } : q
     )
-  }, [])
+    await examApi.update(examId, { questions: newQuestions })
+    await loadExams()
+  }, [exams, loadExams])
 
-  const deleteExam = useCallback((id: string) => {
-    setExams((prev) => prev.filter((exam) => exam.id !== id))
-  }, [])
+  const reorderExamQuestions = useCallback(async (examId: string, questions: ExamQuestion[]) => {
+    const ordered = questions.map((q, index) => ({ ...q, order: index + 1 }))
+    await examApi.update(examId, { questions: ordered })
+    await loadExams()
+  }, [loadExams])
 
-  const updateExamStatus = useCallback((id: string, action: StatusAction) => {
-    setExams((prev) =>
-      prev.map((exam) => {
-        if (exam.id !== id) return exam
-        if (!canPerformAction(exam.status, action)) return exam
-        return {
-          ...exam,
-          status: getNextStatus(action),
-          updatedAt: new Date(),
-        }
-      })
-    )
-  }, [])
-
-  const addQuestionToExam = useCallback((examId: string, question: Question, score?: number) => {
-    setExams((prev) =>
-      prev.map((exam) => {
-        if (exam.id !== examId) return exam
-        // 检查是否已存在
-        if (exam.questions.some((q) => q.questionId === question.id)) return exam
-
-        const examQuestion: ExamQuestion = {
-          id: `eq-${Date.now()}`,
-          questionId: question.id,
-          type: question.type,
-          content: question.content,
-          options: question.options,
-          answer: question.answer,
-          analysis: question.analysis,
-          score: score ?? question.score,
-          order: exam.questions.length + 1,
-        }
-
-        const newQuestions = [...exam.questions, examQuestion]
-        const totalScore = newQuestions.reduce((sum, q) => sum + q.score, 0)
-
-        return {
-          ...exam,
-          questions: newQuestions,
-          totalScore,
-          updatedAt: new Date(),
-        }
-      })
-    )
-  }, [])
-
-  const removeQuestionFromExam = useCallback((examId: string, examQuestionId: string) => {
-    setExams((prev) =>
-      prev.map((exam) => {
-        if (exam.id !== examId) return exam
-
-        const newQuestions = exam.questions
-          .filter((q) => q.id !== examQuestionId)
-          .map((q, index) => ({ ...q, order: index + 1 }))
-        const totalScore = newQuestions.reduce((sum, q) => sum + q.score, 0)
-
-        return {
-          ...exam,
-          questions: newQuestions,
-          totalScore,
-          updatedAt: new Date(),
-        }
-      })
-    )
-  }, [])
-
-  const updateExamQuestionScore = useCallback(
-    (examId: string, examQuestionId: string, score: number) => {
-      setExams((prev) =>
-        prev.map((exam) => {
-          if (exam.id !== examId) return exam
-
-          const newQuestions = exam.questions.map((q) =>
-            q.id === examQuestionId ? { ...q, score } : q
-          )
-          const totalScore = newQuestions.reduce((sum, q) => sum + q.score, 0)
-
-          return {
-            ...exam,
-            questions: newQuestions,
-            totalScore,
-            updatedAt: new Date(),
-          }
-        })
-      )
-    },
-    []
-  )
-
-  const reorderExamQuestions = useCallback((examId: string, questions: ExamQuestion[]) => {
-    setExams((prev) =>
-      prev.map((exam) => {
-        if (exam.id !== examId) return exam
-        return {
-          ...exam,
-          questions: questions.map((q, index) => ({ ...q, order: index + 1 })),
-          updatedAt: new Date(),
-        }
-      })
-    )
-  }, [])
-
-  // 场景任务测评操作
-  const updateEvaluationMethod = useCallback((id: string, data: Partial<EvaluationMethod>) => {
-    setEvaluationMethods((prev) =>
-      prev.map((method) => (method.id === id ? { ...method, ...data } : method))
-    )
-  }, [])
+  // ==================== Evaluation method actions ====================
+  const updateEvaluationMethod = useCallback(async (id: string, data: Partial<EvaluationMethod>) => {
+    if (typeof data.enabled === 'boolean') {
+      await evaluationMethodApi.toggle(id, data.enabled)
+    }
+    await loadEvaluationMethods()
+  }, [loadEvaluationMethods])
 
   const getSceneTasksByMethod = useCallback(
     (methodId: string) => sceneTasks.filter((task) => task.methodIds.includes(methodId)),
@@ -614,88 +715,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     graduationProjectArchives,
     graduationProjectEvaluations,
     graduationQueryResults,
-    // 毕业设计管理操作
-    createGraduationProjectTopic: (data: any) => {
-      const newTopic: GraduationProjectTopic = {
-        id: `gp-topic-${Date.now()}`,
-        name: data.name,
-        positionId: data.positionId || 'pos-1',
-        positionName: data.positionName || '全栈开发工程师',
-        college: data.college || '计算机学院',
-        source: data.source || 'enterprise',
-        status: 'published',
-        capacity: Number(data.capacity) || 1,
-        appliedCount: 0,
-        advisorName: data.advisorName,
-        enterpriseMentorName: data.enterpriseMentorName,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
-        description: data.description,
-        createdAt: new Date(),
-      }
-      setGraduationProjectTopics((prev) => [...prev, newTopic])
-      return newTopic
-    },
-    updateGraduationProjectTopic: (id: string, data: any) => {
-      setGraduationProjectTopics((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...data } : t))
-      )
-    },
-    deleteGraduationProjectTopic: (id: string) => {
-      setGraduationProjectTopics((prev) => prev.filter((t) => t.id !== id))
-    },
-    updateGraduationProjectArchive: (id: string, data: Partial<GraduationProjectArchive>) => {
-      setGraduationProjectArchives((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, ...data } : a))
-      )
-    },
-    updateGraduationProjectEvaluation: (id: string, data: Partial<GraduationProjectEvaluation>) => {
-      setGraduationProjectEvaluations((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, ...data, status: 'completed' as const } : e))
-      )
-    },
-
-    // 学生能力画像管理操作
-    createStudentAbilityArchive: (data: any) => {
-      const newArchive: StudentAbilityArchive = {
-        id: `sp-arch-${Date.now()}`,
-        studentName: data.studentName,
-        studentId: data.studentId,
-        className: data.className,
-        materialType: data.materialType,
-        materialName: data.materialName,
-        issuingOrg: data.issuingOrg,
-        obtainDate: new Date(data.obtainDate),
-        auditStatus: 'pending',
-        convertedCredit: 0,
-        direction: data.direction || 'positive',
-        isVisible: true,
-        createdAt: new Date(),
-      }
-      setStudentAbilityArchives((prev) => [...prev, newArchive])
-      return newArchive
-    },
-    updateStudentAbilityArchive: (id: string, data: Partial<StudentAbilityArchive>) => {
-      setStudentAbilityArchives((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, ...data } : a))
-      )
-    },
-    deleteStudentAbilityArchive: (id: string) => {
-      setStudentAbilityArchives((prev) => prev.filter((a) => a.id !== id))
-    },
-    updateStudentAbilityPortrait: (id: string, data: Partial<StudentAbilityPortrait>) => {
-      setStudentAbilityPortraits((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...data, updatedAt: new Date() } : p))
-      )
-    },
-    updateCreditConversionRules: (rules: CreditConversionRule[]) => {
-      setCreditConversionRules(rules)
-    },
-    updatePortraitUpdateConfig: (config: Partial<PortraitUpdateConfig>) => {
-      setPortraitUpdateConfig((prev) => ({ ...prev, ...config }))
-    },
-
-    // 扩展演示数据
     processEvaluations,
     rectificationDetails,
     appealRecords,
@@ -741,6 +760,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const newRect: RectificationDetail = {
         id: `rect-${Date.now()}`,
         archiveId: data.archiveId,
+        studentId: data.studentId,
         studentName: data.studentName,
         topicName: data.topicName,
         requirement: data.requirement,
@@ -780,66 +800,140 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         prev.map((s) => (s.id === id ? { ...s, ...data } : s))
       )
     },
+    creditConversionRules,
+    archiveVersions,
+    portraitUpdateConfig,
+    studentAbilityArchives,
+    studentAbilityPortraits,
 
-    // 微证书管理
+    createGraduationProjectTopic: async (data: any): Promise<GraduationProjectTopic> => {
+      const created = await graduationApi.createTopic({
+        name: data.name,
+        positionId: data.positionId || 'pos-1',
+        positionName: data.positionName || '全栈开发工程师',
+        college: data.college || '计算机学院',
+        source: data.source || 'enterprise',
+        status: 'published',
+        capacity: Number(data.capacity) || 1,
+        appliedCount: 0,
+        advisorName: data.advisorName,
+        enterpriseMentorName: data.enterpriseMentorName,
+        startDate: data.startDate ? new Date(data.startDate) : new Date(),
+        endDate: data.endDate ? new Date(data.endDate) : new Date(),
+        description: data.description,
+      } as Omit<GraduationProjectTopic, 'id' | 'appliedCount' | 'createdAt'>)
+      await loadGraduationTopics()
+      return parseTopic(created)
+    },
+    updateGraduationProjectTopic: async (id: string, data: any) => {
+      await graduationApi.updateTopic(id, data)
+      await loadGraduationTopics()
+    },
+    deleteGraduationProjectTopic: async (id: string) => {
+      await graduationApi.deleteTopic(id)
+      await loadGraduationTopics()
+    },
+    updateGraduationProjectArchive: async (id: string, data: Partial<GraduationProjectArchive>) => {
+      await graduationApi.upsertArchive(data)
+      await loadGraduationArchives()
+    },
+    updateGraduationProjectEvaluation: async (id: string, data: Partial<GraduationProjectEvaluation>) => {
+      await graduationApi.upsertEvaluation({ ...data, status: 'completed' })
+      await loadGraduationEvaluations()
+    },
+
+    createStudentAbilityArchive: async (data: any): Promise<StudentAbilityArchive> => {
+      const created = await portraitApi.upsertArchive({
+        studentName: data.studentName,
+        studentId: data.studentId,
+        className: data.className,
+        materialType: data.materialType,
+        materialName: data.materialName,
+        issuingOrg: data.issuingOrg,
+        obtainDate: data.obtainDate ? new Date(data.obtainDate) : new Date(),
+        auditStatus: 'pending',
+        convertedCredit: 0,
+        direction: data.direction || 'positive',
+        isVisible: true,
+      } as Partial<StudentAbilityArchive>)
+      await loadStudentAbilityArchives()
+      return parseStudentArchive(created)
+    },
+    updateStudentAbilityArchive: async (id: string, data: Partial<StudentAbilityArchive>) => {
+      await portraitApi.upsertArchive({ id, ...data })
+      await loadStudentAbilityArchives()
+    },
+    deleteStudentAbilityArchive: async (id: string) => {
+      setStudentAbilityArchives((prev) => prev.filter((a) => a.id !== id))
+    },
+    updateStudentAbilityPortrait: async (id: string, data: Partial<StudentAbilityPortrait>) => {
+      setStudentAbilityPortraits((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...data, updatedAt: new Date() } : p))
+      )
+    },
+    updateCreditConversionRules: (rules: CreditConversionRule[]) => {
+      setCreditConversionRules(rules)
+    },
+    updatePortraitUpdateConfig: (config: Partial<PortraitUpdateConfig>) => {
+      setPortraitUpdateConfig((prev) => ({ ...prev, ...config }))
+    },
+
     certTypes,
     updateCertTypes: (types: CertType[]) => {
       setCertTypes(types)
     },
     microCertTemplates,
-    createMicroCertTemplate: (data: MicroCertTemplateFormData) => {
+    createMicroCertTemplate: async (data: MicroCertTemplateFormData): Promise<MicroCertTemplate> => {
       const certTypeName = certTypes.find((t) => t.id === data.certTypeId)?.name || '未知'
-      const newTemplate: MicroCertTemplate = {
-        id: `mct-${Date.now()}`,
-        title: data.title,
-        certTypeId: data.certTypeId,
+      const created = await microCertApi.createTemplate({
+        ...data,
         certTypeName,
-        content: data.content,
-        coverUrl: data.coverUrl,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-      setMicroCertTemplates((prev) => [...prev, newTemplate])
-      return newTemplate
+      } as Omit<MicroCertTemplate, 'id' | 'createdAt' | 'updatedAt'>)
+      await loadMicroCertTemplates()
+      return parseMicroCertTemplate(created)
     },
-    updateMicroCertTemplate: (id: string, data: MicroCertTemplateFormData) => {
+    updateMicroCertTemplate: async (id: string, data: MicroCertTemplateFormData) => {
       const certTypeName = certTypes.find((t) => t.id === data.certTypeId)?.name || '未知'
-      setMicroCertTemplates((prev) =>
-        prev.map((t) =>
-          t.id === id ? { ...t, ...data, certTypeName, updatedAt: new Date() } : t
-        )
-      )
+      await microCertApi.updateTemplate(id, { ...data, certTypeName })
+      await loadMicroCertTemplates()
     },
-    deleteMicroCertTemplate: (id: string) => {
-      setMicroCertTemplates((prev) => prev.filter((t) => t.id !== id))
+    deleteMicroCertTemplate: async (id: string) => {
+      await microCertApi.deleteTemplate(id)
+      await loadMicroCertTemplates()
     },
     certIssuanceRecords,
-    issueCert: (data) => {
-      let counter = 100 + certIssuanceRecords.length
-      const newRecord: CertIssuanceRecord = {
+    issueCert: async (data): Promise<CertIssuanceRecord> => {
+      await microCertApi.issue(data.templateId, [data.studentId])
+      await loadCertIssuanceRecords()
+      const record = certIssuanceRecords.find(
+        (r) => r.templateId === data.templateId && r.studentId === data.studentId
+      )
+      if (record) return record
+      return {
         id: `cir-${Date.now()}`,
         ...data,
-        certNumber: `MC-2024-${String(counter).padStart(5, '0')}`,
+        certNumber: `MC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`,
         status: 'issued',
       }
-      setCertIssuanceRecords((prev) => [...prev, newRecord])
-      return newRecord
     },
-    issueBatchCerts: (records) => {
-      let counter = 100 + certIssuanceRecords.length
-      const newRecords = records.map((data) => {
-        counter++
-        return {
-          id: `cir-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          ...data,
-          certNumber: `MC-2024-${String(counter).padStart(5, '0')}`,
-          status: 'issued' as const,
-        }
+    issueBatchCerts: async (records): Promise<CertIssuanceRecord[]> => {
+      const groups = new Map<string, string[]>()
+      records.forEach((r) => {
+        const list = groups.get(r.templateId) || []
+        list.push(r.studentId)
+        groups.set(r.templateId, list)
       })
-      setCertIssuanceRecords((prev) => [...prev, ...newRecords])
-      return newRecords
+      await Promise.all(
+        Array.from(groups.entries()).map(([templateId, userIds]) =>
+          microCertApi.issue(templateId, userIds)
+        )
+      )
+      await loadCertIssuanceRecords()
+      return certIssuanceRecords.filter((r) =>
+        records.some((req) => req.templateId === r.templateId && req.studentId === r.studentId)
+      )
     },
-    revokeCert: (id: string, reason: string) => {
+    revokeCert: async (id: string, reason: string) => {
       setCertIssuanceRecords((prev) =>
         prev.map((r) =>
           r.id === id
@@ -848,12 +942,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         )
       )
     },
-
-    creditConversionRules,
-    archiveVersions,
-    portraitUpdateConfig,
-    studentAbilityArchives,
-    studentAbilityPortraits,
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
