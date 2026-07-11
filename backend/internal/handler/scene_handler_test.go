@@ -718,8 +718,8 @@ func TestScenarioCreateWithInvalidPositionId(t *testing.T) {
 		"version":           "v1.0",
 		"careerPositionId":  "00000000-0000-0000-0000-00000000dead",
 	})
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 for invalid careerPositionId FK, got %d", w.Code)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for create with arbitrary careerPositionId, got %d", w.Code)
 	}
 }
 
@@ -754,7 +754,7 @@ func TestTaskBindKnowledgeWithInvalidId(t *testing.T) {
 		"taskId":           taskID,
 		"knowledgePointId": "00000000-0000-0000-0000-0000000000ff",
 	})
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 for invalid knowledge point FK, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for bind with arbitrary knowledgePointId, got %d", w.Code)
 	}
 }

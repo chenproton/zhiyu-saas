@@ -91,7 +91,7 @@ func (h *PositionAbilityHandler) ListBindings(w http.ResponseWriter, r *http.Req
 			domain, required_level, rubric_description, attributes, weight
 		FROM position_ability_bindings
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY id DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 

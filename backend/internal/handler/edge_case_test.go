@@ -15,11 +15,11 @@ func TestEmptyList(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 
-	w := env.Do("GET", "/api/v1/tenants?code=zzz-nonexistent-code", nil)
+	w := env.Do("GET", "/api/v1/resource-codes?type=zzz-nonexistent-type", nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
-	items, total, err := testhelper.UnmarshalList[domain.Tenant](w)
+	items, total, err := testhelper.UnmarshalList[domain.ResourceCode](w)
 	if err != nil {
 		t.Fatalf("unmarshal list: %v", err)
 	}

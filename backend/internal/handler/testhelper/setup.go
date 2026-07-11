@@ -103,6 +103,7 @@ func SetupTestEnv(t *testing.T) *TestEnv {
 			r.Delete("/resources/{id}", resourceHandler.Delete)
 			r.Post("/resources/{id}/submit", resourceHandler.SubmitForReview)
 			r.Post("/resources/{id}/review", resourceHandler.Review)
+			r.Post("/resources/{id}/publish", resourceHandler.Publish)
 
 			orderHandler := &handler.OrderHandler{DB: pool}
 			r.Get("/orders", orderHandler.List)

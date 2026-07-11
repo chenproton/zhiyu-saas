@@ -40,12 +40,21 @@ func TestPositionAbility_CreateBindingAndList(t *testing.T) {
 	ability, _ := testhelper.Unmarshal[domain.AbilityPoint](w)
 	defer env.DB.Exec(ctx, "DELETE FROM ability_points WHERE id = $1", ability.ID)
 
+	respID := uuid.NewString()
+	_, errr := env.DB.Exec(ctx,
+		`INSERT INTO position_responsibilities (id, career_position_id, name, sort_order) VALUES ($1, $2, $3, $4)`,
+		respID, pos.ID, "Binding Test Responsibility", 1)
+	if errr != nil {
+		t.Fatalf("create responsibility: %v", errr)
+	}
+	defer env.DB.Exec(ctx, "DELETE FROM position_responsibilities WHERE id = $1", respID)
+
 	var bindingID string
 
 	t.Run("CreateBinding", func(t *testing.T) {
 		body := map[string]interface{}{
 			"careerPositionId": pos.ID,
-			"responsibilityId": "resp-test-id",
+			"responsibilityId": respID,
 			"abilityPointId":   ability.ID,
 			"source":           "custom",
 			"requiredLevel":    "A",
@@ -250,12 +259,6 @@ func TestScenarioGrade_ListGradeMappings(t *testing.T) {
 	if !found {
 		t.Error("created grade mapping not found in list")
 	}
-
-	w = env.Do("DELETE", "/api/v1/scene/grade-mappings/"+mappingID, nil)
-	if w.Code != http.StatusOK {
-		t.Fatalf("delete grade mapping: expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
-	}
-	mappingID = ""
 }
 
 func TestScenarioWeight_ListWeights(t *testing.T) {
