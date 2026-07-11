@@ -95,6 +95,13 @@ export interface ApiError {
   error: string
 }
 
+export interface UploadResponse {
+  url: string
+  name: string
+  size: number
+  mimeType: string
+}
+
 export interface LoginRequest {
   username: string
   password: string
@@ -757,6 +764,22 @@ export const lessonBehaviorApi = {
     request<LessonBehaviorAggregate>(`/lesson/behavior-collection/aggregate${buildQuery(params)}`),
   create: (req: Omit<LessonBehaviorRecord, "id" | "createdAt" | "updatedAt">) =>
     request<LessonBehaviorRecord>("/lesson/behavior-collection/records", { method: "POST", body: JSON.stringify(req) }),
+}
+
+export const fileApi = {
+  upload: async (file: File): Promise<UploadResponse> => {
+    const form = new FormData()
+    form.append("file", file)
+    const token = getToken()
+    const headers: HeadersInit = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    const res = await fetch(`${API_BASE}/files/upload`, { method: "POST", body: form, headers })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || `HTTP ${res.status}`)
+    }
+    return res.json()
+  },
 }
 
 // ==================== Phase 3.5: Evaluation APIs ====================

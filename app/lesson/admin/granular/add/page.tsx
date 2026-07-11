@@ -29,7 +29,7 @@ import {
 import type { SystemCourseNode, NodeResource } from "@/lib/types/lesson-source"
 import type { Course } from "@/lib/types/lesson"
 import { MAJORS } from "@/lib/types/lesson-source"
-import { courseApi, knowledgeApi } from "@/lib/api"
+import { courseApi, knowledgeApi, fileApi } from "@/lib/api"
 
 import { KnowledgeSelector } from "../../_components/knowledge/knowledge-selector"
 import { ResourceSelector, type ResourceItem } from "../../_components/resources/resource-selector"
@@ -336,12 +336,15 @@ function AddGranularPageInner() {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0]
                           if (file) {
-                            const reader = new FileReader()
-                            reader.onload = (ev) => setCoverImage(ev.target?.result as string)
-                            reader.readAsDataURL(file)
+                            try {
+                              const res = await fileApi.upload(file)
+                              setCoverImage(res.url)
+                            } catch (err: any) {
+                              toast.error(err.message || "封面上传失败")
+                            }
                           }
                         }}
                       />

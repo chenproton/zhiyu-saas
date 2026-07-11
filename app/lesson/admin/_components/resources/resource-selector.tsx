@@ -19,8 +19,10 @@ import {
   RotateCcw,
   Plus,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { cn } from "@/lib/utils"
+import { fileApi } from "@/lib/api"
+import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -109,6 +111,8 @@ export function ResourceSelector({ pool, selectedIds, onChange, onUpload }: Reso
   const [newResUrl, setNewResUrl] = useState("")
   const [newResDescription, setNewResDescription] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const filteredRes = pool.filter((r) => {
     const matchType = resType === "all" || r.type === resType
@@ -126,6 +130,32 @@ export function ResourceSelector({ pool, selectedIds, onChange, onUpload }: Reso
     setResType("all")
     setResSearchName("")
     setResSearchProvider("")
+  }
+
+  const inferTypeFromName = (name: string): string => {
+    const ext = name.split(".").pop()?.toLowerCase() || ""
+    if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) return "video"
+    if (["mp3", "wav", "ogg"].includes(ext)) return "audio"
+    if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) return "image"
+    if (["pdf", "doc", "docx", "txt"].includes(ext)) return "document"
+    if (["xls", "xlsx", "csv"].includes(ext)) return "spreadsheet"
+    if (["zip", "rar", "7z"].includes(ext)) return "archive"
+    return "other"
+  }
+
+  const handleFileSelect = async (file: File) => {
+    setUploading(true)
+    try {
+      const res = await fileApi.upload(file)
+      setNewResName(file.name)
+      setNewResUrl(res.url)
+      setNewResType(inferTypeFromName(file.name))
+      toast.success("文件上传成功")
+    } catch (e: any) {
+      toast.error(e.message || "上传失败")
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleUpload = () => {
@@ -395,19 +425,42 @@ export function ResourceSelector({ pool, selectedIds, onChange, onUpload }: Reso
               <Label>资源描述</Label>
               <Textarea value={newResDescription} onChange={(e) => setNewResDescription(e.target.value)} placeholder="输入资源简介、用途说明等" className="mt-1.5" rows={2} />
             </div>
-            <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center space-y-3">
+            <div
+              className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center space-y-3 cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault() }}
+              onDrop={(e) => {
+                e.preventDefault()
+                const file = e.dataTransfer.files?.[0]
+                if (file) handleFileSelect(file)
+              }}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleFileSelect(file)
+                }}
+              />
               <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto">
                 <Upload className="h-6 w-6 text-gray-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">点击或拖拽上传文件</p>
+                <p className="text-sm font-medium text-gray-700">
+                  {uploading ? "上传中..." : "点击或拖拽上传文件"}
+                </p>
                 <p className="text-xs text-gray-500 mt-1">支持多种格式，最大 100MB</p>
+                {newResUrl && (
+                  <p className="text-xs text-green-600 mt-1 truncate max-w-[260px] mx-auto">{newResUrl}</p>
+                )}
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUpload(false)}>取消</Button>
-            <Button onClick={handleUpload} disabled={!newResName.trim()}>上传并选中</Button>
+            <Button onClick={handleUpload} disabled={!newResName.trim() || uploading}>上传并选中</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
