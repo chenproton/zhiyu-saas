@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { Suspense, useState, useEffect, use } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { useData } from '@/lib/stores/data-context'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -35,7 +36,7 @@ interface PageProps {
   params: Promise<{ id: string }>
 }
 
-export default function PositionEditPage({ params }: PageProps) {
+function PositionEditPageContent({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -362,5 +363,18 @@ export default function PositionEditPage({ params }: PageProps) {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+
+export default function PositionEditPage(props: PageProps) {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <PositionEditPageContent {...props} />
+    </Suspense>
   )
 }

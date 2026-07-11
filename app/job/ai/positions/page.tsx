@@ -10,6 +10,7 @@ import {
   GitBranch,
   LayoutList,
   ListFilter,
+  Loader2,
   Plus,
   RotateCcw,
   Search,
@@ -23,7 +24,7 @@ import {
   ArrowUpFromLine,
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { Suspense, useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { PositionList } from "@/components/job/positions/position-list"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -61,7 +62,7 @@ const CURRENT_USER_ID = "user-1"
 type TabType = "my" | "collab" | "public"
 type ViewMode = "list" | "group"
 
-export default function PositionsPage() {
+function PositionsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { positions, batches, workflows, addPosition, deletePosition, updatePosition, submitForApproval, withdrawPosition, invitePosition, importPositions, exportPositions } = useData()
@@ -1099,5 +1100,18 @@ export default function PositionsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+
+export default function PositionsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <PositionsPageContent />
+    </Suspense>
   )
 }
