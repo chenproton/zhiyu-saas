@@ -13,11 +13,7 @@ import type {
 } from '@/lib/types/job-source'
 import type { CareerPosition, JobBatch, PositionRecommendation as ApiPositionRecommendation } from '@/lib/types/job'
 import { positionApi, batchApi, recommendApi, workflowApi, abilityApi, approvalApi } from '@/lib/api'
-import {
-  mockWorkflows,
-  mockAbilities,
-  mockApprovalRecords,
-} from '@/lib/mock-data/job'
+
 
 interface DataContextType {
   // 数据
@@ -137,9 +133,9 @@ function calculateStats(batches: Batch[], positions: Position[], approvals: Appr
 export function DataProvider({ children }: { children: ReactNode }) {
   const [batches, setBatches] = useState<Batch[]>([])
   const [positions, setPositions] = useState<Position[]>([])
-  const [workflows, setWorkflows] = useState<Workflow[]>(mockWorkflows)
-  const [abilities, setAbilities] = useState<Ability[]>(mockAbilities)
-  const [approvals, setApprovals] = useState<ApprovalRecord[]>(mockApprovalRecords)
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [abilities, setAbilities] = useState<Ability[]>([])
+  const [approvals, setApprovals] = useState<ApprovalRecord[]>([])
   const [favorites, setFavorites] = useState<string[]>([])
   const [recommendations, setRecommendations] = useState<PositionRecommendation[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
