@@ -56,18 +56,14 @@ import {
   microCertApi,
 } from '@/lib/api'
 import type { ApprovalRecord } from '@/lib/types/backend'
-import {
-  mockCreditConversionRules,
-  mockArchiveVersions,
-  mockCertTypes,
-  mockOnlineClassrooms,
-  mockSmartCourses,
-  sceneGradingStudents,
-  sceneGradingScenarios,
-  sceneGradingSubmissions,
-  positionAbilityItemsMap,
-  abilityItems,
-} from '@/lib/mock-data-evaluation'
+// Inline defaults for data that does not yet have a dedicated backend API.
+const DEFAULT_CERT_TYPES: CertType[] = [
+  { id: 'ct-1', name: '职业技能' },
+  { id: 'ct-2', name: '课程结业' },
+  { id: 'ct-3', name: '竞赛获奖' },
+  { id: 'ct-4', name: '实习实践' },
+  { id: 'ct-5', name: '创新创业' },
+]
 
 interface DataContextValue {
   // 题库相关
@@ -293,16 +289,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [positionsListState] = useState<Position[]>([])
   const [approvalItems, setApprovalItems] = useState<ApprovalItem[]>([])
 
-  // 场景任务评价状态
-  const [sceneGradingStudentsState] = useState<SceneGradingStudent[]>(sceneGradingStudents)
-  const [sceneGradingScenariosState] = useState<SceneGradingScenario[]>(sceneGradingScenarios)
-  const [sceneGradingSubmissionsState] = useState<SceneGradingSubmission[]>(sceneGradingSubmissions)
+  // 场景任务评价状态（已简化，暂无后端支撑）
+  const [sceneGradingStudentsState] = useState<SceneGradingStudent[]>([])
+  const [sceneGradingScenariosState] = useState<SceneGradingScenario[]>([])
+  const [sceneGradingSubmissionsState] = useState<SceneGradingSubmission[]>([])
 
-  // 在线课堂评价状态
-  const [onlineClassroomsState] = useState<OnlineClassroom[]>(mockOnlineClassrooms)
+  // 在线课堂评价状态（暂无后端支撑）
+  const [onlineClassroomsState] = useState<OnlineClassroom[]>([])
 
-  // 智慧课程评价状态
-  const [smartCoursesState] = useState<SmartCourse[]>(mockSmartCourses)
+  // 智慧课程评价状态（暂无后端支撑）
+  const [smartCoursesState] = useState<SmartCourse[]>([])
 
   // 毕业设计管理状态
   const [graduationProjectTopics, setGraduationProjectTopics] = useState<GraduationProjectTopic[]>([])
@@ -318,8 +314,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // 学生能力画像管理状态
   const [studentAbilityArchives, setStudentAbilityArchives] = useState<StudentAbilityArchive[]>([])
   const [studentAbilityPortraits, setStudentAbilityPortraits] = useState<StudentAbilityPortrait[]>([])
-  const [creditConversionRules, setCreditConversionRules] = useState<CreditConversionRule[]>(mockCreditConversionRules)
-  const [archiveVersions] = useState<ArchiveVersion[]>(mockArchiveVersions)
+  const [creditConversionRules, setCreditConversionRules] = useState<CreditConversionRule[]>([])
+  const [archiveVersions] = useState<ArchiveVersion[]>([])
   const [portraitUpdateConfig, setPortraitUpdateConfig] = useState<PortraitUpdateConfig>({
     updateCycle: 'daily',
     queryLimit: 10,
@@ -328,7 +324,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   })
 
   // 微证书管理状态
-  const [certTypes, setCertTypes] = useState<CertType[]>(mockCertTypes)
+  const [certTypes, setCertTypes] = useState<CertType[]>(DEFAULT_CERT_TYPES)
   const [microCertTemplates, setMicroCertTemplates] = useState<MicroCertTemplate[]>([])
   const [certIssuanceRecords, setCertIssuanceRecords] = useState<CertIssuanceRecord[]>([])
 
@@ -709,7 +705,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     smartCourses: smartCoursesState,
     jobAbilityResults,
     positionsList: positionsListState,
-    getPositionAbilityItems: (positionId: string) => positionAbilityItemsMap[positionId] || abilityItems,
+    getPositionAbilityItems: () => [],
     approvalItems,
     approveItem,
     rejectItem,
