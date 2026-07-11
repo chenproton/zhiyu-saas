@@ -39,7 +39,7 @@ import { QuestionPreview } from "@/components/evaluation/question-preview"
 import { useData } from "@/components/providers/data-provider"
 import type { Question, QuestionType, QuestionFormData, QuestionBankFormData } from "@/lib/types"
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS } from "@/lib/types"
-import { mockUsers, mockDepartments } from "@/lib/mock-data-evaluation"
+
 import { PrdAnnotation } from "@/components/prd-annotation"
 import { getAnnotation } from "@/lib/prd-annotations"
 
@@ -77,13 +77,10 @@ export default function QuestionBankDetailPage() {
   const [batchMoveOpen, setBatchMoveOpen] = useState(false)
   const [moveSearch, setMoveSearch] = useState("")
 
-  // 获取题目创建人列表
+  // 获取题目创建人列表（后端暂无用户姓名查询，直接展示 ID）
   const creators = useMemo(() => {
     const creatorIds = new Set(questions.map(q => q.creatorId).filter(Boolean))
-    return Array.from(creatorIds).map(id => {
-      const user = mockUsers.find(u => u.id === id)
-      return { id: id as string, name: user?.name || id }
-    })
+    return Array.from(creatorIds).map((id) => ({ id: id as string, name: id as string }))
   }, [questions])
 
   const filteredQuestions = useMemo(() => {
@@ -216,15 +213,9 @@ export default function QuestionBankDetailPage() {
     }).format(date)
   }
 
-  const getCollaboratorNames = () => {
-    const users = (bank.collaboratorIds || []).map(id => mockUsers.find(u => u.id === id)?.name).filter(Boolean)
-    return users
-  }
+  const getCollaboratorNames = () => (bank.collaboratorIds || []).filter(Boolean)
 
-  const getCollaboratorDeptNames = () => {
-    const depts = (bank.collaboratorDeptIds || []).map(id => mockDepartments.find(d => d.id === id)?.name).filter(Boolean)
-    return depts
-  }
+  const getCollaboratorDeptNames = () => (bank.collaboratorDeptIds || []).filter(Boolean)
 
   return (
     <div className="p-6">
@@ -347,7 +338,7 @@ export default function QuestionBankDetailPage() {
             </Button>
           </PrdAnnotation>
           <PrdAnnotation data={getAnnotation("qbd-btn-add-question")}>
-            <Button size="sm" onClick={() => alert('此处参考 1.0 版本页面功能即可')}>
+            <Button size="sm" onClick={() => { setEditingQuestion(null); setQuestionFormOpen(true) }}>
               <Plus className="mr-1 size-3.5" />
               添加题目
             </Button>
