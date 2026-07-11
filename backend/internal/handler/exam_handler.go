@@ -233,12 +233,23 @@ func (h *ExamHandler) AddQuestion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var q domain.Question
+	var analysis, optionsStr, answerStr *string
 	err := h.DB.QueryRow(r.Context(), `
 		SELECT id, type, content, options, answer, analysis, score FROM questions WHERE id = $1
-	`, req.QuestionID).Scan(&q.ID, &q.Type, &q.Content, &q.Options, &q.Answer, &q.Analysis, &q.Score)
+	`, req.QuestionID).Scan(&q.ID, &q.Type, &q.Content, &optionsStr, &answerStr, &analysis, &q.Score)
 	if err != nil {
 		respondError(w, http.StatusNotFound, "question not found")
 		return
+	}
+	q.Analysis = analysis
+	if optionsStr != nil {
+		_ = json.Unmarshal([]byte(*optionsStr), &q.Options)
+	}
+	if answerStr != nil {
+		_ = json.Unmarshal([]byte(*answerStr), &q.Answer)
+	}
+	if q.Answer == nil {
+		q.Answer = domain.JSONSlice{}
 	}
 
 	score := req.Score
@@ -246,10 +257,13 @@ func (h *ExamHandler) AddQuestion(w http.ResponseWriter, r *http.Request) {
 		score = q.Score
 	}
 
+	optionsJSON, _ := json.Marshal(q.Options)
+	answerJSON, _ := json.Marshal(q.Answer)
+
 	_, err = h.DB.Exec(r.Context(), `
-		INSERT INTO exam_questions (id, exam_id, question_id, type, content, options, answer, analysis, score, order_num)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, (SELECT COALESCE(MAX(order_num), 0) + 1 FROM exam_questions WHERE exam_id = $2))
-	`, uuid.NewString(), id, q.ID, q.Type, q.Content, q.Options, q.Answer, q.Analysis, score)
+		INSERT INTO exam_questions (id, exam_id, question_id, type, content, options, answer, analysis, score, sort_order)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM exam_questions WHERE exam_id = $2))
+	`, uuid.NewString(), id, q.ID, q.Type, q.Content, string(optionsJSON), string(answerJSON), q.Analysis, score)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to add question")
 		return
@@ -316,8 +330,8 @@ func (h *ExamHandler) fetchExam(ctx context.Context, id string) (domain.Exam, er
 
 func (h *ExamHandler) fetchExamQuestions(ctx context.Context, examID string) ([]domain.ExamQuestion, error) {
 	rows, err := h.DB.Query(ctx, `
-		SELECT id, exam_id, question_id, type, content, options, answer, analysis, score, order_num
-		FROM exam_questions WHERE exam_id = $1 ORDER BY order_num
+		SELECT id, exam_id, question_id, type, content, options, answer, analysis, score, sort_order
+		FROM exam_questions WHERE exam_id = $1 ORDER BY sort_order
 	`, examID)
 	if err != nil {
 		return nil, err
@@ -327,11 +341,20 @@ func (h *ExamHandler) fetchExamQuestions(ctx context.Context, examID string) ([]
 	items := make([]domain.ExamQuestion, 0)
 	for rows.Next() {
 		var q domain.ExamQuestion
-		var analysis *string
-		if err := rows.Scan(&q.ID, &q.ExamID, &q.QuestionID, &q.Type, &q.Content, &q.Options, &q.Answer, &analysis, &q.Score, &q.Order); err != nil {
+		var analysis, optionsStr, answerStr *string
+		if err := rows.Scan(&q.ID, &q.ExamID, &q.QuestionID, &q.Type, &q.Content, &optionsStr, &answerStr, &analysis, &q.Score, &q.Order); err != nil {
 			return nil, err
 		}
 		q.Analysis = analysis
+		if optionsStr != nil {
+			_ = json.Unmarshal([]byte(*optionsStr), &q.Options)
+		}
+		if answerStr != nil {
+			_ = json.Unmarshal([]byte(*answerStr), &q.Answer)
+		}
+		if q.Answer == nil {
+			q.Answer = domain.JSONSlice{}
+		}
 		items = append(items, q)
 	}
 	return items, nil

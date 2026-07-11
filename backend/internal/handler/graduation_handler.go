@@ -25,17 +25,16 @@ type GraduationTopicListResponse struct {
 }
 
 type CreateGraduationTopicRequest struct {
-	Name                 string  `json:"name"`
-	PositionID           string  `json:"positionId"`
-	PositionName         string  `json:"positionName"`
-	College              string  `json:"college"`
-	Source               string  `json:"source"`
-	Capacity             int     `json:"capacity"`
-	AdvisorName          string  `json:"advisorName"`
-	EnterpriseMentorName *string `json:"enterpriseMentorName"`
-	StartDate            string  `json:"startDate"`
-	EndDate              string  `json:"endDate"`
-	Description          *string `json:"description"`
+	Name               string  `json:"name"`
+	CareerPositionID   string  `json:"careerPositionId"`
+	College            string  `json:"college"`
+	Source             string  `json:"source"`
+	Capacity           int     `json:"capacity"`
+	AdvisorID          *string `json:"advisorId"`
+	EnterpriseMentorID *string `json:"enterpriseMentorId"`
+	StartDate          string  `json:"startDate"`
+	EndDate            string  `json:"endDate"`
+	Description        *string `json:"description"`
 }
 
 type GraduationArchiveListResponse struct {
@@ -44,14 +43,9 @@ type GraduationArchiveListResponse struct {
 }
 
 type CreateGraduationArchiveRequest struct {
-	TopicID              string  `json:"topicId"`
-	TopicName            string  `json:"topicName"`
-	StudentName          string  `json:"studentName"`
-	StudentID            string  `json:"studentId"`
-	AdvisorName          string  `json:"advisorName"`
-	EnterpriseMentorName *string `json:"enterpriseMentorName"`
-	PositionName         string  `json:"positionName"`
-	Phase                string  `json:"phase"`
+	TopicID string `json:"topicId"`
+	UserID  string `json:"userId"`
+	Phase   string `json:"phase"`
 }
 
 type GraduationEvaluationListResponse struct {
@@ -61,15 +55,12 @@ type GraduationEvaluationListResponse struct {
 
 type CreateGraduationEvaluationRequest struct {
 	TopicID            string   `json:"topicId"`
-	TopicName          string   `json:"topicName"`
-	StudentName        string   `json:"studentName"`
-	StudentID          string   `json:"studentId"`
-	AdvisorScore       float64  `json:"advisorScore"`
+	UserID             string   `json:"userId"`
+	AdvisorScore       *float64 `json:"advisorScore"`
 	EnterpriseScore    *float64 `json:"enterpriseScore"`
 	DefenseScore       *float64 `json:"defenseScore"`
-	ComprehensiveGrade string   `json:"comprehensiveGrade"`
+	ComprehensiveGrade *string  `json:"comprehensiveGrade"`
 	IsExcellent        bool     `json:"isExcellent"`
-	EvaluationTime     string   `json:"evaluationTime"`
 }
 
 type GraduationQueryListResponse struct {
@@ -118,8 +109,8 @@ func (h *GraduationHandler) ListTopics(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, name, position_id, position_name, college, source, status, capacity, applied_count,
-			advisor_name, enterprise_mentor_name, start_date, end_date, description, created_at
+		SELECT id, name, career_position_id, college, source, status, capacity, applied_count,
+			advisor_id, enterprise_mentor_id, start_date, end_date, description, created_at
 		FROM graduation_project_topics
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -170,7 +161,7 @@ func (h *GraduationHandler) CreateTopic(w http.ResponseWriter, r *http.Request) 
 		respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.Name == "" || req.PositionID == "" || req.College == "" {
+	if req.Name == "" || req.CareerPositionID == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
 	}
@@ -180,10 +171,10 @@ func (h *GraduationHandler) CreateTopic(w http.ResponseWriter, r *http.Request) 
 
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO graduation_project_topics (id, name, position_id, position_name, college, source, status, capacity, applied_count,
-			advisor_name, enterprise_mentor_name, start_date, end_date, description)
-		VALUES ($1, $2, $3, $4, $5, $6, 'draft', $7, 0, $8, $9, $10, $11, $12)
-	`, id, req.Name, req.PositionID, req.PositionName, req.College, req.Source, req.Capacity, req.AdvisorName, req.EnterpriseMentorName, startDate, endDate, req.Description)
+		INSERT INTO graduation_project_topics (id, name, career_position_id, college, source, status, capacity, applied_count,
+			advisor_id, enterprise_mentor_id, start_date, end_date, description)
+		VALUES ($1, $2, $3, $4, $5, 'draft', $6, 0, $7, $8, $9, $10, $11)
+	`, id, req.Name, req.CareerPositionID, req.College, req.Source, req.Capacity, req.AdvisorID, req.EnterpriseMentorID, startDate, endDate, req.Description)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create graduation topic")
 		return
@@ -220,10 +211,10 @@ func (h *GraduationHandler) UpdateTopic(w http.ResponseWriter, r *http.Request) 
 	endDate, _ := time.Parse(time.RFC3339, req.EndDate)
 
 	_, err := h.DB.Exec(r.Context(), `
-		UPDATE graduation_project_topics SET name = $1, position_id = $2, position_name = $3, college = $4, source = $5,
-			capacity = $6, advisor_name = $7, enterprise_mentor_name = $8, start_date = $9, end_date = $10, description = $11
-		WHERE id = $12
-	`, req.Name, req.PositionID, req.PositionName, req.College, req.Source, req.Capacity, req.AdvisorName, req.EnterpriseMentorName, startDate, endDate, req.Description, id)
+		UPDATE graduation_project_topics SET name = $1, career_position_id = $2, college = $3, source = $4,
+			capacity = $5, advisor_id = $6, enterprise_mentor_id = $7, start_date = $8, end_date = $9, description = $10
+		WHERE id = $11
+	`, req.Name, req.CareerPositionID, req.College, req.Source, req.Capacity, req.AdvisorID, req.EnterpriseMentorID, startDate, endDate, req.Description, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update graduation topic")
 		return
@@ -246,9 +237,31 @@ func (h *GraduationHandler) DeleteTopic(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_, err := h.DB.Exec(r.Context(), `DELETE FROM graduation_project_topics WHERE id = $1`, id)
+	tx, err := h.DB.Begin(r.Context())
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	_, err = tx.Exec(r.Context(), `DELETE FROM graduation_project_evaluations WHERE topic_id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete topic evaluations")
+		return
+	}
+	_, err = tx.Exec(r.Context(), `DELETE FROM graduation_project_archives WHERE topic_id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete topic archives")
+		return
+	}
+	_, err = tx.Exec(r.Context(), `DELETE FROM graduation_project_topics WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to delete graduation topic")
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to commit")
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"id": id})
@@ -287,17 +300,16 @@ func (h *GraduationHandler) ArchivesCRUD(w http.ResponseWriter, r *http.Request)
 			respondError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
-		if req.TopicID == "" || req.StudentID == "" {
+		if req.TopicID == "" || req.UserID == "" {
 			respondError(w, http.StatusBadRequest, "missing required fields")
 			return
 		}
 
 		id := uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
-			INSERT INTO graduation_project_archives (id, topic_id, topic_name, student_name, student_id, advisor_name,
-				enterprise_mentor_name, position_name, phase, doc_status, doc_count, last_updated, has_rectification)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'making', 0, NOW(), false)
-		`, id, req.TopicID, req.TopicName, req.StudentName, req.StudentID, req.AdvisorName, req.EnterpriseMentorName, req.PositionName, req.Phase)
+			INSERT INTO graduation_project_archives (id, topic_id, user_id, phase, doc_status, doc_count, last_updated, has_rectification)
+			VALUES ($1, $2, $3, $4, 'making', 0, NOW(), false)
+		`, id, req.TopicID, req.UserID, req.Phase)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create graduation archive")
 			return
@@ -309,7 +321,6 @@ func (h *GraduationHandler) ArchivesCRUD(w http.ResponseWriter, r *http.Request)
 	}
 
 	topicID := r.URL.Query().Get("topicId")
-	search := r.URL.Query().Get("search")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 	limit := 50
@@ -329,22 +340,16 @@ func (h *GraduationHandler) ArchivesCRUD(w http.ResponseWriter, r *http.Request)
 		args = append(args, topicID)
 		argIdx++
 	}
-	if search != "" {
-		where = append(where, "student_name ILIKE $"+itoa(argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
 
 	countQuery := "SELECT COUNT(*) FROM graduation_project_archives WHERE " + strings.Join(where, " AND ")
 	var total int
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, topic_id, topic_name, student_name, student_id, advisor_name, enterprise_mentor_name, position_name,
-			phase, doc_status, doc_count, last_updated, has_rectification, created_at
+		SELECT id, topic_id, user_id, phase, doc_status, doc_count, last_updated, has_rectification
 		FROM graduation_project_archives
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY last_updated DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -358,13 +363,11 @@ func (h *GraduationHandler) ArchivesCRUD(w http.ResponseWriter, r *http.Request)
 	items := make([]domain.GraduationProjectArchive, 0)
 	for rows.Next() {
 		var a domain.GraduationProjectArchive
-		var mentor *string
-		if err := rows.Scan(&a.ID, &a.TopicID, &a.TopicName, &a.StudentName, &a.StudentID, &a.AdvisorName, &mentor, &a.PositionName,
-			&a.Phase, &a.DocStatus, &a.DocCount, &a.LastUpdated, &a.HasRectification, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.TopicID, &a.UserID,
+			&a.Phase, &a.DocStatus, &a.DocCount, &a.LastUpdated, &a.HasRectification); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan graduation archives")
 			return
 		}
-		a.EnterpriseMentorName = mentor
 		items = append(items, a)
 	}
 	respondJSON(w, http.StatusOK, GraduationArchiveListResponse{Items: items, Total: total})
@@ -383,18 +386,17 @@ func (h *GraduationHandler) EvaluationsCRUD(w http.ResponseWriter, r *http.Reque
 			respondError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
-		if req.TopicID == "" || req.StudentID == "" {
+		if req.TopicID == "" || req.UserID == "" {
 			respondError(w, http.StatusBadRequest, "missing required fields")
 			return
 		}
 
-		evalTime, _ := time.Parse(time.RFC3339, req.EvaluationTime)
 		id := uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
-			INSERT INTO graduation_project_evaluations (id, topic_id, topic_name, student_name, student_id, advisor_score,
-				enterprise_score, defense_score, comprehensive_grade, is_excellent, evaluation_time, status)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
-		`, id, req.TopicID, req.TopicName, req.StudentName, req.StudentID, req.AdvisorScore, req.EnterpriseScore, req.DefenseScore, req.ComprehensiveGrade, req.IsExcellent, evalTime)
+			INSERT INTO graduation_project_evaluations (id, topic_id, user_id, advisor_score,
+				enterprise_score, defense_score, comprehensive_grade, is_excellent, status, evaluated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW())
+		`, id, req.TopicID, req.UserID, req.AdvisorScore, req.EnterpriseScore, req.DefenseScore, req.ComprehensiveGrade, req.IsExcellent)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create graduation evaluation")
 			return
@@ -437,11 +439,11 @@ func (h *GraduationHandler) EvaluationsCRUD(w http.ResponseWriter, r *http.Reque
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, topic_id, topic_name, student_name, student_id, advisor_score, enterprise_score, defense_score,
-			comprehensive_grade, is_excellent, evaluation_time, status, created_at
+		SELECT id, topic_id, user_id, advisor_score, enterprise_score, defense_score,
+			comprehensive_grade, is_excellent, status, evaluated_at
 		FROM graduation_project_evaluations
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY evaluated_at DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -455,14 +457,17 @@ func (h *GraduationHandler) EvaluationsCRUD(w http.ResponseWriter, r *http.Reque
 	items := make([]domain.GraduationProjectEvaluation, 0)
 	for rows.Next() {
 		var e domain.GraduationProjectEvaluation
-		var enterpriseScore, defenseScore *float64
-		if err := rows.Scan(&e.ID, &e.TopicID, &e.TopicName, &e.StudentName, &e.StudentID, &e.AdvisorScore, &enterpriseScore, &defenseScore,
-			&e.ComprehensiveGrade, &e.IsExcellent, &e.EvaluationTime, &e.Status, &e.CreatedAt); err != nil {
+		var advisorScore, enterpriseScore, defenseScore *float64
+		var comprehensiveGrade *string
+		if err := rows.Scan(&e.ID, &e.TopicID, &e.UserID, &advisorScore, &enterpriseScore, &defenseScore,
+			&comprehensiveGrade, &e.IsExcellent, &e.Status, &e.EvaluatedAt); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan graduation evaluations")
 			return
 		}
+		e.AdvisorScore = advisorScore
 		e.EnterpriseScore = enterpriseScore
 		e.DefenseScore = defenseScore
+		e.ComprehensiveGrade = comprehensiveGrade
 		items = append(items, e)
 	}
 	respondJSON(w, http.StatusOK, GraduationEvaluationListResponse{Items: items, Total: total})
@@ -475,7 +480,6 @@ func (h *GraduationHandler) QueryResults(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	search := r.URL.Query().Get("search")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 	limit := 50
@@ -487,29 +491,18 @@ func (h *GraduationHandler) QueryResults(w http.ResponseWriter, r *http.Request)
 		offset = v
 	}
 
-	where := []string{"1=1"}
-	args := []interface{}{}
-	argIdx := 1
-	if search != "" {
-		where = append(where, "student_name ILIKE $"+itoa(argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
-
-	countQuery := "SELECT COUNT(*) FROM graduation_query_results WHERE " + strings.Join(where, " AND ")
+	countQuery := "SELECT COUNT(*) FROM graduation_query_results"
 	var total int
-	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
+	_ = h.DB.QueryRow(r.Context(), countQuery).Scan(&total)
 
 	query := `
-		SELECT id, student_name, student_id, class_name, major_name, credit_completed, credit_required,
-			scene_passed, scene_required, project_grade, graduation_status, ability_cert_status, rectification_count
+		SELECT id, user_id, class_name, major_name, credit_completed, credit_required,
+			scene_passed, scene_required, project_grade, graduation_status, ability_cert_status, rectification_count, updated_at
 		FROM graduation_query_results
-		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY student_name
-		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
-	args = append(args, limit, offset)
+		ORDER BY updated_at DESC
+		LIMIT $1 OFFSET $2`
 
-	rows, err := h.DB.Query(r.Context(), query, args...)
+	rows, err := h.DB.Query(r.Context(), query, limit, offset)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to list graduation query results")
 		return
@@ -519,12 +512,14 @@ func (h *GraduationHandler) QueryResults(w http.ResponseWriter, r *http.Request)
 	items := make([]domain.GraduationQueryResult, 0)
 	for rows.Next() {
 		var q domain.GraduationQueryResult
-		var projectGrade *string
-		if err := rows.Scan(&q.ID, &q.StudentName, &q.StudentID, &q.ClassName, &q.MajorName, &q.CreditCompleted, &q.CreditRequired,
-			&q.ScenePassed, &q.SceneRequired, &projectGrade, &q.GraduationStatus, &q.AbilityCertStatus, &q.RectificationCount); err != nil {
+		var className, majorName, projectGrade *string
+		if err := rows.Scan(&q.ID, &q.UserID, &className, &majorName, &q.CreditCompleted, &q.CreditRequired,
+			&q.ScenePassed, &q.SceneRequired, &projectGrade, &q.GraduationStatus, &q.AbilityCertStatus, &q.RectificationCount, &q.UpdatedAt); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan graduation query results")
 			return
 		}
+		q.ClassName = className
+		q.MajorName = majorName
 		q.ProjectGrade = projectGrade
 		items = append(items, q)
 	}
@@ -533,19 +528,30 @@ func (h *GraduationHandler) QueryResults(w http.ResponseWriter, r *http.Request)
 
 func (h *GraduationHandler) fetchTopic(ctx context.Context, id string) (domain.GraduationProjectTopic, error) {
 	var t domain.GraduationProjectTopic
-	var mentor, description *string
+	var college, advisorID, enterpriseMentorID, description *string
+	var startDate, endDate *time.Time
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, name, position_id, position_name, college, source, status, capacity, applied_count,
-			advisor_name, enterprise_mentor_name, start_date, end_date, description, created_at
+		SELECT id, name, career_position_id, college, source, status, capacity, applied_count,
+			advisor_id, enterprise_mentor_id, start_date, end_date, description, created_at
 		FROM graduation_project_topics WHERE id = $1
 	`, id).Scan(
-		&t.ID, &t.Name, &t.PositionID, &t.PositionName, &t.College, &t.Source, &t.Status, &t.Capacity, &t.AppliedCount,
-		&t.AdvisorName, &mentor, &t.StartDate, &t.EndDate, &description, &t.CreatedAt,
+		&t.ID, &t.Name, &t.CareerPositionID, &college, &t.Source, &t.Status, &t.Capacity, &t.AppliedCount,
+		&advisorID, &enterpriseMentorID, &startDate, &endDate, &description, &t.CreatedAt,
 	)
 	if err != nil {
 		return t, err
 	}
-	t.EnterpriseMentorName = mentor
+	t.College = college
+	t.AdvisorID = advisorID
+	t.EnterpriseMentorID = enterpriseMentorID
+	if startDate != nil {
+		s := startDate.Format("2006-01-02")
+		t.StartDate = &s
+	}
+	if endDate != nil {
+		s := endDate.Format("2006-01-02")
+		t.EndDate = &s
+	}
 	t.Description = description
 	return t, nil
 }
@@ -554,14 +560,25 @@ func (h *GraduationHandler) scanTopicRows(rows pgx.Rows) ([]domain.GraduationPro
 	items := make([]domain.GraduationProjectTopic, 0)
 	for rows.Next() {
 		var t domain.GraduationProjectTopic
-		var mentor, description *string
+		var college, advisorID, enterpriseMentorID, description *string
+		var startDate, endDate *time.Time
 		if err := rows.Scan(
-			&t.ID, &t.Name, &t.PositionID, &t.PositionName, &t.College, &t.Source, &t.Status, &t.Capacity, &t.AppliedCount,
-			&t.AdvisorName, &mentor, &t.StartDate, &t.EndDate, &description, &t.CreatedAt,
+			&t.ID, &t.Name, &t.CareerPositionID, &college, &t.Source, &t.Status, &t.Capacity, &t.AppliedCount,
+			&advisorID, &enterpriseMentorID, &startDate, &endDate, &description, &t.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
-		t.EnterpriseMentorName = mentor
+		t.College = college
+		t.AdvisorID = advisorID
+		t.EnterpriseMentorID = enterpriseMentorID
+		if startDate != nil {
+			s := startDate.Format("2006-01-02")
+			t.StartDate = &s
+		}
+		if endDate != nil {
+			s := endDate.Format("2006-01-02")
+			t.EndDate = &s
+		}
 		t.Description = description
 		items = append(items, t)
 	}
@@ -570,37 +587,37 @@ func (h *GraduationHandler) scanTopicRows(rows pgx.Rows) ([]domain.GraduationPro
 
 func (h *GraduationHandler) fetchArchive(ctx context.Context, id string) (domain.GraduationProjectArchive, error) {
 	var a domain.GraduationProjectArchive
-	var mentor *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, topic_id, topic_name, student_name, student_id, advisor_name, enterprise_mentor_name, position_name,
-			phase, doc_status, doc_count, last_updated, has_rectification, created_at
+		SELECT id, topic_id, user_id, phase, doc_status, doc_count, last_updated, has_rectification
 		FROM graduation_project_archives WHERE id = $1
 	`, id).Scan(
-		&a.ID, &a.TopicID, &a.TopicName, &a.StudentName, &a.StudentID, &a.AdvisorName, &mentor, &a.PositionName,
-		&a.Phase, &a.DocStatus, &a.DocCount, &a.LastUpdated, &a.HasRectification, &a.CreatedAt,
+		&a.ID, &a.TopicID, &a.UserID,
+		&a.Phase, &a.DocStatus, &a.DocCount, &a.LastUpdated, &a.HasRectification,
 	)
 	if err != nil {
 		return a, err
 	}
-	a.EnterpriseMentorName = mentor
 	return a, nil
 }
 
 func (h *GraduationHandler) fetchEvaluation(ctx context.Context, id string) (domain.GraduationProjectEvaluation, error) {
 	var e domain.GraduationProjectEvaluation
-	var enterpriseScore, defenseScore *float64
+	var advisorScore, enterpriseScore, defenseScore *float64
+	var comprehensiveGrade *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, topic_id, topic_name, student_name, student_id, advisor_score, enterprise_score, defense_score,
-			comprehensive_grade, is_excellent, evaluation_time, status, created_at
+		SELECT id, topic_id, user_id, advisor_score, enterprise_score, defense_score,
+			comprehensive_grade, is_excellent, status, evaluated_at
 		FROM graduation_project_evaluations WHERE id = $1
 	`, id).Scan(
-		&e.ID, &e.TopicID, &e.TopicName, &e.StudentName, &e.StudentID, &e.AdvisorScore, &enterpriseScore, &defenseScore,
-		&e.ComprehensiveGrade, &e.IsExcellent, &e.EvaluationTime, &e.Status, &e.CreatedAt,
+		&e.ID, &e.TopicID, &e.UserID, &advisorScore, &enterpriseScore, &defenseScore,
+		&comprehensiveGrade, &e.IsExcellent, &e.Status, &e.EvaluatedAt,
 	)
 	if err != nil {
 		return e, err
 	}
+	e.AdvisorScore = advisorScore
 	e.EnterpriseScore = enterpriseScore
 	e.DefenseScore = defenseScore
+	e.ComprehensiveGrade = comprehensiveGrade
 	return e, nil
 }

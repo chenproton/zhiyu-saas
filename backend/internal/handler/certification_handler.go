@@ -24,9 +24,8 @@ type CertificationRuleListResponse struct {
 }
 
 type CreateCertificationRuleRequest struct {
-	PositionID   string `json:"positionId"`
-	PositionName string `json:"positionName"`
-	RuleSource   string `json:"ruleSource"`
+	CareerPositionID string `json:"careerPositionId"`
+	RuleSource       string `json:"ruleSource"`
 }
 
 type CertificationItemListResponse struct {
@@ -60,7 +59,6 @@ func (h *CertificationHandler) ListRules(w http.ResponseWriter, r *http.Request)
 	}
 
 	status := r.URL.Query().Get("status")
-	search := r.URL.Query().Get("search")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
@@ -82,18 +80,13 @@ func (h *CertificationHandler) ListRules(w http.ResponseWriter, r *http.Request)
 		args = append(args, status)
 		argIdx++
 	}
-	if search != "" {
-		where = append(where, "position_name ILIKE $"+itoa(argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
 
 	countQuery := "SELECT COUNT(*) FROM certification_rules WHERE " + strings.Join(where, " AND ")
 	var total int
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, position_id, position_name, status, rule_source, created_at, updated_at
+		SELECT id, career_position_id, status, rule_source, created_at, updated_at
 		FROM certification_rules
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -144,16 +137,16 @@ func (h *CertificationHandler) CreateRule(w http.ResponseWriter, r *http.Request
 		respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.PositionName == "" {
+	if req.CareerPositionID == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
 	}
 
-		id := uuid.NewString()
-		_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO certification_rules (id, position_id, position_name, status, rule_source)
-		VALUES ($1, $2, $3, 'draft', $4)
-	`, id, req.PositionID, req.PositionName, req.RuleSource)
+	id := uuid.NewString()
+	_, err := h.DB.Exec(r.Context(), `
+		INSERT INTO certification_rules (id, career_position_id, status, rule_source)
+		VALUES ($1, $2, 'draft', $3)
+	`, id, req.CareerPositionID, req.RuleSource)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create certification rule")
 		return
@@ -181,15 +174,15 @@ func (h *CertificationHandler) UpdateRule(w http.ResponseWriter, r *http.Request
 		respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.PositionName == "" {
+	if req.CareerPositionID == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
 	}
 
 	_, err := h.DB.Exec(r.Context(), `
-		UPDATE certification_rules SET position_id = $1, position_name = $2, rule_source = $3, updated_at = NOW()
-		WHERE id = $4
-	`, req.PositionID, req.PositionName, req.RuleSource, id)
+		UPDATE certification_rules SET career_position_id = $1, rule_source = $2, updated_at = NOW()
+		WHERE id = $3
+	`, req.CareerPositionID, req.RuleSource, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update certification rule")
 		return
@@ -260,8 +253,8 @@ func (h *CertificationHandler) ConfigItems(w http.ResponseWriter, r *http.Reques
 	}
 
 	rows, err := h.DB.Query(r.Context(), `
-		SELECT id, rule_id, name, sort_order, created_at
-		FROM certification_ability_items WHERE rule_id = $1 ORDER BY sort_order, created_at
+		SELECT id, rule_id, name, sort_order
+		FROM certification_ability_items WHERE rule_id = $1 ORDER BY sort_order
 	`, ruleID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to list certification items")
@@ -272,7 +265,7 @@ func (h *CertificationHandler) ConfigItems(w http.ResponseWriter, r *http.Reques
 	items := make([]domain.CertificationAbilityItem, 0)
 	for rows.Next() {
 		var item domain.CertificationAbilityItem
-		if err := rows.Scan(&item.ID, &item.RuleID, &item.Name, &item.SortOrder, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.RuleID, &item.Name, &item.SortOrder); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan certification items")
 			return
 		}
@@ -309,10 +302,14 @@ func (h *CertificationHandler) ConfigPoints(w http.ResponseWriter, r *http.Reque
 		if req.CustomLevelMapping == nil {
 			req.CustomLevelMapping = domain.JSONSlice{}
 		}
-		_, err := h.DB.Exec(r.Context(), `
+		abilityPointUUID, err := uuid.Parse(req.AbilityPointID)
+		if err != nil {
+			abilityPointUUID = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(req.AbilityPointID))
+		}
+		_, err = h.DB.Exec(r.Context(), `
 			INSERT INTO certification_ability_points (id, item_id, ability_point_id, mapping_type, custom_level_mapping, required_level, weight)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
-		`, id, itemID, req.AbilityPointID, req.MappingType, req.CustomLevelMapping, req.RequiredLevel, req.Weight)
+		`, id, itemID, abilityPointUUID.String(), req.MappingType, req.CustomLevelMapping, req.RequiredLevel, req.Weight)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create certification point")
 			return
@@ -324,8 +321,8 @@ func (h *CertificationHandler) ConfigPoints(w http.ResponseWriter, r *http.Reque
 	}
 
 	rows, err := h.DB.Query(r.Context(), `
-		SELECT id, item_id, ability_point_id, mapping_type, custom_level_mapping, required_level, weight, created_at
-		FROM certification_ability_points WHERE item_id = $1 ORDER BY created_at
+		SELECT id, item_id, ability_point_id, mapping_type, custom_level_mapping, required_level, weight
+		FROM certification_ability_points WHERE item_id = $1 ORDER BY id
 	`, itemID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to list certification points")
@@ -336,7 +333,7 @@ func (h *CertificationHandler) ConfigPoints(w http.ResponseWriter, r *http.Reque
 	items := make([]domain.CertificationAbilityPoint, 0)
 	for rows.Next() {
 		var point domain.CertificationAbilityPoint
-		if err := rows.Scan(&point.ID, &point.ItemID, &point.AbilityPointID, &point.MappingType, &point.CustomLevelMapping, &point.RequiredLevel, &point.Weight, &point.CreatedAt); err != nil {
+		if err := rows.Scan(&point.ID, &point.ItemID, &point.AbilityPointID, &point.MappingType, &point.CustomLevelMapping, &point.RequiredLevel, &point.Weight); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan certification points")
 			return
 		}
@@ -389,15 +386,13 @@ func (h *CertificationHandler) DeletePoint(w http.ResponseWriter, r *http.Reques
 
 func (h *CertificationHandler) fetchRule(ctx context.Context, id string) (domain.CertificationRule, error) {
 	var rule domain.CertificationRule
-	var positionID *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, position_id, position_name, status, rule_source, created_at, updated_at
+		SELECT id, career_position_id, status, rule_source, created_at, updated_at
 		FROM certification_rules WHERE id = $1
-	`, id).Scan(&rule.ID, &positionID, &rule.PositionName, &rule.Status, &rule.RuleSource, &rule.CreatedAt, &rule.UpdatedAt)
+	`, id).Scan(&rule.ID, &rule.CareerPositionID, &rule.Status, &rule.RuleSource, &rule.CreatedAt, &rule.UpdatedAt)
 	if err != nil {
 		return rule, err
 	}
-	rule.PositionID = positionID
 	return rule, nil
 }
 
@@ -405,11 +400,9 @@ func (h *CertificationHandler) scanRuleRows(rows pgx.Rows) ([]domain.Certificati
 	items := make([]domain.CertificationRule, 0)
 	for rows.Next() {
 		var rule domain.CertificationRule
-		var positionID *string
-		if err := rows.Scan(&rule.ID, &positionID, &rule.PositionName, &rule.Status, &rule.RuleSource, &rule.CreatedAt, &rule.UpdatedAt); err != nil {
+		if err := rows.Scan(&rule.ID, &rule.CareerPositionID, &rule.Status, &rule.RuleSource, &rule.CreatedAt, &rule.UpdatedAt); err != nil {
 			return nil, err
 		}
-		rule.PositionID = positionID
 		items = append(items, rule)
 	}
 	return items, nil
@@ -418,16 +411,16 @@ func (h *CertificationHandler) scanRuleRows(rows pgx.Rows) ([]domain.Certificati
 func (h *CertificationHandler) fetchItem(ctx context.Context, id string) (domain.CertificationAbilityItem, error) {
 	var item domain.CertificationAbilityItem
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, rule_id, name, sort_order, created_at FROM certification_ability_items WHERE id = $1
-	`, id).Scan(&item.ID, &item.RuleID, &item.Name, &item.SortOrder, &item.CreatedAt)
+		SELECT id, rule_id, name, sort_order FROM certification_ability_items WHERE id = $1
+	`, id).Scan(&item.ID, &item.RuleID, &item.Name, &item.SortOrder)
 	return item, err
 }
 
 func (h *CertificationHandler) fetchPoint(ctx context.Context, id string) (domain.CertificationAbilityPoint, error) {
 	var point domain.CertificationAbilityPoint
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, item_id, ability_point_id, mapping_type, custom_level_mapping, required_level, weight, created_at
+		SELECT id, item_id, ability_point_id, mapping_type, custom_level_mapping, required_level, weight
 		FROM certification_ability_points WHERE id = $1
-	`, id).Scan(&point.ID, &point.ItemID, &point.AbilityPointID, &point.MappingType, &point.CustomLevelMapping, &point.RequiredLevel, &point.Weight, &point.CreatedAt)
+	`, id).Scan(&point.ID, &point.ItemID, &point.AbilityPointID, &point.MappingType, &point.CustomLevelMapping, &point.RequiredLevel, &point.Weight)
 	return point, err
 }

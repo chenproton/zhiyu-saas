@@ -538,9 +538,8 @@ func TestCertification_CRUD(t *testing.T) {
 	defer env.DB.Exec(ctx, "DELETE FROM career_positions WHERE id = $1", pos.ID)
 
 	w = env.Do("POST", "/api/v1/evaluation/certifications", map[string]interface{}{
-		"positionId":   pos.ID,
-		"positionName": pos.Name,
-		"ruleSource":   "manual",
+		"careerPositionId": pos.ID,
+		"ruleSource":       "manual",
 	})
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create rule: expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
@@ -562,19 +561,11 @@ func TestCertification_CRUD(t *testing.T) {
 	}
 
 	w = env.Do("PUT", "/api/v1/evaluation/certifications/"+rule.ID, map[string]interface{}{
-		"positionId":   pos.ID,
-		"positionName": "Updated Position Name",
-		"ruleSource":   "manual",
+		"careerPositionId": pos.ID,
+		"ruleSource":       "manual",
 	})
 	if w.Code != http.StatusOK {
 		t.Fatalf("update rule: expected 200, got %d", w.Code)
-	}
-	updatedRule, err := testhelper.Unmarshal[domain.CertificationRule](w)
-	if err != nil {
-		t.Fatalf("unmarshal update: %v", err)
-	}
-	if updatedRule.PositionName != "Updated Position Name" {
-		t.Fatalf("expected position name 'Updated Position Name', got %q", updatedRule.PositionName)
 	}
 
 	w = env.Do("DELETE", "/api/v1/evaluation/certifications/"+rule.ID, nil)
@@ -602,9 +593,8 @@ func TestCertification_ConfigItemsPoints(t *testing.T) {
 	defer env.DB.Exec(ctx, "DELETE FROM career_positions WHERE id = $1", pos.ID)
 
 	w = env.Do("POST", "/api/v1/evaluation/certifications", map[string]interface{}{
-		"positionId":   pos.ID,
-		"positionName": pos.Name,
-		"ruleSource":   "manual",
+		"careerPositionId": pos.ID,
+		"ruleSource":       "manual",
 	})
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create rule: expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
@@ -668,12 +658,11 @@ func TestGraduation(t *testing.T) {
 	defer env.DB.Exec(ctx, "DELETE FROM career_positions WHERE id = $1", pos.ID)
 
 	w = env.Do("POST", "/api/v1/evaluation/graduation/topics", map[string]interface{}{
-		"name":         "Topic 1",
-		"positionId":   pos.ID,
-		"positionName": pos.Name,
-		"college":      "CS",
-		"source":       "scene",
-		"capacity":     5,
+		"name":              "Topic 1",
+		"careerPositionId":  pos.ID,
+		"college":           "CS",
+		"source":            "scene",
+		"capacity":          5,
 	})
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create topic: expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
@@ -695,12 +684,11 @@ func TestGraduation(t *testing.T) {
 	}
 
 	w = env.Do("PUT", "/api/v1/evaluation/graduation/topics/"+topic.ID, map[string]interface{}{
-		"name":         "Updated Topic",
-		"positionId":   pos.ID,
-		"positionName": pos.Name,
-		"college":      "CS",
-		"source":       "scene",
-		"capacity":     10,
+		"name":              "Updated Topic",
+		"careerPositionId":  pos.ID,
+		"college":           "CS",
+		"source":            "scene",
+		"capacity":          10,
 	})
 	if w.Code != http.StatusOK {
 		t.Fatalf("update topic: expected 200, got %d", w.Code)
@@ -731,13 +719,9 @@ func TestGraduation(t *testing.T) {
 	}
 
 	w = env.Do("POST", "/api/v1/evaluation/graduation/archives", map[string]interface{}{
-		"topicId":      topic.ID,
-		"topicName":    topic.Name,
-		"studentName":  "Test Student",
-		"studentId":    testhelper.TestOperatorID,
-		"advisorName":  "Advisor Name",
-		"positionName": pos.Name,
-		"phase":        "proposal",
+		"topicId": topic.ID,
+		"userId":  testhelper.TestOperatorID,
+		"phase":   "proposal",
 	})
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create archive: expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
@@ -757,16 +741,12 @@ func TestGraduation(t *testing.T) {
 		t.Fatalf("list evaluations: expected 200, got %d", w.Code)
 	}
 
-	evalTime := time.Now().Format(time.RFC3339)
 	w = env.Do("POST", "/api/v1/evaluation/graduation/evaluations", map[string]interface{}{
 		"topicId":            topic.ID,
-		"topicName":          topic.Name,
-		"studentName":        "Test Student",
-		"studentId":          testhelper.TestOperatorID,
+		"userId":             testhelper.TestOperatorID,
 		"advisorScore":       85,
 		"comprehensiveGrade": "B",
 		"isExcellent":        false,
-		"evaluationTime":     evalTime,
 	})
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create evaluation: expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
@@ -777,8 +757,8 @@ func TestGraduation(t *testing.T) {
 	}
 	defer env.DB.Exec(ctx, "DELETE FROM graduation_project_evaluations WHERE id = $1", eval.ID)
 
-	if eval.ComprehensiveGrade != "B" {
-		t.Fatalf("expected comprehensiveGrade 'B', got %q", eval.ComprehensiveGrade)
+	if *eval.ComprehensiveGrade != "B" {
+		t.Fatalf("expected comprehensiveGrade 'B', got %q", *eval.ComprehensiveGrade)
 	}
 
 	w = env.Do("GET", "/api/v1/evaluation/graduation/query", nil)
@@ -808,8 +788,7 @@ func TestStudentPortrait(t *testing.T) {
 	}
 
 	w = env.Do("POST", "/api/v1/evaluation/portraits/archives", map[string]interface{}{
-		"studentName":  "Test Student",
-		"studentId":    testhelper.TestOperatorID,
+		"userId":       testhelper.TestOperatorID,
 		"materialType": "certificate",
 		"materialName": "Test Cert",
 		"issuingOrg":   "Test Org",
@@ -919,10 +898,9 @@ func TestAppeal(t *testing.T) {
 	ctx := context.Background()
 
 	w := env.Do("POST", "/api/v1/evaluation/appeals", map[string]interface{}{
-		"studentId":   testhelper.TestOperatorID,
-		"studentName": "Test Student",
-		"type":        "grade",
-		"reason":      "Test reason",
+		"userId": testhelper.TestOperatorID,
+		"type":   "grade",
+		"reason": "Test reason",
 	})
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create appeal: expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))

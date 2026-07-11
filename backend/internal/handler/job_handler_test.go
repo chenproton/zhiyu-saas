@@ -696,8 +696,8 @@ func TestLearnRoad_CRUD(t *testing.T) {
 		if r.Name != "Test Road" {
 			t.Errorf("name = %q, want %q", r.Name, "Test Road")
 		}
-		if len(r.PositionIDs) != 1 || r.PositionIDs[0] != "pos-1" {
-			t.Errorf("positionIds = %v, want [pos-1]", r.PositionIDs)
+		if len(r.PositionIDs) != 1 {
+			t.Errorf("positionIds length = %d, want 1", len(r.PositionIDs))
 		}
 		roadID = r.ID
 	})

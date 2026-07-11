@@ -63,7 +63,7 @@ func (h *NodeHomeworkHandler) List(w http.ResponseWriter, r *http.Request) {
 		SELECT id, node_id, title, requirement, need_attachment, deadline
 		FROM node_homeworks
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY id DESC
 	`
 	rows, err := h.DB.Query(r.Context(), query, args...)
 	if err != nil {
@@ -149,7 +149,7 @@ func (h *NodeHomeworkHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := h.DB.Exec(r.Context(), `
-		UPDATE node_homeworks SET title = $1, requirement = $2, need_attachment = $3, deadline = $4, updated_at = NOW()
+		UPDATE node_homeworks SET title = $1, requirement = $2, need_attachment = $3, deadline = $4
 		WHERE id = $5
 	`, req.Title, req.Requirement, req.NeedAttachment, req.Deadline, id)
 	if err != nil {

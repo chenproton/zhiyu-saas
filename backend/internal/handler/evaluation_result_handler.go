@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -43,10 +44,8 @@ func (h *EvaluationResultHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	methodID := r.URL.Query().Get("methodId")
 	taskID := r.URL.Query().Get("taskId")
 	status := r.URL.Query().Get("status")
-	search := r.URL.Query().Get("search")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
@@ -63,24 +62,14 @@ func (h *EvaluationResultHandler) List(w http.ResponseWriter, r *http.Request) {
 	args := []interface{}{}
 	argIdx := 1
 
-	if methodID != "" {
-		where = append(where, "method_id = $"+itoa(argIdx))
-		args = append(args, methodID)
-		argIdx++
-	}
 	if taskID != "" {
 		where = append(where, "task_id = $"+itoa(argIdx))
 		args = append(args, taskID)
 		argIdx++
 	}
 	if status != "" {
-		where = append(where, "evaluation_status = $"+itoa(argIdx))
+		where = append(where, "status = $"+itoa(argIdx))
 		args = append(args, status)
-		argIdx++
-	}
-	if search != "" {
-		where = append(where, "evaluatee_name ILIKE $"+itoa(argIdx))
-		args = append(args, "%"+search+"%")
 		argIdx++
 	}
 
@@ -89,11 +78,12 @@ func (h *EvaluationResultHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, method_id, evaluation_time, task_id, task_name, scene_name, evaluatee_type, evaluatee_id, evaluatee_name,
-			evaluator_ids, evaluator_names, evaluator_type, evaluation_status, score, max_score, comment, created_at, updated_at
+		SELECT id, task_id, scene_id, method_key, evaluatee_id, evaluator_id, evaluator_type, status,
+			total_score, max_score, eval_point_scores, objective_answers, subjective_content,
+			drawn_questions, comment, graded_at, graded_by
 		FROM scene_evaluation_results
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY id DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -143,8 +133,13 @@ func (h *EvaluationResultHandler) Grade(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if _, err := h.fetchResult(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "evaluation result not found")
+		return
+	}
+
 	_, err := h.DB.Exec(r.Context(), `
-		UPDATE scene_evaluation_results SET score = $1, comment = $2, evaluation_status = 'evaluated', updated_at = NOW()
+		UPDATE scene_evaluation_results SET total_score = $1, comment = $2, status = 'evaluated', graded_at = NOW()
 		WHERE id = $3
 	`, req.Score, req.Comment, id)
 	if err != nil {
@@ -179,7 +174,7 @@ func (h *EvaluationResultHandler) BatchGrade(w http.ResponseWriter, r *http.Requ
 	count := 0
 	for _, item := range req.Items {
 		_, err := tx.Exec(r.Context(), `
-			UPDATE scene_evaluation_results SET score = $1, evaluation_status = 'evaluated', updated_at = NOW() WHERE id = $2
+			UPDATE scene_evaluation_results SET total_score = $1, status = 'evaluated', graded_at = NOW() WHERE id = $2
 		`, item.Score, item.ID)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to batch grade")
@@ -198,19 +193,32 @@ func (h *EvaluationResultHandler) BatchGrade(w http.ResponseWriter, r *http.Requ
 
 func (h *EvaluationResultHandler) fetchResult(ctx context.Context, id string) (domain.SceneEvaluationResult, error) {
 	var res domain.SceneEvaluationResult
-	var comment *string
+	var sceneID, comment, gradedBy *string
+	var totalScore *float64
+	var gradedAt *time.Time
+	var evalPointScores, objectiveAnswers, subjectiveContent, drawnQuestions domain.JSONMap
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, method_id, evaluation_time, task_id, task_name, scene_name, evaluatee_type, evaluatee_id, evaluatee_name,
-			evaluator_ids, evaluator_names, evaluator_type, evaluation_status, score, max_score, comment, created_at, updated_at
+		SELECT id, task_id, scene_id, method_key, evaluatee_id, evaluator_id, evaluator_type, status,
+			total_score, max_score, eval_point_scores, objective_answers, subjective_content,
+			drawn_questions, comment, graded_at, graded_by
 		FROM scene_evaluation_results WHERE id = $1
 	`, id).Scan(
-		&res.ID, &res.MethodID, &res.EvaluationTime, &res.TaskID, &res.TaskName, &res.SceneName, &res.EvaluateeType, &res.EvaluateeID, &res.EvaluateeName,
-		&res.EvaluatorIDs, &res.EvaluatorNames, &res.EvaluatorType, &res.EvaluationStatus, &res.Score, &res.MaxScore, &comment, &res.CreatedAt, &res.UpdatedAt,
+		&res.ID, &res.TaskID, &sceneID, &res.MethodKey, &res.EvaluateeID, &res.EvaluatorID, &res.EvaluatorType, &res.Status,
+		&totalScore, &res.MaxScore, &evalPointScores, &objectiveAnswers, &subjectiveContent,
+		&drawnQuestions, &comment, &gradedAt, &gradedBy,
 	)
 	if err != nil {
 		return res, err
 	}
+	res.SceneID = sceneID
+	res.TotalScore = totalScore
 	res.Comment = comment
+	res.GradedAt = gradedAt
+	res.GradedBy = gradedBy
+	res.EvalPointScores = evalPointScores
+	res.ObjectiveAnswers = objectiveAnswers
+	res.SubjectiveContent = subjectiveContent
+	res.DrawnQuestions = drawnQuestions
 	return res, nil
 }
 
@@ -218,14 +226,26 @@ func (h *EvaluationResultHandler) scanResultRows(rows pgx.Rows) ([]domain.SceneE
 	items := make([]domain.SceneEvaluationResult, 0)
 	for rows.Next() {
 		var res domain.SceneEvaluationResult
-		var comment *string
+		var sceneID, comment, gradedBy *string
+		var totalScore *float64
+		var gradedAt *time.Time
+		var evalPointScores, objectiveAnswers, subjectiveContent, drawnQuestions domain.JSONMap
 		if err := rows.Scan(
-			&res.ID, &res.MethodID, &res.EvaluationTime, &res.TaskID, &res.TaskName, &res.SceneName, &res.EvaluateeType, &res.EvaluateeID, &res.EvaluateeName,
-			&res.EvaluatorIDs, &res.EvaluatorNames, &res.EvaluatorType, &res.EvaluationStatus, &res.Score, &res.MaxScore, &comment, &res.CreatedAt, &res.UpdatedAt,
+			&res.ID, &res.TaskID, &sceneID, &res.MethodKey, &res.EvaluateeID, &res.EvaluatorID, &res.EvaluatorType, &res.Status,
+			&totalScore, &res.MaxScore, &evalPointScores, &objectiveAnswers, &subjectiveContent,
+			&drawnQuestions, &comment, &gradedAt, &gradedBy,
 		); err != nil {
 			return nil, err
 		}
+		res.SceneID = sceneID
+		res.TotalScore = totalScore
 		res.Comment = comment
+		res.GradedAt = gradedAt
+		res.GradedBy = gradedBy
+		res.EvalPointScores = evalPointScores
+		res.ObjectiveAnswers = objectiveAnswers
+		res.SubjectiveContent = subjectiveContent
+		res.DrawnQuestions = drawnQuestions
 		items = append(items, res)
 	}
 	return items, nil

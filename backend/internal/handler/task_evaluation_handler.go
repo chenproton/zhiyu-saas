@@ -105,7 +105,7 @@ func (h *TaskEvaluationHandler) ListConfigs(w http.ResponseWriter, r *http.Reque
 		SELECT id, task_id, method_key, weight, eval_objects, eval_subjects, eval_resources
 		FROM task_evaluation_configs
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY id DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -230,7 +230,7 @@ func (h *TaskEvaluationHandler) ListEvalPoints(w http.ResponseWriter, r *http.Re
 			sub_type, knowledge_point_ids, ability_point_ids, sort_order
 		FROM task_eval_points
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY sort_order, created_at
+		ORDER BY sort_order
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -350,7 +350,7 @@ func (h *TaskEvaluationHandler) ListReviewSteps(w http.ResponseWriter, r *http.R
 		SELECT id, config_id, label, description, enabled, subject_type, weight, sort_order
 		FROM task_review_steps
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY sort_order, created_at
+		ORDER BY sort_order
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 

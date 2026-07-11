@@ -223,7 +223,7 @@ func (h *UserManagementHandler) Update(w http.ResponseWriter, r *http.Request) {
 		WHERE id = $15
 	`, req.InstitutionID, req.IdentityTypeID, req.OrgNodeID, req.MajorID,
 		role, req.Username, req.Name, req.Email, req.Phone, req.AvatarURL,
-		req.StudentNo, req.WorkID, req.IDCard, req.TitleIDs, id)
+		req.StudentNo, req.WorkID, req.IDCard, coalesceStringSlice(req.TitleIDs), id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update user")
 		return
@@ -367,12 +367,12 @@ func (h *UserManagementHandler) createSingleUserInTx(ctx context.Context, tx pgx
 
 	_, err = tx.Exec(ctx, `
 		INSERT INTO users (id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
-			role, login_name, username, password_hash, name, email, phone, avatar_url,
+			role, username, password_hash, name, email, phone, avatar_url,
 			student_no, work_id, id_card, title_ids, oauth, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'active')
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'active')
 	`, id, req.TenantID, req.InstitutionID, req.IdentityTypeID, req.OrgNodeID, req.MajorID,
-		role, req.Username, req.Username, string(hash), req.Name, req.Email, req.Phone, req.AvatarURL,
-		req.StudentNo, req.WorkID, req.IDCard, req.TitleIDs, domain.JSONMap{})
+		role, req.Username, string(hash), req.Name, req.Email, req.Phone, req.AvatarURL,
+		req.StudentNo, req.WorkID, req.IDCard, coalesceStringSlice(req.TitleIDs), domain.JSONMap{})
 	if err != nil {
 		return domain.User{}, err
 	}

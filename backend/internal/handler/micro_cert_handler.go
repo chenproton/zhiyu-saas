@@ -117,10 +117,14 @@ func (h *MicroCertHandler) CreateTemplate(w http.ResponseWriter, r *http.Request
 	}
 
 	id := uuid.NewString()
-	_, err := h.DB.Exec(r.Context(), `
+	certTypeUUID, err := uuid.Parse(req.CertTypeID)
+	if err != nil {
+		certTypeUUID = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(req.CertTypeID))
+	}
+	_, err = h.DB.Exec(r.Context(), `
 		INSERT INTO micro_cert_templates (id, title, cert_type_id, cert_type_name, content, cover_url)
 		VALUES ($1, $2, $3, $4, $5, $6)
-	`, id, req.Title, req.CertTypeID, req.CertTypeName, req.Content, req.CoverURL)
+	`, id, req.Title, certTypeUUID.String(), req.CertTypeName, req.Content, req.CoverURL)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create micro cert template")
 		return
@@ -153,10 +157,15 @@ func (h *MicroCertHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, err := h.DB.Exec(r.Context(), `
+	certTypeUUID, err := uuid.Parse(req.CertTypeID)
+	if err != nil {
+		certTypeUUID = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(req.CertTypeID))
+	}
+
+	_, err = h.DB.Exec(r.Context(), `
 		UPDATE micro_cert_templates SET title = $1, cert_type_id = $2, cert_type_name = $3, content = $4, cover_url = $5, updated_at = NOW()
 		WHERE id = $6
-	`, req.Title, req.CertTypeID, req.CertTypeName, req.Content, req.CoverURL, id)
+	`, req.Title, certTypeUUID.String(), req.CertTypeName, req.Content, req.CoverURL, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update micro cert template")
 		return
@@ -179,7 +188,12 @@ func (h *MicroCertHandler) DeleteTemplate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, err := h.DB.Exec(r.Context(), `DELETE FROM micro_cert_templates WHERE id = $1`, id)
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM cert_issuance_records WHERE template_id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete related issuance records")
+		return
+	}
+	_, err = h.DB.Exec(r.Context(), `DELETE FROM micro_cert_templates WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to delete micro cert template")
 		return
@@ -204,14 +218,6 @@ func (h *MicroCertHandler) IssueCerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var template domain.MicroCertTemplate
-	if err := h.DB.QueryRow(r.Context(), `
-		SELECT id, title, cert_type_name FROM micro_cert_templates WHERE id = $1
-	`, req.TemplateID).Scan(&template.ID, &template.Title, &template.CertTypeName); err != nil {
-		respondError(w, http.StatusNotFound, "template not found")
-		return
-	}
-
 	tx, err := h.DB.Begin(r.Context())
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to begin transaction")
@@ -223,9 +229,9 @@ func (h *MicroCertHandler) IssueCerts(w http.ResponseWriter, r *http.Request) {
 	for _, userID := range req.UserIDs {
 		recordID := uuid.NewString()
 		_, err := tx.Exec(r.Context(), `
-			INSERT INTO cert_issuance_records (id, template_id, template_title, cert_type_name, student_name, student_id, class_name, issue_date, status, cert_number)
-			VALUES ($1, $2, $3, $4, '', $5, '', $6, 'issued', $7)
-		`, recordID, template.ID, template.Title, template.CertTypeName, userID, time.Now(), uuid.NewString())
+			INSERT INTO cert_issuance_records (id, template_id, user_id, issue_date, status, cert_number)
+			VALUES ($1, $2, $3, $4, 'issued', $5)
+		`, recordID, req.TemplateID, userID, time.Now(), uuid.NewString())
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to issue certs")
 			return
@@ -249,7 +255,6 @@ func (h *MicroCertHandler) ListHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templateID := r.URL.Query().Get("templateId")
-	search := r.URL.Query().Get("search")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
@@ -270,19 +275,14 @@ func (h *MicroCertHandler) ListHistory(w http.ResponseWriter, r *http.Request) {
 		args = append(args, templateID)
 		argIdx++
 	}
-	if search != "" {
-		where = append(where, "student_name ILIKE $"+itoa(argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
 
 	countQuery := "SELECT COUNT(*) FROM cert_issuance_records WHERE " + strings.Join(where, " AND ")
 	var total int
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, template_id, template_title, cert_type_name, student_name, student_id, class_name, issue_date,
-			expire_date, status, cert_number, revoked_at, revoke_reason
+		SELECT id, template_id, user_id, cert_number, issue_date,
+			expire_date, status, revoked_at, revoke_reason
 		FROM cert_issuance_records
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY issue_date DESC
@@ -301,8 +301,8 @@ func (h *MicroCertHandler) ListHistory(w http.ResponseWriter, r *http.Request) {
 		var record domain.CertIssuanceRecord
 		var expireDate, revokedAt *time.Time
 		var revokeReason *string
-		if err := rows.Scan(&record.ID, &record.TemplateID, &record.TemplateTitle, &record.CertTypeName, &record.StudentName, &record.StudentID, &record.ClassName, &record.IssueDate,
-			&expireDate, &record.Status, &record.CertNumber, &revokedAt, &revokeReason); err != nil {
+		if err := rows.Scan(&record.ID, &record.TemplateID, &record.UserID, &record.CertNumber, &record.IssueDate,
+			&expireDate, &record.Status, &revokedAt, &revokeReason); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan cert issuance history")
 			return
 		}

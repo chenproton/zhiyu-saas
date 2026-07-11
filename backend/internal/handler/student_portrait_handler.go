@@ -34,14 +34,12 @@ type StudentArchiveListResponse struct {
 }
 
 type CreateStudentArchiveRequest struct {
-	StudentName  string `json:"studentName"`
-	StudentID    string `json:"studentId"`
-	ClassName    string `json:"className"`
-	MaterialType string `json:"materialType"`
-	MaterialName string `json:"materialName"`
-	IssuingOrg   string `json:"issuingOrg"`
-	ObtainDate   string `json:"obtainDate"`
-	Direction    string `json:"direction"`
+	UserID       string  `json:"userId"`
+	MaterialType string  `json:"materialType"`
+	MaterialName string  `json:"materialName"`
+	IssuingOrg   *string `json:"issuingOrg"`
+	ObtainDate   *string `json:"obtainDate"`
+	Direction    *string `json:"direction"`
 }
 
 func (h *StudentPortraitHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +49,6 @@ func (h *StudentPortraitHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	search := r.URL.Query().Get("search")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
@@ -64,31 +61,20 @@ func (h *StudentPortraitHandler) List(w http.ResponseWriter, r *http.Request) {
 		offset = v
 	}
 
-	where := []string{"1=1"}
-	args := []interface{}{}
-	argIdx := 1
-	if search != "" {
-		where = append(where, "student_name ILIKE $"+itoa(argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
-
-	countQuery := "SELECT COUNT(*) FROM student_ability_portraits WHERE " + strings.Join(where, " AND ")
-	var total int
-	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
-
 	query := `
-		SELECT id, student_name, student_id, class_name, major_name, position_name, overall_grade, domain_scores,
-			class_rank, class_total, major_rank, major_total, recommend_positions, updated_at, gender, grade_year, avatar_url,
-			courses, scenes, completed_courses, completed_scenes, total_credits, archive_count, course_records,
-			graduation_qualified, attendance_rate, diploma_badge, year_rank, year_total, dual_badge
+		SELECT id, user_id, career_position_id, overall_grade, domain_scores,
+			class_rank, class_total, major_rank, major_total, recommend_positions, updated_at,
+			completed_courses, completed_scenes, total_credits, archive_count, course_records,
+			graduation_qualified, attendance_rate, diploma_badge, dual_badge
 		FROM student_ability_portraits
-		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY updated_at DESC
-		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
-	args = append(args, limit, offset)
+		LIMIT $1 OFFSET $2`
 
-	rows, err := h.DB.Query(r.Context(), query, args...)
+	countQuery := "SELECT COUNT(*) FROM student_ability_portraits"
+	var total int
+	_ = h.DB.QueryRow(r.Context(), countQuery).Scan(&total)
+
+	rows, err := h.DB.Query(r.Context(), query, limit, offset)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to list student portraits")
 		return
@@ -136,15 +122,19 @@ func (h *StudentPortraitHandler) Generate(w http.ResponseWriter, r *http.Request
 		respondError(w, http.StatusBadRequest, "missing user id")
 		return
 	}
+	if req.CareerPositionID == "" {
+		respondError(w, http.StatusBadRequest, "missing career position id")
+		return
+	}
 
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO student_ability_portraits (id, student_name, student_id, class_name, major_name, position_name, overall_grade,
-			domain_scores, class_rank, class_total, major_rank, major_total, recommend_positions, updated_at, gender, grade_year,
-			avatar_url, courses, scenes, completed_courses, completed_scenes, total_credits, archive_count, course_records,
-			graduation_qualified, attendance_rate, diploma_badge, year_rank, year_total, dual_badge)
-		VALUES ($1, '', $2, '', '', '', 'D', '[]', 0, 0, 0, 0, '[]', NOW(), '', '', NULL, '[]', '[]', 0, 0, 0, 0, '[]', false, 0, '', 0, 0, '')
-	`, id, req.UserID)
+		INSERT INTO student_ability_portraits (id, user_id, career_position_id, overall_grade,
+			domain_scores, class_rank, class_total, major_rank, major_total, recommend_positions, updated_at,
+			completed_courses, completed_scenes, total_credits, archive_count, course_records,
+			graduation_qualified, attendance_rate, diploma_badge, dual_badge)
+		VALUES ($1, $2, $3, 'D', '[]', NULL, NULL, NULL, NULL, '[]', NOW(), 0, 0, 0, 0, '[]', false, 0, '', '')
+	`, id, req.UserID, req.CareerPositionID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to generate portrait")
 		return
@@ -161,7 +151,7 @@ func (h *StudentPortraitHandler) ListArchives(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	studentID := r.URL.Query().Get("studentId")
+	userID := r.URL.Query().Get("userId")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
@@ -177,9 +167,9 @@ func (h *StudentPortraitHandler) ListArchives(w http.ResponseWriter, r *http.Req
 	where := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
-	if studentID != "" {
-		where = append(where, "student_id = $"+itoa(argIdx))
-		args = append(args, studentID)
+	if userID != "" {
+		where = append(where, "user_id = $"+itoa(argIdx))
+		args = append(args, userID)
 		argIdx++
 	}
 
@@ -188,8 +178,8 @@ func (h *StudentPortraitHandler) ListArchives(w http.ResponseWriter, r *http.Req
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, student_name, student_id, class_name, material_type, material_name, issuing_org, obtain_date,
-			audit_status, audit_remark, converted_credit, direction, is_visible, level, created_at
+		SELECT id, user_id, material_type, material_name, issuing_org, obtain_date,
+			level, audit_status, audit_remark, converted_credit, direction, is_visible, created_at
 		FROM student_ability_archives
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -206,14 +196,16 @@ func (h *StudentPortraitHandler) ListArchives(w http.ResponseWriter, r *http.Req
 	items := make([]domain.StudentAbilityArchive, 0)
 	for rows.Next() {
 		var a domain.StudentAbilityArchive
-		var remark, level *string
-		if err := rows.Scan(&a.ID, &a.StudentName, &a.StudentID, &a.ClassName, &a.MaterialType, &a.MaterialName, &a.IssuingOrg, &a.ObtainDate,
-			&a.AuditStatus, &remark, &a.ConvertedCredit, &a.Direction, &a.IsVisible, &level, &a.CreatedAt); err != nil {
+		var issuingOrg, obtainDate, level, remark *string
+		if err := rows.Scan(&a.ID, &a.UserID, &a.MaterialType, &a.MaterialName, &issuingOrg, &obtainDate,
+			&level, &a.AuditStatus, &remark, &a.ConvertedCredit, &a.Direction, &a.IsVisible, &a.CreatedAt); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan student archives")
 			return
 		}
-		a.AuditRemark = remark
+		a.IssuingOrg = issuingOrg
+		a.ObtainDate = obtainDate
 		a.Level = level
+		a.AuditRemark = remark
 		items = append(items, a)
 	}
 	respondJSON(w, http.StatusOK, StudentArchiveListResponse{Items: items, Total: total})
@@ -231,17 +223,22 @@ func (h *StudentPortraitHandler) CreateArchive(w http.ResponseWriter, r *http.Re
 		respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.StudentID == "" || req.MaterialName == "" {
+	if req.UserID == "" || req.MaterialName == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
 	}
 
 	id := uuid.NewString()
+	direction := req.Direction
+	if direction == nil || *direction == "" {
+		d := "positive"
+		direction = &d
+	}
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO student_ability_archives (id, student_name, student_id, class_name, material_type, material_name, issuing_org, obtain_date,
+		INSERT INTO student_ability_archives (id, user_id, material_type, material_name, issuing_org, obtain_date,
 			audit_status, converted_credit, direction, is_visible)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', 0, $9, true)
-	`, id, req.StudentName, req.StudentID, req.ClassName, req.MaterialType, req.MaterialName, req.IssuingOrg, req.ObtainDate, req.Direction)
+		VALUES ($1, $2, $3, $4, $5, $6, 'pending', 0, $7, true)
+	`, id, req.UserID, req.MaterialType, req.MaterialName, req.IssuingOrg, req.ObtainDate, *direction)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create student archive")
 		return
@@ -253,23 +250,33 @@ func (h *StudentPortraitHandler) CreateArchive(w http.ResponseWriter, r *http.Re
 
 func (h *StudentPortraitHandler) fetchPortrait(ctx context.Context, id string) (domain.StudentAbilityPortrait, error) {
 	var p domain.StudentAbilityPortrait
-	var avatar *string
+	var overallGrade *string
+	var classRank, classTotal, majorRank, majorTotal *int
+	var attendanceRate *float64
+	var diplomaBadge, dualBadge *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, student_name, student_id, class_name, major_name, position_name, overall_grade, domain_scores,
-			class_rank, class_total, major_rank, major_total, recommend_positions, updated_at, gender, grade_year, avatar_url,
-			courses, scenes, completed_courses, completed_scenes, total_credits, archive_count, course_records,
-			graduation_qualified, attendance_rate, diploma_badge, year_rank, year_total, dual_badge
+		SELECT id, user_id, career_position_id, overall_grade, domain_scores,
+			class_rank, class_total, major_rank, major_total, recommend_positions, updated_at,
+			completed_courses, completed_scenes, total_credits, archive_count, course_records,
+			graduation_qualified, attendance_rate, diploma_badge, dual_badge
 		FROM student_ability_portraits WHERE id = $1
 	`, id).Scan(
-		&p.ID, &p.StudentName, &p.StudentID, &p.ClassName, &p.MajorName, &p.PositionName, &p.OverallGrade, &p.DomainScores,
-		&p.ClassRank, &p.ClassTotal, &p.MajorRank, &p.MajorTotal, &p.RecommendPositions, &p.UpdatedAt, &p.Gender, &p.GradeYear, &avatar,
-		&p.Courses, &p.Scenes, &p.CompletedCourses, &p.CompletedScenes, &p.TotalCredits, &p.ArchiveCount, &p.CourseRecords,
-		&p.GraduationQualified, &p.AttendanceRate, &p.DiplomaBadge, &p.YearRank, &p.YearTotal, &p.DualBadge,
+		&p.ID, &p.UserID, &p.CareerPositionID, &overallGrade, &p.DomainScores,
+		&classRank, &classTotal, &majorRank, &majorTotal, &p.RecommendPositions, &p.UpdatedAt,
+		&p.CompletedCourses, &p.CompletedScenes, &p.TotalCredits, &p.ArchiveCount, &p.CourseRecords,
+		&p.GraduationQualified, &attendanceRate, &diplomaBadge, &dualBadge,
 	)
 	if err != nil {
 		return p, err
 	}
-	p.AvatarURL = avatar
+	p.OverallGrade = overallGrade
+	p.ClassRank = classRank
+	p.ClassTotal = classTotal
+	p.MajorRank = majorRank
+	p.MajorTotal = majorTotal
+	p.AttendanceRate = attendanceRate
+	p.DiplomaBadge = diplomaBadge
+	p.DualBadge = dualBadge
 	return p, nil
 }
 
@@ -277,16 +284,26 @@ func (h *StudentPortraitHandler) scanPortraitRows(rows pgx.Rows) ([]domain.Stude
 	items := make([]domain.StudentAbilityPortrait, 0)
 	for rows.Next() {
 		var p domain.StudentAbilityPortrait
-		var avatar *string
+		var overallGrade *string
+		var classRank, classTotal, majorRank, majorTotal *int
+		var attendanceRate *float64
+		var diplomaBadge, dualBadge *string
 		if err := rows.Scan(
-			&p.ID, &p.StudentName, &p.StudentID, &p.ClassName, &p.MajorName, &p.PositionName, &p.OverallGrade, &p.DomainScores,
-			&p.ClassRank, &p.ClassTotal, &p.MajorRank, &p.MajorTotal, &p.RecommendPositions, &p.UpdatedAt, &p.Gender, &p.GradeYear, &avatar,
-			&p.Courses, &p.Scenes, &p.CompletedCourses, &p.CompletedScenes, &p.TotalCredits, &p.ArchiveCount, &p.CourseRecords,
-			&p.GraduationQualified, &p.AttendanceRate, &p.DiplomaBadge, &p.YearRank, &p.YearTotal, &p.DualBadge,
+			&p.ID, &p.UserID, &p.CareerPositionID, &overallGrade, &p.DomainScores,
+			&classRank, &classTotal, &majorRank, &majorTotal, &p.RecommendPositions, &p.UpdatedAt,
+			&p.CompletedCourses, &p.CompletedScenes, &p.TotalCredits, &p.ArchiveCount, &p.CourseRecords,
+			&p.GraduationQualified, &attendanceRate, &diplomaBadge, &dualBadge,
 		); err != nil {
 			return nil, err
 		}
-		p.AvatarURL = avatar
+		p.OverallGrade = overallGrade
+		p.ClassRank = classRank
+		p.ClassTotal = classTotal
+		p.MajorRank = majorRank
+		p.MajorTotal = majorTotal
+		p.AttendanceRate = attendanceRate
+		p.DiplomaBadge = diplomaBadge
+		p.DualBadge = dualBadge
 		items = append(items, p)
 	}
 	return items, nil
@@ -294,19 +311,21 @@ func (h *StudentPortraitHandler) scanPortraitRows(rows pgx.Rows) ([]domain.Stude
 
 func (h *StudentPortraitHandler) fetchArchive(ctx context.Context, id string) (domain.StudentAbilityArchive, error) {
 	var a domain.StudentAbilityArchive
-	var remark, level *string
+	var issuingOrg, obtainDate, level, remark *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, student_name, student_id, class_name, material_type, material_name, issuing_org, obtain_date,
-			audit_status, audit_remark, converted_credit, direction, is_visible, level, created_at
+		SELECT id, user_id, material_type, material_name, issuing_org, obtain_date,
+			level, audit_status, audit_remark, converted_credit, direction, is_visible, created_at
 		FROM student_ability_archives WHERE id = $1
 	`, id).Scan(
-		&a.ID, &a.StudentName, &a.StudentID, &a.ClassName, &a.MaterialType, &a.MaterialName, &a.IssuingOrg, &a.ObtainDate,
-		&a.AuditStatus, &remark, &a.ConvertedCredit, &a.Direction, &a.IsVisible, &level, &a.CreatedAt,
+		&a.ID, &a.UserID, &a.MaterialType, &a.MaterialName, &issuingOrg, &obtainDate,
+		&level, &a.AuditStatus, &remark, &a.ConvertedCredit, &a.Direction, &a.IsVisible, &a.CreatedAt,
 	)
 	if err != nil {
 		return a, err
 	}
-	a.AuditRemark = remark
+	a.IssuingOrg = issuingOrg
+	a.ObtainDate = obtainDate
 	a.Level = level
+	a.AuditRemark = remark
 	return a, nil
 }

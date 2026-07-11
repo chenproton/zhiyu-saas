@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -245,7 +246,8 @@ func (h *ExamUsageHandler) Finish(w http.ResponseWriter, r *http.Request) {
 
 func (h *ExamUsageHandler) fetchExamUsage(ctx context.Context, id string) (domain.ExamUsage, error) {
 	var u domain.ExamUsage
-	var description, startTime, endTime, targetType *string
+	var description, targetType *string
+	var startTime, endTime *time.Time
 	var duration *int
 	var creatorID *string
 	err := h.DB.QueryRow(ctx, `
@@ -258,8 +260,14 @@ func (h *ExamUsageHandler) fetchExamUsage(ctx context.Context, id string) (domai
 		return u, err
 	}
 	u.Description = description
-	u.StartTime = startTime
-	u.EndTime = endTime
+	if startTime != nil {
+		s := startTime.Format(time.RFC3339)
+		u.StartTime = &s
+	}
+	if endTime != nil {
+		s := endTime.Format(time.RFC3339)
+		u.EndTime = &s
+	}
 	u.Duration = duration
 	u.TargetType = targetType
 	u.CreatorID = creatorID
@@ -270,7 +278,8 @@ func (h *ExamUsageHandler) scanExamUsageRows(rows pgx.Rows) ([]domain.ExamUsage,
 	items := make([]domain.ExamUsage, 0)
 	for rows.Next() {
 		var u domain.ExamUsage
-		var description, startTime, endTime, targetType *string
+		var description, targetType *string
+		var startTime, endTime *time.Time
 		var duration *int
 		var creatorID *string
 		if err := rows.Scan(
@@ -279,8 +288,14 @@ func (h *ExamUsageHandler) scanExamUsageRows(rows pgx.Rows) ([]domain.ExamUsage,
 			return nil, err
 		}
 		u.Description = description
-		u.StartTime = startTime
-		u.EndTime = endTime
+		if startTime != nil {
+			s := startTime.Format(time.RFC3339)
+			u.StartTime = &s
+		}
+		if endTime != nil {
+			s := endTime.Format(time.RFC3339)
+			u.EndTime = &s
+		}
 		u.Duration = duration
 		u.TargetType = targetType
 		u.CreatorID = creatorID

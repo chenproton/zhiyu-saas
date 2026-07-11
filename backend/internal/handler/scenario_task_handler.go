@@ -87,7 +87,7 @@ func (h *ScenarioTaskHandler) List(w http.ResponseWriter, r *http.Request) {
 			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id
 		FROM scenario_tasks
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY sort_order, created_at
+		ORDER BY sort_order
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -177,7 +177,7 @@ func (h *ScenarioTaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 			difficulty = $9, background = $10, dependency_ids = $11, is_referenced = $12, source_scenario_id = $13
 		WHERE id = $14
 	`, req.ScenarioID, req.Name, req.Code, req.SortOrder, req.Description, req.DetailedDescription,
-		req.EstimatedHours, req.TaskType, req.Difficulty, req.Background, req.DependencyIDs, req.IsReferenced, req.SourceScenarioID, id)
+		req.EstimatedHours, req.TaskType, req.Difficulty, req.Background, coalesceStringSlice(req.DependencyIDs), req.IsReferenced, req.SourceScenarioID, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update task")
 		return

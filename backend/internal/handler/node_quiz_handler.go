@@ -83,7 +83,7 @@ func (h *NodeQuizHandler) ListQuizzes(w http.ResponseWriter, r *http.Request) {
 		SELECT id, node_id, title, type, time_limit
 		FROM node_quizzes
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY id DESC
 	`
 	rows, err := h.DB.Query(r.Context(), query, args...)
 	if err != nil {
@@ -223,7 +223,7 @@ func (h *NodeQuizHandler) ListQuestions(w http.ResponseWriter, r *http.Request) 
 		SELECT id, quiz_id, type, question, options, answer, score, sort_order
 		FROM node_quiz_questions
 		WHERE quiz_id = $1
-		ORDER BY sort_order ASC, created_at ASC
+		ORDER BY sort_order ASC
 	`
 	rows, err := h.DB.Query(r.Context(), query, quizID)
 	if err != nil {

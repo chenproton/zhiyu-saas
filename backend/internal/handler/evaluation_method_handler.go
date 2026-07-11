@@ -39,7 +39,7 @@ func (h *EvaluationMethodHandler) ListCategories(w http.ResponseWriter, r *http.
 	}
 
 	rows, err := h.DB.Query(r.Context(), `
-		SELECT id, name, order_num, created_at FROM evaluation_method_categories ORDER BY order_num, created_at
+		SELECT id, name, sort_order FROM evaluation_method_categories ORDER BY sort_order
 	`)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to list categories")
@@ -50,7 +50,7 @@ func (h *EvaluationMethodHandler) ListCategories(w http.ResponseWriter, r *http.
 	items := make([]domain.EvaluationMethodCategory, 0)
 	for rows.Next() {
 		var c domain.EvaluationMethodCategory
-		if err := rows.Scan(&c.ID, &c.Name, &c.Order, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Order); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan categories")
 			return
 		}
@@ -93,10 +93,10 @@ func (h *EvaluationMethodHandler) ListMethods(w http.ResponseWriter, r *http.Req
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, category_id, name, enabled, related_task_ids, description, doc_link, sub_category_name, created_at, updated_at
+		SELECT id, category_id, name, enabled, sub_category_name, description, doc_link
 		FROM evaluation_methods
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY name
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -130,8 +130,13 @@ func (h *EvaluationMethodHandler) Toggle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if _, err := h.fetchMethod(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "method not found")
+		return
+	}
+
 	_, err := h.DB.Exec(r.Context(), `
-		UPDATE evaluation_methods SET enabled = $1, updated_at = NOW() WHERE id = $2
+		UPDATE evaluation_methods SET enabled = $1 WHERE id = $2
 	`, req.Enabled, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to toggle method")
@@ -144,19 +149,19 @@ func (h *EvaluationMethodHandler) Toggle(w http.ResponseWriter, r *http.Request)
 
 func (h *EvaluationMethodHandler) fetchMethod(ctx context.Context, id string) (domain.EvaluationMethod, error) {
 	var m domain.EvaluationMethod
-	var description, docLink, subCategoryName *string
+	var subCategoryName, description, docLink *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, category_id, name, enabled, related_task_ids, description, doc_link, sub_category_name, created_at, updated_at
+		SELECT id, category_id, name, enabled, sub_category_name, description, doc_link
 		FROM evaluation_methods WHERE id = $1
 	`, id).Scan(
-		&m.ID, &m.CategoryID, &m.Name, &m.Enabled, &m.RelatedTaskIDs, &description, &docLink, &subCategoryName, &m.CreatedAt, &m.UpdatedAt,
+		&m.ID, &m.CategoryID, &m.Name, &m.Enabled, &subCategoryName, &description, &docLink,
 	)
 	if err != nil {
 		return m, err
 	}
+	m.SubCategoryName = subCategoryName
 	m.Description = description
 	m.DocLink = docLink
-	m.SubCategoryName = subCategoryName
 	return m, nil
 }
 
@@ -164,15 +169,15 @@ func (h *EvaluationMethodHandler) scanMethodRows(rows pgx.Rows) ([]domain.Evalua
 	items := make([]domain.EvaluationMethod, 0)
 	for rows.Next() {
 		var m domain.EvaluationMethod
-		var description, docLink, subCategoryName *string
+		var subCategoryName, description, docLink *string
 		if err := rows.Scan(
-			&m.ID, &m.CategoryID, &m.Name, &m.Enabled, &m.RelatedTaskIDs, &description, &docLink, &subCategoryName, &m.CreatedAt, &m.UpdatedAt,
+			&m.ID, &m.CategoryID, &m.Name, &m.Enabled, &subCategoryName, &description, &docLink,
 		); err != nil {
 			return nil, err
 		}
+		m.SubCategoryName = subCategoryName
 		m.Description = description
 		m.DocLink = docLink
-		m.SubCategoryName = subCategoryName
 		items = append(items, m)
 	}
 	return items, nil

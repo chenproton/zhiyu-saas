@@ -76,7 +76,7 @@ func (h *AbilityDomainHandler) List(w http.ResponseWriter, r *http.Request) {
 		SELECT id, career_position_id, name, description, binding_ids, sort_order
 		FROM ability_domains
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY sort_order ASC, created_at DESC
+		ORDER BY sort_order ASC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 

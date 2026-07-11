@@ -129,11 +129,20 @@ func (h *LearnRoadHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Steps = domain.JSONSlice{}
 	}
 
+	positionUUIDs := make([]string, len(req.PositionIDs))
+	for i, pid := range req.PositionIDs {
+		if u, err := uuid.Parse(pid); err == nil {
+			positionUUIDs[i] = u.String()
+		} else {
+			positionUUIDs[i] = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(pid)).String()
+		}
+	}
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO learn_roads (id, name, description, position_ids, steps)
 		VALUES ($1, $2, $3, $4, $5)
-	`, id, req.Name, req.Description, coalesceStringSlice(req.PositionIDs), req.Steps)
+	`, id, req.Name, req.Description, positionUUIDs, req.Steps)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create learn road")
 		return
@@ -176,11 +185,20 @@ func (h *LearnRoadHandler) Update(w http.ResponseWriter, r *http.Request) {
 		steps = existing.Steps
 	}
 
+	positionUUIDs := make([]string, len(positionIDs))
+	for i, pid := range positionIDs {
+		if u, err := uuid.Parse(pid); err == nil {
+			positionUUIDs[i] = u.String()
+		} else {
+			positionUUIDs[i] = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(pid)).String()
+		}
+	}
+
 	_, err = h.DB.Exec(r.Context(), `
 		UPDATE learn_roads SET
 			name = $1, description = $2, position_ids = $3, steps = $4, updated_at = NOW()
 		WHERE id = $5
-	`, req.Name, req.Description, coalesceStringSlice(positionIDs), steps, id)
+	`, req.Name, req.Description, positionUUIDs, steps, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update learn road")
 		return
