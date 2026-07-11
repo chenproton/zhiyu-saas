@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import {
   Search,
   Send,
@@ -9,6 +9,7 @@ import {
   Check,
   Users,
   FileSpreadsheet,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,7 +32,7 @@ import {
 } from "@/components/ui/dialog"
 import { PageHeaderCard } from "@/components/shared/page-header-card"
 import { useData } from "@/components/providers/data-provider"
-import { mockStudents } from "@/lib/mock-data-evaluation"
+import { userManagementApi, type User } from "@/lib/api"
 
 type IssueMode = "manual" | "batch" | null
 
@@ -46,6 +47,8 @@ export default function MicroCertIssuancePage() {
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set())
   const [issueMode, setIssueMode] = useState<IssueMode>(null)
 
+  const [users, setUsers] = useState<User[]>([])
+  const [usersLoading, setUsersLoading] = useState(false)
   const [studentSearch, setStudentSearch] = useState("")
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set())
 
@@ -54,6 +57,23 @@ export default function MicroCertIssuancePage() {
 
   const [successOpen, setSuccessOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+
+  useEffect(() => {
+    let cancelled = false
+    setUsersLoading(true)
+    userManagementApi
+      .list({ limit: 1000 })
+      .then((res) => {
+        if (!cancelled) setUsers(res.items)
+      })
+      .catch(() => {
+        if (!cancelled) setUsers([])
+      })
+      .finally(() => {
+        if (!cancelled) setUsersLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const selectedTemplates = useMemo(
     () => microCertTemplates.filter((t) => selectedTemplateIds.has(t.id)),
@@ -68,14 +88,18 @@ export default function MicroCertIssuancePage() {
   }
 
   const filteredStudents = useMemo(() => {
-    return mockStudents.filter((s) => {
-      const match = !studentSearch ||
-        s.name.includes(studentSearch) ||
-        s.id.includes(studentSearch) ||
-        s.className.includes(studentSearch)
-      return match
+    return users.filter((s) => {
+      const term = studentSearch.trim()
+      if (!term) return true
+      return (
+        s.name.includes(term) ||
+        s.id.includes(term) ||
+        s.studentNo?.includes(term) ||
+        s.loginName?.includes(term) ||
+        s.username.includes(term)
+      )
     })
-  }, [studentSearch])
+  }, [users, studentSearch])
 
   const toggleStudent = (id: string) => {
     const next = new Set(selectedStudentIds)
@@ -127,14 +151,14 @@ export default function MicroCertIssuancePage() {
       const template = microCertTemplates.find((t) => t.id === templateId)!
       selectedStudentIds.forEach((studentId) => {
         if (!hasIssued(templateId, studentId)) {
-          const student = mockStudents.find((s) => s.id === studentId)!
+          const student = users.find((s) => s.id === studentId)!
           records.push({
             templateId,
             templateTitle: template.title,
             certTypeName: template.certTypeName,
             studentName: student.name,
             studentId: student.id,
-            className: student.className,
+            className: "-",
             issueDate: new Date(),
             expireDate: expireDate ? new Date(expireDate) : undefined,
           })
@@ -339,13 +363,20 @@ export default function MicroCertIssuancePage() {
                     />
                   </TableHead>
                   <TableHead>姓名</TableHead>
-                  <TableHead>学号</TableHead>
-                  <TableHead>班级</TableHead>
+                  <TableHead>学号/工号</TableHead>
+                  <TableHead>登录名</TableHead>
                   <TableHead className="w-[200px]">当前模板颁发状态</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStudents.map((student) => {
+                {usersLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                      加载用户列表…
+                    </TableCell>
+                  </TableRow>
+                ) : filteredStudents.map((student) => {
                   const issuedTemplates = selectedTemplates.filter((t) => hasIssued(t.id, student.id))
                   const unissuedTemplates = selectedTemplates.filter((t) => !hasIssued(t.id, student.id))
                   return (
@@ -357,8 +388,8 @@ export default function MicroCertIssuancePage() {
                         />
                       </TableCell>
                       <TableCell className="font-medium">{student.name}</TableCell>
-                      <TableCell className="text-slate-500">{student.id}</TableCell>
-                      <TableCell className="text-slate-500">{student.className}</TableCell>
+                      <TableCell className="text-slate-500">{student.studentNo || student.id}</TableCell>
+                      <TableCell className="text-slate-500">{student.loginName || student.username}</TableCell>
                       <TableCell>
                         {selectedTemplateIds.size === 0 ? (
                           <span className="text-xs text-slate-400">未选择模板</span>
