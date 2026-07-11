@@ -27,9 +27,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Plus, X } from "lucide-react"
-import type { Question, QuestionType, QuestionFormData, Difficulty } from "@/lib/types"
+import type { Question, QuestionType, QuestionFormData, Difficulty, EvalKnowledgePoint } from "@/lib/types"
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS } from "@/lib/types"
-import { mockKnowledgePoints } from "@/lib/mock-data-evaluation"
+import { knowledgeApi } from "@/lib/api"
 
 interface QuestionFormDialogProps {
   open: boolean
@@ -52,6 +52,28 @@ export function QuestionFormDialog({
   const [analysis, setAnalysis] = useState("")
   const [difficulty, setDifficulty] = useState<Difficulty>("medium")
   const [knowledgePointIds, setKnowledgePointIds] = useState<string[]>([])
+  const [knowledgePoints, setKnowledgePoints] = useState<EvalKnowledgePoint[]>([])
+  const [loadingKnowledgePoints, setLoadingKnowledgePoints] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoadingKnowledgePoints(true)
+    knowledgeApi.list({ limit: 1000 })
+      .then((res) => {
+        if (cancelled) return
+        setKnowledgePoints(res.items.map((kp) => ({ id: kp.id, name: kp.name })))
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to load knowledge points', err)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingKnowledgePoints(false)
+      })
+    return () => { cancelled = true }
+  }, [open])
 
   useEffect(() => {
     if (question) {
@@ -140,7 +162,7 @@ export function QuestionFormDialog({
     setKnowledgePointIds(knowledgePointIds.filter(id => id !== kpId))
   }
 
-  const getKnowledgePointName = (id: string) => mockKnowledgePoints.find(kp => kp.id === id)?.name || id
+  const getKnowledgePointName = (id: string) => knowledgePoints.find(kp => kp.id === id)?.name || id
 
   const renderAnswerInput = () => {
     switch (type) {
@@ -279,22 +301,30 @@ export function QuestionFormDialog({
 
             <Field>
               <FieldLabel>关联知识点</FieldLabel>
-              <Select onValueChange={addKnowledgePoint}>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择知识点" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {mockKnowledgePoints
-                      .filter(kp => !knowledgePointIds.includes(kp.id))
-                      .map(kp => (
-                        <SelectItem key={kp.id} value={kp.id}>
-                          {kp.name}
-                        </SelectItem>
-                      ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              {loadingKnowledgePoints ? (
+                <div className="rounded-md border p-3 text-sm text-muted-foreground">加载知识点中...</div>
+              ) : (
+                <Select onValueChange={addKnowledgePoint}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择知识点" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {knowledgePoints.length === 0 ? (
+                        <SelectItem value="none" disabled>暂无知识点</SelectItem>
+                      ) : (
+                        knowledgePoints
+                          .filter(kp => !knowledgePointIds.includes(kp.id))
+                          .map(kp => (
+                            <SelectItem key={kp.id} value={kp.id}>
+                              {kp.name}
+                            </SelectItem>
+                          ))
+                      )}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
               {knowledgePointIds.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {knowledgePointIds.map(id => (

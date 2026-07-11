@@ -28,9 +28,9 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field"
 import { useData } from "@/components/providers/data-provider"
-import type { QuestionType, Difficulty, QuestionFormData, Question } from "@/lib/types"
+import type { QuestionType, Difficulty, QuestionFormData, Question, EvalKnowledgePoint } from "@/lib/types"
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS } from "@/lib/types"
-import { mockKnowledgePoints } from "@/lib/mock-data-evaluation"
+import { knowledgeApi } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 interface AddQuestionToExamDialogProps {
@@ -64,6 +64,28 @@ export function AddQuestionToExamDialog({
   const [analysis, setAnalysis] = useState("")
   const [difficulty, setDifficulty] = useState<Difficulty>("medium")
   const [selectedKnowledgePoints, setSelectedKnowledgePoints] = useState<string[]>([])
+  const [knowledgePoints, setKnowledgePoints] = useState<EvalKnowledgePoint[]>([])
+  const [loadingKnowledgePoints, setLoadingKnowledgePoints] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoadingKnowledgePoints(true)
+    knowledgeApi.list({ limit: 1000 })
+      .then((res) => {
+        if (cancelled) return
+        setKnowledgePoints(res.items.map((kp) => ({ id: kp.id, name: kp.name })))
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to load knowledge points', err)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingKnowledgePoints(false)
+      })
+    return () => { cancelled = true }
+  }, [open])
 
   // 重置表单
   const resetForm = () => {
@@ -463,24 +485,32 @@ export function AddQuestionToExamDialog({
               {/* 知识点 */}
               <Field>
                 <FieldLabel>关联知识点</FieldLabel>
-                <div className="flex flex-wrap gap-2 rounded-md border p-3">
-                  {mockKnowledgePoints.map((kp) => (
-                    <Badge
-                      key={kp.id}
-                      variant={selectedKnowledgePoints.includes(kp.id) ? "default" : "outline"}
-                      className={cn(
-                        "cursor-pointer transition-colors",
-                        selectedKnowledgePoints.includes(kp.id) && "bg-primary"
-                      )}
-                      onClick={() => toggleKnowledgePoint(kp.id)}
-                    >
-                      {kp.name}
-                      {selectedKnowledgePoints.includes(kp.id) && (
-                        <X className="ml-1 size-3" />
-                      )}
-                    </Badge>
-                  ))}
-                </div>
+                {loadingKnowledgePoints ? (
+                  <div className="rounded-md border p-3 text-sm text-muted-foreground">加载知识点中...</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2 rounded-md border p-3">
+                    {knowledgePoints.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">暂无知识点</span>
+                    ) : (
+                      knowledgePoints.map((kp) => (
+                        <Badge
+                          key={kp.id}
+                          variant={selectedKnowledgePoints.includes(kp.id) ? "default" : "outline"}
+                          className={cn(
+                            "cursor-pointer transition-colors",
+                            selectedKnowledgePoints.includes(kp.id) && "bg-primary"
+                          )}
+                          onClick={() => toggleKnowledgePoint(kp.id)}
+                        >
+                          {kp.name}
+                          {selectedKnowledgePoints.includes(kp.id) && (
+                            <X className="ml-1 size-3" />
+                          )}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                )}
               </Field>
 
               {/* 解析 */}

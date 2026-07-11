@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { Shuffle, Info, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,8 +22,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { MultiSelectSearch } from "@/components/ui/multi-select-search"
 import { Switch } from "@/components/ui/switch"
 import { useData } from "@/components/providers/data-provider"
-import { mockKnowledgePoints } from "@/lib/mock-data-evaluation"
-import type { Question, QuestionType, Difficulty } from "@/lib/types"
+import { knowledgeApi } from "@/lib/api"
+import type { Question, QuestionType, Difficulty, EvalKnowledgePoint } from "@/lib/types"
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS } from "@/lib/types"
 
 interface RandomQuestionDialogProps {
@@ -66,6 +66,29 @@ export function RandomQuestionDialog({
   const [typeWeights, setTypeWeights] = useState<Record<string, number>>({})
   const [difficultyWeights, setDifficultyWeights] = useState<Record<string, number>>({})
   const [knowledgeWeights, setKnowledgeWeights] = useState<Record<string, number>>({})
+
+  const [knowledgePoints, setKnowledgePoints] = useState<EvalKnowledgePoint[]>([])
+  const [loadingKnowledgePoints, setLoadingKnowledgePoints] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoadingKnowledgePoints(true)
+    knowledgeApi.list({ limit: 1000 })
+      .then((res) => {
+        if (cancelled) return
+        setKnowledgePoints(res.items.map((kp) => ({ id: kp.id, name: kp.name })))
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to load knowledge points', err)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingKnowledgePoints(false)
+      })
+    return () => { cancelled = true }
+  }, [open])
 
   const toggleDimension = (dim: WeightDimension) => {
     setWeightDimension(prev => prev === dim ? 'none' : dim)
@@ -168,7 +191,7 @@ export function RandomQuestionDialog({
         case 'bank': return selectedBankIds.length > 0 ? selectedBankIds : publishedBanks.map(b => b.id)
         case 'type': return selectedTypes.length > 0 ? selectedTypes : questionTypes
         case 'difficulty': return selectedDifficulties.length > 0 ? selectedDifficulties : difficulties
-        case 'knowledge': return selectedKnowledgePoints.length > 0 ? selectedKnowledgePoints : mockKnowledgePoints.map(k => k.id)
+        case 'knowledge': return selectedKnowledgePoints.length > 0 ? selectedKnowledgePoints : knowledgePoints.map(k => k.id)
         default: return []
       }
     }
@@ -212,7 +235,7 @@ export function RandomQuestionDialog({
           case 'bank': return selectedBankIds.length > 0 ? selectedBankIds : publishedBanks.map(b => b.id)
           case 'type': return selectedTypes.length > 0 ? selectedTypes : questionTypes
           case 'difficulty': return selectedDifficulties.length > 0 ? selectedDifficulties : difficulties
-          case 'knowledge': return selectedKnowledgePoints.length > 0 ? selectedKnowledgePoints : mockKnowledgePoints.map(k => k.id)
+          case 'knowledge': return selectedKnowledgePoints.length > 0 ? selectedKnowledgePoints : knowledgePoints.map(k => k.id)
           default: return []
         }
       }
@@ -494,17 +517,21 @@ export function RandomQuestionDialog({
                   />
                 </div>
               </div>
-              <MultiSelectSearch
-                options={mockKnowledgePoints.map(kp => ({ label: kp.name, value: kp.id }))}
-                selected={selectedKnowledgePoints}
-                onChange={setSelectedKnowledgePoints}
-                placeholder="选择知识点"
-                searchPlaceholder="搜索知识点..."
-              />
+              {loadingKnowledgePoints ? (
+                <div className="text-sm text-muted-foreground">加载知识点中...</div>
+              ) : (
+                <MultiSelectSearch
+                  options={knowledgePoints.map(kp => ({ label: kp.name, value: kp.id }))}
+                  selected={selectedKnowledgePoints}
+                  onChange={setSelectedKnowledgePoints}
+                  placeholder="选择知识点"
+                  searchPlaceholder="搜索知识点..."
+                />
+              )}
               {renderWeightConfig('knowledge',
-                (selectedKnowledgePoints.length > 0 ? selectedKnowledgePoints : mockKnowledgePoints.map(k => k.id))
+                (selectedKnowledgePoints.length > 0 ? selectedKnowledgePoints : knowledgePoints.map(k => k.id))
                   .map(id => {
-                    const k = mockKnowledgePoints.find(x => x.id === id)
+                    const k = knowledgePoints.find(x => x.id === id)
                     return { value: id, label: k?.name || id }
                   }),
                 knowledgeWeights,

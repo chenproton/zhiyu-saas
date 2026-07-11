@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,15 @@ import { ArrowLeft, Edit2, Check, Info, Settings } from 'lucide-react'
 
 /* ─── 届别类型 ─── */
 type GradeYear = '2024' | '2025' | '2026'
+
+const DEFAULT_RULE: CertificationRule = {
+  id: 'global',
+  positionName: '前端开发工程师',
+  status: 'draft',
+  ruleSource: 'custom',
+  abilityItems: [],
+}
+
 import {
   Table,
   TableBody,
@@ -38,7 +47,7 @@ import {
   type EvalAbilityItem,
   defaultLevelMapping,
 } from '@/lib/types'
-import { initialRule, positionsList } from '@/lib/mock-data-evaluation'
+import { positionApi } from '@/lib/api'
 import { ActionBar } from './action-bar'
 import { LevelMappingDialog } from './level-mapping-dialog'
 import { cn } from '@/lib/utils'
@@ -637,13 +646,26 @@ function getGradeAbilityItems(positionId: string | undefined, grade: GradeYear):
 }
 
 export function CertificationRulePage({ isGlobal = false, positionId }: CertificationRulePageProps) {
-  const positionInfo = positionId ? positionsList.find((p) => p.id === positionId) : null
-  const pageTitle = isGlobal ? '全局能力认定规则配置' : positionInfo?.name || '前端开发工程师'
+  const [positionName, setPositionName] = useState<string | undefined>(undefined)
+  const pageTitle = isGlobal ? '全局能力认定规则配置' : positionName || '前端开发工程师'
   const [activeGrade, setActiveGrade] = useState<GradeYear>('2024')
   const [rule, setRule] = useState<CertificationRule>(() => ({
-    ...initialRule,
+    ...DEFAULT_RULE,
     abilityItems: getGradeAbilityItems(positionId, '2024'),
   }))
+
+  useEffect(() => {
+    if (!positionId) return
+    let cancelled = false
+    positionApi.get(positionId)
+      .then((res) => {
+        if (!cancelled) setPositionName(res.name)
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load position', err)
+      })
+    return () => { cancelled = true }
+  }, [positionId])
   const [globalMapping, setGlobalMapping] = useState<LevelMapping[]>(defaultLevelMapping)
   const [globalConfigDialogOpen, setGlobalConfigDialogOpen] = useState(false)
   const { toast } = useToast()

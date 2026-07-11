@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Search } from 'lucide-react'
 import { type RelatedTask } from '@/lib/types'
-import { availableTasks } from '@/lib/mock-data-evaluation'
+import { taskApi } from '@/lib/api'
 
 interface TaskSelectorDialogProps {
   open: boolean
@@ -33,15 +33,40 @@ export function TaskSelectorDialog({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [tasks, setTasks] = useState<RelatedTask[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoading(true)
+    taskApi.list({ limit: 1000 })
+      .then((res) => {
+        if (cancelled) return
+        setTasks(res.items.map((t) => ({
+          id: t.id,
+          name: t.name,
+          maxScore: 100,
+          weight: 0,
+        })))
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load tasks', err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [open])
 
   // 过滤掉已经关联的任务
   const filteredTasks = useMemo(() => {
-    return availableTasks
+    return tasks
       .filter((task) => !existingTaskIds.includes(task.id))
       .filter((task) =>
         task.name.toLowerCase().includes(searchQuery.toLowerCase()),
       )
-  }, [existingTaskIds, searchQuery])
+  }, [tasks, existingTaskIds, searchQuery])
 
   const handleToggle = (taskId: string) => {
     const newSelected = new Set(selectedIds)
@@ -54,7 +79,7 @@ export function TaskSelectorDialog({
   }
 
   const handleConfirm = () => {
-    const selectedTasks = availableTasks
+    const selectedTasks = tasks
       .filter((task) => selectedIds.has(task.id))
       .map((task) => ({ ...task, weight: 0 }))
 
@@ -92,7 +117,11 @@ export function TaskSelectorDialog({
           </div>
 
           <div ref={scrollRef} className="max-h-64 space-y-2 overflow-y-auto rounded-md border p-3">
-            {filteredTasks.length === 0 ? (
+            {loading ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                加载任务中...
+              </div>
+            ) : filteredTasks.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
                 暂无可关联的任务
               </div>

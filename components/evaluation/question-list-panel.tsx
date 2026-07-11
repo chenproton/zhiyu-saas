@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Plus,
   Edit,
@@ -57,9 +57,9 @@ import { BankFormDialog } from "@/components/evaluation/bank-form-dialog"
 import { QuestionFormDialog } from "@/components/evaluation/question-form-dialog"
 import { QuestionPreview } from "@/components/evaluation/question-preview"
 import { useData } from "@/components/providers/data-provider"
-import type { Question, QuestionType, QuestionFormData, QuestionBankFormData, StatusAction } from "@/lib/types"
+import type { Question, QuestionType, QuestionFormData, QuestionBankFormData, StatusAction, User } from "@/lib/types"
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS, STATUS_LABELS, canPerformAction } from "@/lib/types"
-import { mockUsers, mockDepartments } from "@/lib/mock-data-evaluation"
+import { userManagementApi, orgApi } from "@/lib/api"
 
 interface QuestionListPanelProps {
   bankId: string
@@ -107,6 +107,34 @@ export function QuestionListPanel({ bankId }: QuestionListPanelProps) {
   const [moveTargetBankId, setMoveTargetBankId] = useState<string>("")
   const [bankDeleteConfirm, setBankDeleteConfirm] = useState(false)
   const [bankActionConfirm, setBankActionConfirm] = useState<{action: StatusAction, title: string, desc: string} | null>(null)
+
+  const [usersMap, setUsersMap] = useState<Record<string, User>>({})
+  const [deptsMap, setDeptsMap] = useState<Record<string, { name: string }>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    userManagementApi.list({ limit: 1000 })
+      .then((res) => {
+        if (cancelled) return
+        const map: Record<string, User> = {}
+        res.items.forEach((u) => { map[u.id] = u })
+        setUsersMap(map)
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load users', err)
+      })
+    orgApi.tree({})
+      .then((res) => {
+        if (cancelled) return
+        const map: Record<string, { name: string }> = {}
+        res.forEach((o) => { map[o.id] = { name: o.name } })
+        setDeptsMap(map)
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load departments', err)
+      })
+    return () => { cancelled = true }
+  }, [bankId])
 
   const filteredQuestions = useMemo(() => {
     return questions
@@ -230,13 +258,13 @@ export function QuestionListPanel({ bankId }: QuestionListPanelProps) {
 
   const getCollaboratorNames = () => {
     return (bank.collaboratorIds || [])
-      .map((id) => mockUsers.find((u) => u.id === id)?.name)
+      .map((id) => usersMap[id]?.name)
       .filter(Boolean) as string[]
   }
 
   const getCollaboratorDeptNames = () => {
     return (bank.collaboratorDeptIds || [])
-      .map((id) => mockDepartments.find((d) => d.id === id)?.name)
+      .map((id) => deptsMap[id]?.name)
       .filter(Boolean) as string[]
   }
 

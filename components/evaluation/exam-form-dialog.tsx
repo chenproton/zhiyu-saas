@@ -24,8 +24,8 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { X, Upload, ImageIcon, UserPlus } from "lucide-react"
-import type { Exam, ExamFormData } from "@/lib/types"
-import { mockUsers, mockBatches } from "@/lib/mock-data-evaluation"
+import type { Exam, ExamFormData, User } from "@/lib/types"
+import { evaluationBatchApi, userManagementApi } from "@/lib/api"
 import { CoBuilderDialog } from "@/components/shared/co-builder-dialog"
 import { PrdAnnotation } from "@/components/prd-annotation"
 import { getAnnotation } from "@/lib/prd-annotations"
@@ -51,6 +51,39 @@ export function ExamFormDialog({
   const [collaboratorDialogOpen, setCollaboratorDialogOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fieldGroupRef = useRef<HTMLDivElement>(null)
+
+  const [users, setUsers] = useState<User[]>([])
+  const [batches, setBatches] = useState<{ id: string; name: string }[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [loadingBatches, setLoadingBatches] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoadingUsers(true)
+    setLoadingBatches(true)
+    userManagementApi.list({ limit: 1000 })
+      .then((res) => {
+        if (!cancelled) setUsers(res.items)
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load users', err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingUsers(false)
+      })
+    evaluationBatchApi.list({ limit: 1000 })
+      .then((res) => {
+        if (!cancelled) setBatches(res.items.map((b) => ({ id: b.id, name: b.name })))
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load batches', err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingBatches(false)
+      })
+    return () => { cancelled = true }
+  }, [open])
 
   useEffect(() => {
     if (exam) {
@@ -111,7 +144,7 @@ export function ExamFormDialog({
     setCollaboratorIds(collaboratorIds.filter(id => id !== userId))
   }
 
-  const getUserName = (id: string) => mockUsers.find(u => u.id === id)?.name || id
+  const getUserName = (id: string) => users.find(u => u.id === id)?.name || id
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -223,14 +256,14 @@ export function ExamFormDialog({
               <PrdAnnotation {...getAnnotation("ef-batch")}>
                 <FieldLabel>所属批次</FieldLabel>
               </PrdAnnotation>
-              <Select value={batchId || "none"} onValueChange={(v) => setBatchId(v === "none" ? "" : v)}>
+              <Select value={batchId || "none"} onValueChange={(v) => setBatchId(v === "none" ? "" : v)} disabled={loadingBatches}>
                 <SelectTrigger>
-                  <SelectValue placeholder="选择所属批次" />
+                  <SelectValue placeholder={loadingBatches ? "加载批次中..." : "选择所属批次"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
                     <SelectItem value="none">不设置批次</SelectItem>
-                    {mockBatches.map(batch => (
+                    {batches.map(batch => (
                       <SelectItem key={batch.id} value={batch.id}>
                         {batch.name}
                       </SelectItem>

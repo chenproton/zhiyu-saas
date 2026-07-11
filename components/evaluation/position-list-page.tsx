@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   Table,
@@ -40,8 +40,8 @@ import { Label } from "@/components/ui/label"
 import { StatusBadge } from "./status-badge"
 import { LevelMappingDisplay } from "./level-mapping-display"
 import { LevelMappingDialog } from "./level-mapping-dialog"
-import { positionsList } from "@/lib/mock-data-evaluation"
-import type { Position, RuleStatus, LevelMapping } from "@/lib/types"
+import { positionApi } from "@/lib/api"
+import type { Position, RuleStatus, LevelMapping, CareerPosition } from "@/lib/types"
 import { statusConfig, actionConfig, defaultLevelMapping } from "@/lib/types"
 import {
   Search,
@@ -62,10 +62,39 @@ import { getAnnotation } from "@/lib/prd-annotations"
 
 export function PositionListPage() {
   const router = useRouter()
-  const [positions, setPositions] = useState<Position[]>(positionsList)
+  const [positions, setPositions] = useState<Position[]>([])
+  const [loading, setLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [professionalDirectionFilter, setProfessionalDirectionFilter] = useState<string>("all")
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    positionApi.list({ limit: 1000 })
+      .then((res) => {
+        if (cancelled) return
+        setPositions(res.items.map(mapCareerPositionToPosition))
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load positions', err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  const mapCareerPositionToPosition = (cp: CareerPosition): Position => ({
+    id: cp.id,
+    name: cp.name,
+    positionCode: cp.shortName || cp.id,
+    professionalDirection: cp.industryId || '未设置',
+    relatedAbilityCount: 0,
+    ruleStatus: 'none',
+    lastUpdated: cp.updatedAt,
+    updatedBy: cp.createdBy || '-',
+  })
   
   // 确认弹窗状态
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -271,7 +300,13 @@ export function PositionListPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPositions.length === 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-32 text-center">
+                    <p className="text-muted-foreground">加载中...</p>
+                  </TableCell>
+                </TableRow>
+              ) : filteredPositions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-32 text-center">
                     <p className="text-muted-foreground">暂无数据</p>

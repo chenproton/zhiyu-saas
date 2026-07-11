@@ -1,8 +1,8 @@
 // @ts-nocheck
 "use client"
 
-import { useState, useMemo } from "react"
-import { Search, UserPlus, X, Check } from "lucide-react"
+import { useState, useMemo, useEffect } from "react"
+import { Search, UserPlus, X, Check, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -24,7 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { mockUsers } from "@/lib/mock-data-evaluation"
+import { userManagementApi } from "@/lib/api"
 import type { User } from "@/lib/types"
 
 type Role = 'editor' | 'viewer'
@@ -58,16 +58,35 @@ export function InviteCollaboratorDialog({
 }: InviteCollaboratorDialogProps) {
   const [search, setSearch] = useState("")
   const [selectedUsers, setSelectedUsers] = useState<SelectedUser[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoading(true)
+    userManagementApi.list({ limit: 1000 })
+      .then((res) => {
+        if (!cancelled) setUsers(res.items)
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to load users', err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [open])
 
   // 过滤可选用户（排除已有协作者和已选择的用户）
   const availableUsers = useMemo(() => {
     const selectedIds = selectedUsers.map(s => s.user.id)
-    return mockUsers.filter(user => 
+    return users.filter(user =>
       !existingCollaboratorIds.includes(user.id) &&
       !selectedIds.includes(user.id) &&
       (user.name.includes(search) || user.email.includes(search) || user.department?.includes(search))
     )
-  }, [search, selectedUsers, existingCollaboratorIds])
+  }, [search, selectedUsers, existingCollaboratorIds, users])
 
   const handleSelectUser = (user: User) => {
     setSelectedUsers(prev => [...prev, { user, role: 'editor' }])
@@ -168,7 +187,12 @@ export function InviteCollaboratorDialog({
 
           {/* 用户列表 */}
           <ScrollArea className="h-[240px] rounded-lg border">
-            {availableUsers.length === 0 ? (
+            {loading ? (
+              <div className="flex h-full items-center justify-center p-4 text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                加载用户中...
+              </div>
+            ) : availableUsers.length === 0 ? (
               <div className="flex h-full items-center justify-center p-4 text-muted-foreground">
                 {search ? "未找到匹配的用户" : "暂无可邀请的用户"}
               </div>
