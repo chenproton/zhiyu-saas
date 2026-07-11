@@ -75,6 +75,47 @@ const systemModules = [
   { id: "approval", title: "审批流程管理", desc: "审批流配置与管理", href: "/portal/apps/system/approval" },
 ]
 
+const fallbackModules: Record<string, ModuleItem[]> = {
+  alliance: [
+    { id: "alliance-entry", title: "产教协同平台", desc: "校企合作与人才品牌运营", href: "/portal" },
+  ],
+  career: [
+    { id: "career-positions", title: "岗位管理", desc: "产业岗位与学习路径", href: "/job/positions" },
+    { id: "career-batches", title: "批次管理", desc: "岗位批次与推荐", href: "/job/batches" },
+  ],
+  course: [
+    { id: "course-system", title: "体系课管理", desc: "体系课程资源建设", href: "/lesson/admin/system" },
+    { id: "course-teacher", title: "教学空间", desc: "开课计划与教学跟踪", href: "/lesson/teacher/claim" },
+  ],
+  scene: [
+    { id: "scene-scenarios", title: "场景管理", desc: "实践场景与任务设计", href: "/scene/" },
+    { id: "scene-archive", title: "场景归档", desc: "历史场景档案库", href: "/scene/archive" },
+  ],
+  ability: [
+    { id: "ability-banks", title: "题库管理", desc: "测评题库与试卷", href: "/evaluation/question-banks" },
+    { id: "ability-exams", title: "考试管理", desc: "考试场次与结果", href: "/evaluation/exam-usage" },
+    { id: "ability-cert", title: "微证书", desc: "认证规则与颁发", href: "/evaluation/certificates/templates" },
+  ],
+  affairs: [
+    { id: "affairs-entry", title: "教务服务", desc: "教务管理服务平台", href: "/portal" },
+  ],
+  ai: [
+    { id: "ai-entry", title: "AI 服务", desc: "AI 智能服务平台", href: "/portal" },
+  ],
+  resource: [
+    { id: "resource-mall", title: "资源商城", desc: "教学资源交易", href: "/" },
+  ],
+  opc: [
+    { id: "opc-entry", title: "OPC 专区", desc: "一人公司培育模式", href: "/portal" },
+  ],
+  decision: [
+    { id: "decision-entry", title: "决策中心", desc: "数智决策中心", href: "/portal" },
+  ],
+  research: [
+    { id: "research-entry", title: "教科研服务", desc: "教科研服务中心", href: "/portal" },
+  ],
+}
+
 interface ModuleItem {
   id: string
   title: string
@@ -182,18 +223,20 @@ export default function AppsPage() {
       .filter((item) => item.id !== "system")
       .map((item) => {
         const configured = modulesData.platforms.find((p) => p.id === item.id)
+        const rawModules = configured?.modules.length
+          ? configured.modules
+          : fallbackModules[item.id] || []
         return {
           id: item.id,
           label: item.label,
           icon: item.icon,
           ...platformStyles[item.id],
-          modules:
-            configured?.modules.map((m) => ({
-              id: m.id,
-              title: m.title,
-              desc: m.desc,
-              href: m.href || "#",
-            })) || [],
+          modules: rawModules.map((m) => ({
+            id: m.id,
+            title: m.title,
+            desc: m.desc,
+            href: m.href || "#",
+          })),
         }
       }),
   ]
