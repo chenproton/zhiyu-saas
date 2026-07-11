@@ -4,19 +4,19 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import type {
   Batch,
   Position,
+  PositionType,
   Workflow,
   Ability,
   ApprovalRecord,
   DashboardStats,
   PositionRecommendation,
 } from '@/lib/types/job-source'
-import type { CareerPosition, JobBatch } from '@/lib/types/job'
-import { positionApi, batchApi } from '@/lib/api'
+import type { CareerPosition, JobBatch, PositionRecommendation as ApiPositionRecommendation } from '@/lib/types/job'
+import { positionApi, batchApi, recommendApi, workflowApi, abilityApi, approvalApi } from '@/lib/api'
 import {
   mockWorkflows,
   mockAbilities,
   mockApprovalRecords,
-  mockRecommendations,
 } from '@/lib/mock-data/job'
 
 interface DataContextType {
@@ -63,17 +63,15 @@ interface DataContextType {
 
   // 目标岗位推荐操作
   getRecommendationsByMajor: (major: string) => PositionRecommendation[]
-  addRecommendation: (data: Omit<PositionRecommendation, 'id' | 'createdAt' | 'updatedAt' | 'order'>) => void
-  updateRecommendation: (id: string, data: Partial<PositionRecommendation>) => void
-  deleteRecommendation: (id: string) => void
-  reorderRecommendations: (major: string, orderedIds: string[]) => void
+  addRecommendation: (data: Omit<PositionRecommendation, 'id' | 'createdAt' | 'updatedAt' | 'order'>) => Promise<void>
+  updateRecommendation: (id: string, data: Partial<PositionRecommendation>) => Promise<void>
+  deleteRecommendation: (id: string) => Promise<void>
+  reorderRecommendations: (major: string, orderedIds: string[]) => Promise<void>
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
 const FAVORITES_KEY = 'career-platform-favorites'
-const RECOMMENDATIONS_KEY = 'career-platform-recommendations'
-const RECOMMENDATIONS_SEED_KEY = 'career-platform-recommendations-seed-v1'
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -143,7 +141,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [abilities, setAbilities] = useState<Ability[]>(mockAbilities)
   const [approvals, setApprovals] = useState<ApprovalRecord[]>(mockApprovalRecords)
   const [favorites, setFavorites] = useState<string[]>([])
-  const [recommendations, setRecommendations] = useState<PositionRecommendation[]>(mockRecommendations)
+  const [recommendations, setRecommendations] = useState<PositionRecommendation[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
   const loadPositions = useCallback(async () => {
@@ -164,7 +162,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // 从 localStorage 恢复收藏和推荐配置，并加载真实岗位/批次数据
+  function convertApiRecommendationToLocal(rec: ApiPositionRecommendation): PositionRecommendation {
+    return {
+      id: rec.id,
+      major: rec.major,
+      positionId: rec.careerPositionId,
+      positionType: rec.positionType as PositionType,
+      reason: rec.reason ?? undefined,
+      order: rec.sortOrder,
+      isVisible: rec.isVisible,
+      createdBy: rec.createdBy,
+      createdAt: rec.createdAt,
+      updatedAt: rec.updatedAt,
+    }
+  }
+
+  const loadRecommendations = useCallback(async () => {
+    try {
+      const resp = await recommendApi.list({ limit: 1000 })
+      setRecommendations(resp.items.map(convertApiRecommendationToLocal))
+    } catch (err) {
+      console.error('Failed to load recommendations:', err)
+    }
+  }, [])
+
+  // 从 localStorage 恢复收藏，并加载真实岗位/批次/推荐数据
   useEffect(() => {
     const storedFavorites = localStorage.getItem(FAVORITES_KEY)
     if (storedFavorites) {
@@ -174,27 +196,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         // 忽略解析错误
       }
     }
-    // 推荐配置：首次 seed 时使用 mock 数据，后续从 localStorage 恢复用户改动
-    const seeded = localStorage.getItem(RECOMMENDATIONS_SEED_KEY)
-    if (!seeded) {
-      setRecommendations(mockRecommendations)
-      localStorage.setItem(RECOMMENDATIONS_KEY, JSON.stringify(mockRecommendations))
-      localStorage.setItem(RECOMMENDATIONS_SEED_KEY, '1')
-    } else {
-      const storedRecommendations = localStorage.getItem(RECOMMENDATIONS_KEY)
-      if (storedRecommendations) {
-        try {
-          setRecommendations(JSON.parse(storedRecommendations))
-        } catch {
-          // 忽略解析错误
-        }
-      }
-    }
 
-    Promise.all([loadPositions(), loadBatches()]).finally(() => {
+    Promise.all([loadPositions(), loadBatches(), loadRecommendations()]).finally(() => {
       setIsLoaded(true)
     })
-  }, [loadPositions, loadBatches])
+  }, [loadPositions, loadBatches, loadRecommendations])
 
   // 保存收藏到 localStorage
   useEffect(() => {
@@ -202,13 +208,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites))
     }
   }, [favorites, isLoaded])
-
-  // 保存推荐配置到 localStorage
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(RECOMMENDATIONS_KEY, JSON.stringify(recommendations))
-    }
-  }, [recommendations, isLoaded])
 
   const stats = calculateStats(batches, positions, approvals, abilities)
 
@@ -486,52 +485,62 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => a.order - b.order)
   }
 
-  const addRecommendation = (data: Omit<PositionRecommendation, 'id' | 'createdAt' | 'updatedAt' | 'order'>) => {
-    const now = new Date().toISOString()
+  const addRecommendation = async (data: Omit<PositionRecommendation, 'id' | 'createdAt' | 'updatedAt' | 'order'>) => {
     const majorRecs = getRecommendationsByMajor(data.major)
-    const newRecommendation: PositionRecommendation = {
-      ...data,
-      id: generateId('rec'),
-      order: majorRecs.length + 1,
-      createdAt: now,
-      updatedAt: now,
-    }
-    setRecommendations((prev) => [...prev, newRecommendation])
+    await recommendApi.create({
+      major: data.major,
+      careerPositionId: data.positionId,
+      positionType: data.positionType,
+      reason: data.reason,
+      sortOrder: majorRecs.length + 1,
+      isVisible: data.isVisible,
+      createdBy: data.createdBy || '',
+    } as Omit<ApiPositionRecommendation, 'id' | 'createdAt' | 'updatedAt'>)
+    await loadRecommendations()
   }
 
-  const updateRecommendation = (id: string, data: Partial<PositionRecommendation>) => {
-    setRecommendations((prev) =>
-      prev.map((rec) =>
-        rec.id === id ? { ...rec, ...data, updatedAt: new Date().toISOString() } : rec
-      )
+  const updateRecommendation = async (id: string, data: Partial<PositionRecommendation>) => {
+    const existing = recommendations.find((r) => r.id === id)
+    if (!existing) return
+    await recommendApi.update(id, {
+      major: data.major ?? existing.major,
+      careerPositionId: data.positionId ?? existing.positionId,
+      positionType: data.positionType ?? existing.positionType,
+      reason: data.reason ?? existing.reason,
+      sortOrder: data.order ?? existing.order,
+      isVisible: data.isVisible ?? existing.isVisible,
+      createdBy: existing.createdBy,
+    } as ApiPositionRecommendation)
+    await loadRecommendations()
+  }
+
+  const deleteRecommendation = async (id: string) => {
+    await recommendApi.delete(id)
+    await loadRecommendations()
+  }
+
+  const reorderRecommendations = async (major: string, orderedIds: string[]) => {
+    const majorRecs = recommendations
+      .filter((r) => r.major === major)
+      .sort((a, b) => a.order - b.order)
+    await Promise.all(
+      orderedIds.map(async (id, index) => {
+        const rec = majorRecs.find((r) => r.id === id)
+        if (!rec) return
+        const newOrder = index + 1
+        if (newOrder === rec.order) return
+        await recommendApi.update(id, {
+          major: rec.major,
+          careerPositionId: rec.positionId,
+          positionType: rec.positionType,
+          reason: rec.reason,
+          sortOrder: newOrder,
+          isVisible: rec.isVisible,
+          createdBy: rec.createdBy,
+        } as ApiPositionRecommendation)
+      })
     )
-  }
-
-  const deleteRecommendation = (id: string) => {
-    const rec = recommendations.find((r) => r.id === id)
-    if (!rec) return
-    setRecommendations((prev) => {
-      const filtered = prev.filter((r) => r.id !== id)
-      const targetMajor = rec.major
-      const majorFiltered = filtered.filter((r) => r.major === targetMajor)
-      return filtered.map((r) =>
-        r.major === targetMajor
-          ? { ...r, order: majorFiltered.findIndex((x) => x.id === r.id) + 1 }
-          : r
-      )
-    })
-  }
-
-  const reorderRecommendations = (major: string, orderedIds: string[]) => {
-    setRecommendations((prev) => {
-      const majorRecs = prev.filter((r) => r.major === major)
-      const otherRecs = prev.filter((r) => r.major !== major)
-      const reordered = orderedIds
-        .map((id) => majorRecs.find((r) => r.id === id))
-        .filter((r): r is PositionRecommendation => !!r)
-        .map((r, index) => ({ ...r, order: index + 1, updatedAt: new Date().toISOString() }))
-      return [...otherRecs, ...reordered]
-    })
+    await loadRecommendations()
   }
 
   if (!isLoaded) {
