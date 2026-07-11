@@ -88,6 +88,7 @@ import type {
   AppealRecord,
   EvaluationBatch,
 } from "./types/evaluation"
+import type { WorkspaceDashboard } from "./types/portal"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1"
 
@@ -780,6 +781,10 @@ export const fileApi = {
     }
     return res.json()
   },
+}
+
+export const portalApi = {
+  workspaceDashboard: () => request<WorkspaceDashboard>("/portal/workspace/dashboard"),
 }
 
 // ==================== Phase 3.5: Evaluation APIs ====================

@@ -1,12 +1,14 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import { Bell, BookOpen, Briefcase, Calendar, CheckSquare, ChevronRight, Clock, GraduationCap, Layers } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SectionCard } from "./section-card"
 import { ScheduleGrid } from "./schedule-grid"
-import { mockAnnouncements, mockTodos, mockScheduleEvents } from "../_data/mock-student-data"
+import { portalApi } from "@/lib/api"
+import type { WorkspaceAnnouncement, WorkspaceTodo, WorkspaceScheduleEvent } from "@/lib/types"
 
 interface DashboardTabProps {
   onTabChange: (tab: string) => void
@@ -27,13 +29,25 @@ const typeLabelMap: Record<string, string> = {
 }
 
 export function DashboardTab({ onTabChange }: DashboardTabProps) {
+  const [announcements, setAnnouncements] = useState<WorkspaceAnnouncement[]>([])
+  const [todos, setTodos] = useState<WorkspaceTodo[]>([])
+  const [schedule, setSchedule] = useState<WorkspaceScheduleEvent[]>([])
+
+  useEffect(() => {
+    portalApi.workspaceDashboard().then((res) => {
+      setAnnouncements(res.announcements || [])
+      setTodos(res.todos || [])
+      setSchedule(res.schedule || [])
+    }).catch(() => {})
+  }, [])
+
   return (
     <div className="space-y-3">
       {/* 主体：课程表（3/4） + 右侧边栏（1/4） */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <div className="lg:col-span-3">
           <SectionCard>
-            <ScheduleGrid events={mockScheduleEvents} />
+            <ScheduleGrid events={schedule} />
           </SectionCard>
         </div>
 
@@ -47,10 +61,10 @@ export function DashboardTab({ onTabChange }: DashboardTabProps) {
           >
             <ScrollArea className="h-[260px]">
               <div className="space-y-2 pr-2">
-                {mockTodos.length === 0 && (
+                {todos.length === 0 && (
                   <div className="py-8 text-center text-xs text-gray-400">暂无待办事项</div>
                 )}
-                {mockTodos.map((item) => {
+                {todos.map((item) => {
                   const Icon = typeIconMap[item.type]
                   return (
                     <div
@@ -91,10 +105,10 @@ export function DashboardTab({ onTabChange }: DashboardTabProps) {
           <SectionCard title="通知公告" icon={Bell} iconColor="blue" action={{ label: "查看全部" }}>
             <ScrollArea className="h-[220px]">
               <div className="space-y-2 pr-2">
-                {mockAnnouncements.length === 0 && (
+                {announcements.length === 0 && (
                   <div className="py-8 text-center text-xs text-gray-400">暂无通知公告</div>
                 )}
-                {mockAnnouncements.map((item) => (
+                {announcements.map((item) => (
                   <div
                     key={item.id}
                     className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group"

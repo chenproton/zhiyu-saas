@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   Bell, BookOpen, Calendar, CheckSquare, ChevronLeft, ChevronRight,
@@ -21,12 +21,11 @@ import { CourseDetailDialog } from "./teacher-courses-tab"
 import { PrepAssociateDialog } from "./prep-associate-dialog"
 import { GradingIframeDialog } from "./grading-iframe-dialog"
 import { HybridGradingDialog } from "./hybrid-grading-dialog"
+import { portalApi } from "@/lib/api"
+import type { WorkspaceDashboard, WorkspaceScheduleEvent } from "@/lib/types"
 import {
-  mockTeacherAnnouncements,
-  mockTeacherTodos,
   mockClassPlans,
   mockClassSessions,
-  mockTeacherSchedule,
   type TeacherScheduleEvent,
   type PrepAssociationRecord,
 } from "../_data/mock-teacher-data"
@@ -52,6 +51,16 @@ interface TeacherDashboardTabProps {
 }
 
 export function TeacherDashboardTab({ onTabChange, prepAssociations = {}, onAssociate }: TeacherDashboardTabProps) {
+  const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null)
+
+  useEffect(() => {
+    portalApi.workspaceDashboard().then((res) => setDashboard(res)).catch(() => setDashboard(null))
+  }, [])
+
+  const announcements = dashboard?.announcements || []
+  const todos = dashboard?.todos || []
+  const schedule = dashboard?.schedule || []
+
   const [prepDialogOpen, setPrepDialogOpen] = useState(false)
   const [prepPlanId, setPrepPlanId] = useState("")
   const [prepSessionId, setPrepSessionId] = useState("")
@@ -75,6 +84,7 @@ export function TeacherDashboardTab({ onTabChange, prepAssociations = {}, onAsso
         <div className="lg:col-span-3">
           <SectionCard>
             <CourseScheduleTable
+              events={schedule as WorkspaceScheduleEvent[]}
               prepAssociations={prepAssociations}
               onAssociate={onAssociate}
               onPrepRequest={(planId, sessionId, planName, isHybrid, url, sessionLabel) => {
@@ -107,10 +117,10 @@ export function TeacherDashboardTab({ onTabChange, prepAssociations = {}, onAsso
           >
             <ScrollArea className="h-[260px]">
               <div className="space-y-2 pr-2">
-                {mockTeacherTodos.length === 0 && (
+                {todos.length === 0 && (
                   <div className="py-8 text-center text-xs text-gray-400">暂无待办事项</div>
                 )}
-                {mockTeacherTodos.map((item) => {
+                {todos.map((item) => {
                   const Icon = typeIconMap[item.type]
                   return (
                     <div
@@ -151,10 +161,10 @@ export function TeacherDashboardTab({ onTabChange, prepAssociations = {}, onAsso
           <SectionCard title="通知公告" icon={Bell} iconColor="blue" action={{ label: "全部通知" }}>
             <ScrollArea className="h-[240px]">
               <div className="space-y-2 pr-2">
-                {mockTeacherAnnouncements.length === 0 && (
+                {announcements.length === 0 && (
                   <div className="py-8 text-center text-xs text-gray-400">暂无通知公告</div>
                 )}
-                {mockTeacherAnnouncements.map((item) => (
+                {announcements.map((item) => (
                   <div
                     key={item.id}
                     className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group"
@@ -270,14 +280,14 @@ function getCourseUrls(event: TeacherScheduleEvent) {
 }
 
 interface CourseScheduleTableProps {
+  events?: WorkspaceScheduleEvent[]
   prepAssociations?: Record<string, PrepAssociationRecord>
   onAssociate?: (fn: (prev: Record<string, PrepAssociationRecord>) => Record<string, PrepAssociationRecord>) => void
   onPrepRequest?: (planId: string, sessionId: string, planName: string, isHybrid: boolean, url: string, sessionLabel?: string) => void
   onGradeRequest?: (title: string, className: string, isHybrid: boolean) => void
 }
 
-function CourseScheduleTable({ prepAssociations = {}, onAssociate, onPrepRequest, onGradeRequest }: CourseScheduleTableProps = {}) {
-  const events = mockTeacherSchedule
+function CourseScheduleTable({ events = [], prepAssociations = {}, onAssociate, onPrepRequest, onGradeRequest }: CourseScheduleTableProps = {}) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<DashboardSelectedCourse | null>(null)
   const [dialogTab, setDialogTab] = useState("tracking")

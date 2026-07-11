@@ -40,6 +40,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	withdrawalHandler := &handler.WithdrawalHandler{DB: db}
 	statsHandler := &handler.StatsHandler{DB: db}
 	fileHandler := &handler.FileHandler{UploadDir: "../public/uploads"}
+	portalHandler := &handler.PortalHandler{DB: db}
 
 	// Phase 3.1: portal management handlers
 	tenantHandler := &handler.TenantHandler{DB: db}
@@ -128,6 +129,8 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Get("/stats/me", statsHandler.MyStats)
 			r.Get("/config", statsHandler.GetConfig)
 			r.Put("/config", statsHandler.UpdateConfig)
+
+			r.Get("/portal/workspace/dashboard", portalHandler.WorkspaceDashboard)
 
 			r.Get("/institutions", institutionHandler.List)
 			r.Get("/institutions/{id}", institutionHandler.Get)
