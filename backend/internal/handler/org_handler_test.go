@@ -265,3 +265,107 @@ func TestOrg_Delete(t *testing.T) {
 		t.Fatalf("expected 404 after delete, got %d", wg.Code)
 	}
 }
+
+func TestOrgType_CRUD(t *testing.T) {
+	env := testhelper.SetupTestEnv(t)
+	defer env.Cleanup()
+	ctx := context.Background()
+
+	var typeID string
+
+	t.Run("Create", func(t *testing.T) {
+		w := env.Do("POST", "/api/v1/org-types", map[string]interface{}{
+			"tenantId":    testhelper.TestTenantID,
+			"name":        "Test Org Type",
+			"category":    "internal",
+			"description": "A test org type",
+		})
+		if w.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
+		}
+		ot, err := testhelper.Unmarshal[domain.OrgType](w)
+		if err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if ot.Name != "Test Org Type" {
+			t.Errorf("name = %q, want %q", ot.Name, "Test Org Type")
+		}
+		if ot.Category != domain.OrgTypeCategoryInternal {
+			t.Errorf("category = %q, want internal", ot.Category)
+		}
+		typeID = ot.ID
+	})
+	defer func() {
+		if typeID != "" {
+			env.DB.Exec(ctx, "DELETE FROM org_types WHERE id = $1", typeID)
+		}
+	}()
+
+	if typeID == "" {
+		t.Fatal("no created org type ID")
+	}
+
+	t.Run("List", func(t *testing.T) {
+		w := env.Do("GET", "/api/v1/org-types?tenantId="+testhelper.TestTenantID, nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
+		}
+		items, total, err := testhelper.UnmarshalList[domain.OrgType](w)
+		if err != nil {
+			t.Fatalf("unmarshal list: %v", err)
+		}
+		if total < 1 {
+			t.Errorf("total = %d, want >= 1", total)
+		}
+		_ = items
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		w := env.Do("GET", "/api/v1/org-types/"+typeID, nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
+		}
+		ot, err := testhelper.Unmarshal[domain.OrgType](w)
+		if err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if ot.ID != typeID {
+			t.Errorf("ID = %q, want %q", ot.ID, typeID)
+		}
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		w := env.Do("PUT", "/api/v1/org-types/"+typeID, map[string]interface{}{
+			"name":        "Updated Org Type",
+			"category":    "business",
+			"description": "Updated description",
+		})
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
+		}
+		ot, err := testhelper.Unmarshal[domain.OrgType](w)
+		if err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if ot.Name != "Updated Org Type" {
+			t.Errorf("name = %q, want %q", ot.Name, "Updated Org Type")
+		}
+		if ot.Category != domain.OrgTypeCategoryBusiness {
+			t.Errorf("category = %q, want business", ot.Category)
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		deletedID := typeID
+		w := env.Do("DELETE", "/api/v1/org-types/"+deletedID, nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
+		}
+		typeID = ""
+
+		w = env.Do("GET", "/api/v1/org-types/"+deletedID, nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected 404 after delete, got %d", w.Code)
+		}
+	})
+}

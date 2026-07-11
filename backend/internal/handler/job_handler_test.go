@@ -104,16 +104,17 @@ func TestPosition_CRUD(t *testing.T) {
 	})
 
 	t.Run("Delete", func(t *testing.T) {
-		w := env.Do("DELETE", fmt.Sprintf("/api/v1/job/positions/%s", createdID), nil)
+		deletedID := createdID
+		w := env.Do("DELETE", fmt.Sprintf("/api/v1/job/positions/%s", deletedID), nil)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 		}
 		createdID = ""
 
-		w = env.Do("GET", fmt.Sprintf("/api/v1/job/positions/%s", createdID), nil)
-		// createdID is already cleared, so we use a known-deleted ID.
-		// Re-fetch with the original ID stored before clearing.
-		// We need to test 404, so let's use a dummy deleted ID approach.
+		w = env.Do("GET", fmt.Sprintf("/api/v1/job/positions/%s", deletedID), nil)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("expected 404 after delete, got %d", w.Code)
+		}
 	})
 }
 

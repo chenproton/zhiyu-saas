@@ -76,10 +76,46 @@ func SetupTestEnv(t *testing.T) *TestEnv {
 		authHandler := &handler.AuthHandler{DB: pool, JWTSecret: TestJWTSecret}
 		r.Post("/auth/login", authHandler.Login)
 
+		bannerHandler := &handler.BannerHandler{DB: pool}
+		r.Get("/banners", bannerHandler.List)
+
+		resourceHandler := &handler.ResourceHandler{DB: pool}
+		r.Get("/resources", resourceHandler.List)
+		r.Get("/resources/{id}", resourceHandler.Get)
+
 		r.Group(func(r chi.Router) {
 			r.Use(auth)
 
 			r.Get("/auth/me", authHandler.Me)
+
+			statsHandler := &handler.StatsHandler{DB: pool}
+			r.Get("/stats/dashboard", statsHandler.Dashboard)
+			r.Get("/stats/me", statsHandler.MyStats)
+
+			institutionHandler := &handler.InstitutionHandler{DB: pool}
+			r.Get("/institutions", institutionHandler.List)
+			r.Get("/institutions/{id}", institutionHandler.Get)
+			r.Post("/institutions", institutionHandler.Create)
+			r.Put("/institutions/{id}", institutionHandler.Update)
+
+			r.Post("/resources", resourceHandler.Create)
+			r.Put("/resources/{id}", resourceHandler.Update)
+			r.Delete("/resources/{id}", resourceHandler.Delete)
+			r.Post("/resources/{id}/submit", resourceHandler.SubmitForReview)
+			r.Post("/resources/{id}/review", resourceHandler.Review)
+
+			orderHandler := &handler.OrderHandler{DB: pool}
+			r.Get("/orders", orderHandler.List)
+			r.Get("/orders/{id}", orderHandler.Get)
+			r.Post("/orders", orderHandler.Create)
+
+			withdrawalHandler := &handler.WithdrawalHandler{DB: pool}
+			r.Get("/withdrawals", withdrawalHandler.List)
+			r.Post("/withdrawals", withdrawalHandler.Create)
+
+			r.Post("/banners", bannerHandler.Create)
+			r.Put("/banners/{id}", bannerHandler.Update)
+			r.Delete("/banners/{id}", bannerHandler.Delete)
 
 			tenantHandler := &handler.TenantHandler{DB: pool}
 			r.Get("/tenants", tenantHandler.List)
@@ -450,6 +486,9 @@ func ensureSeedData(t *testing.T, db *pgxpool.Pool, token string) {
 	pw, _ := bcrypt.GenerateFromPassword([]byte("test123"), bcrypt.DefaultCost)
 	db.Exec(ctx, `INSERT INTO users (id, tenant_id, role, username, login_name, password_hash, name, status, title_ids) VALUES ($1, $2, 'operator', 'testuser', 'testuser', $3, 'Test Operator', 'active', '{}') ON CONFLICT (id) DO NOTHING`,
 		TestOperatorID, TestTenantID, string(pw))
+
+	db.Exec(ctx, `INSERT INTO platform_configs (key, value) VALUES ('platform_fee_rate', '0.15') ON CONFLICT (key) DO NOTHING`)
+	db.Exec(ctx, `INSERT INTO platform_configs (key, value) VALUES ('min_withdrawal_amount', '100') ON CONFLICT (key) DO NOTHING`)
 }
 
 func runTestMigrations(t *testing.T, db *pgxpool.Pool) {
@@ -509,6 +548,16 @@ func runTestMigrations(t *testing.T, db *pgxpool.Pool) {
 
 func (e *TestEnv) Do(method, path string, body interface{}) *httptest.ResponseRecorder {
 	return e.DoWithToken(method, path, body, e.OperatorToken)
+}
+
+func (e *TestEnv) DoNoAuth(method, path string, body interface{}) *httptest.ResponseRecorder {
+	return e.DoWithToken(method, path, body, "")
+}
+
+func (e *TestEnv) NewUserToken(userID, tenantID string, role domain.UserRole, institutionID *string) string {
+	u := &domain.User{ID: userID, TenantID: &tenantID, Role: role, Username: "aux-user", InstitutionID: institutionID}
+	token, _ := middleware.GenerateToken(TestJWTSecret, u)
+	return token
 }
 
 func (e *TestEnv) DoWithToken(method, path string, body interface{}, token string) *httptest.ResponseRecorder {

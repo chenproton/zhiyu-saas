@@ -501,10 +501,8 @@ func TestEvaluationResult(t *testing.T) {
 		"score":   85,
 		"comment": "Good work",
 	})
-	if w.Code == http.StatusOK || w.Code == http.StatusNotFound {
-		t.Logf("grade result (may 404): %d", w.Code)
-	} else {
-		t.Fatalf("grade: unexpected status %d", w.Code)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("grade non-existent: expected 404, got %d", w.Code)
 	}
 
 	w = env.Do("POST", "/api/v1/evaluation/results/batch-grade", map[string]interface{}{
@@ -512,10 +510,8 @@ func TestEvaluationResult(t *testing.T) {
 			{"id": "non-existent-id", "score": 90},
 		},
 	})
-	if w.Code == http.StatusOK || w.Code == http.StatusInternalServerError {
-		t.Logf("batch grade: %d", w.Code)
-	} else {
-		t.Fatalf("batch grade: unexpected status %d", w.Code)
+	if w.Code == http.StatusOK {
+		t.Errorf("batch grade with non-existent ids should not return 200, got %d", w.Code)
 	}
 }
 
@@ -885,10 +881,8 @@ func TestEvaluationMethods(t *testing.T) {
 	w = env.Do("POST", "/api/v1/evaluation/methods/non-existent-id/toggle", map[string]interface{}{
 		"enabled": true,
 	})
-	if w.Code == http.StatusOK || w.Code == http.StatusNotFound {
-		t.Logf("toggle method (may 404): %d", w.Code)
-	} else {
-		t.Fatalf("toggle: unexpected status %d", w.Code)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("toggle non-existent method: expected 404, got %d", w.Code)
 	}
 }
 
@@ -946,9 +940,7 @@ func TestEvaluationResult_BatchGradeWithItems(t *testing.T) {
 			{"id": "dummy-id-2", "score": 90},
 		},
 	})
-	if w.Code == http.StatusOK || w.Code == http.StatusInternalServerError {
-		t.Logf("batch grade with items: %d", w.Code)
-	} else {
-		t.Fatalf("batch grade: unexpected status %d", w.Code)
+	if w.Code == http.StatusOK {
+		t.Errorf("batch grade with dummy ids should not return 200, got %d", w.Code)
 	}
 }

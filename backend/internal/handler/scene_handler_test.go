@@ -603,8 +603,8 @@ func TestTaskResourceBinding(t *testing.T) {
 		"taskId":     taskID,
 		"resourceId": "00000000-0000-0000-0000-000000000099",
 	})
-	if w.Code == 0 {
-		t.Fatal("expected non-zero status code (API didn't crash)")
+	if w.Code < 400 {
+		t.Errorf("binding invalid resource should return error, got %d", w.Code)
 	}
 
 	// List resources for the task
@@ -703,5 +703,58 @@ func TestScenarioGradeMapping(t *testing.T) {
 	if mapping.ScenarioID != scID || mapping.Level != "A" || mapping.MinScore != 90 || mapping.MaxScore != 100 {
 		t.Fatalf("grade mapping mismatch: scId=%s level=%s min=%.0f max=%.0f",
 			mapping.ScenarioID, mapping.Level, mapping.MinScore, mapping.MaxScore)
+	}
+}
+
+func TestScenarioCreateWithInvalidPositionId(t *testing.T) {
+	env := testhelper.SetupTestEnv(t)
+	defer env.Cleanup()
+
+	code := fmt.Sprintf("test-fk-sc-%s", t.Name())
+	w := env.Do("POST", "/api/v1/scene/scenarios", map[string]interface{}{
+		"name":              "FK Test Scenario",
+		"code":              code,
+		"difficulty":        1,
+		"version":           "v1.0",
+		"careerPositionId":  "00000000-0000-0000-0000-00000000dead",
+	})
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 for invalid careerPositionId FK, got %d", w.Code)
+	}
+}
+
+func TestTaskBindKnowledgeWithInvalidId(t *testing.T) {
+	env := testhelper.SetupTestEnv(t)
+	defer env.Cleanup()
+	ctx := context.Background()
+
+	scCode := fmt.Sprintf("test-tkbind-fk-%s", t.Name())
+	w := env.Do("POST", "/api/v1/scene/scenarios", map[string]interface{}{
+		"name": "TK Bind FK Scenario", "code": scCode, "difficulty": 1, "version": "v1.0",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create scenario: expected 201, got %d", w.Code)
+	}
+	sc, _ := testhelper.Unmarshal[domain.Scenario](w)
+	scID := sc.ID
+	defer env.DB.Exec(ctx, "DELETE FROM scenarios WHERE id = $1", scID)
+
+	taskCode := fmt.Sprintf("tsk-tkbind-fk-%s", t.Name())
+	w = env.Do("POST", "/api/v1/scene/tasks", map[string]interface{}{
+		"scenarioId": scID, "name": "TK Bind FK Task", "code": taskCode, "taskType": "assessment", "difficulty": 1,
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create task: expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
+	}
+	task, _ := testhelper.Unmarshal[domain.ScenarioTask](w)
+	taskID := task.ID
+	defer env.DB.Exec(ctx, "DELETE FROM scenario_tasks WHERE id = $1", taskID)
+
+	w = env.Do("POST", "/api/v1/scene/task-bindings/knowledge", map[string]interface{}{
+		"taskId":           taskID,
+		"knowledgePointId": "00000000-0000-0000-0000-0000000000ff",
+	})
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 for invalid knowledge point FK, got %d", w.Code)
 	}
 }
