@@ -25,7 +25,7 @@ interface PositionAssessment {
 }
 
 // 岗位能力认定数据应由后端测评结果 API 提供，默认空状态
-const mockPositionAssessments: PositionAssessment[] = []
+const emptyPositionAssessments: PositionAssessment[] = []
 
 const statusVariantMap: Record<string, string> = {
   待考: "bg-amber-50 text-amber-600",
@@ -52,10 +52,10 @@ export function AssessmentTab() {
       {/* ===== 岗位能力认定结果 ===== */}
       <SectionCard title="岗位能力认定结果" icon={Award} iconColor="amber">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {mockPositionAssessments.length === 0 && (
+          {emptyPositionAssessments.length === 0 && (
             <div className="col-span-full py-8 text-center text-xs text-gray-400">暂无岗位能力认定结果</div>
           )}
-          {mockPositionAssessments.map((pa) => (
+          {emptyPositionAssessments.map((pa) => (
             <div key={pa.id} className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
               {/* 岗位头 */}
               <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 px-4 py-3">

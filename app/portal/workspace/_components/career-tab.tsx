@@ -46,13 +46,13 @@ interface FavoriteExam {
   difficulty: string
 }
 
-const mockFavoriteJobs: FavoriteJob[] = []
+const emptyFavoriteJobs: FavoriteJob[] = []
 
-const mockFavoriteCourses: FavoriteCourse[] = []
+const emptyFavoriteCourses: FavoriteCourse[] = []
 
-const mockFavoriteScenes: FavoriteScene[] = []
+const emptyFavoriteScenes: FavoriteScene[] = []
 
-const mockFavoriteExams: FavoriteExam[] = []
+const emptyFavoriteExams: FavoriteExam[] = []
 
 const categoryConfig = {
   jobs: { label: "职业岗位", icon: Briefcase, color: "blue" as const },
@@ -70,10 +70,10 @@ const statusBadge: Record<string, string> = {
 export function CareerTab() {
   const [activeCategory, setActiveCategory] = useState("all")
   const [favorites, setFavorites] = useState({
-    jobs: mockFavoriteJobs,
-    courses: mockFavoriteCourses,
-    scenes: mockFavoriteScenes,
-    exams: mockFavoriteExams,
+    jobs: emptyFavoriteJobs,
+    courses: emptyFavoriteCourses,
+    scenes: emptyFavoriteScenes,
+    exams: emptyFavoriteExams,
   })
 
   const handleUnfavorite = (category: keyof typeof categoryConfig, id: string) => {

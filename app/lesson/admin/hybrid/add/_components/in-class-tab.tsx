@@ -33,7 +33,7 @@ import {
 
 // ==================== Mock Data ====================
 
-export const MOCK_STUDENTS: { id: string; name: string; status: "present" | "late" | "absent" }[] = []
+export const EMPTY_STUDENTS: { id: string; name: string; status: "present" | "late" | "absent" }[] = []
 
 export const VOTE_RESULTS: { option: string; count: number; percent: number }[] = []
 
@@ -75,7 +75,7 @@ export function RollCallPanel({ onBack }: { onBack?: () => void }) {
   const [count, setCount] = useState(5)
   const [duration, setDuration] = useState(30)
   const [isActive, setIsActive] = useState(false)
-  const [records, setRecords] = useState(MOCK_STUDENTS.map((s) => ({ ...s, called: Math.random() > 0.5 })))
+  const [records, setRecords] = useState(EMPTY_STUDENTS.map((s) => ({ ...s, called: Math.random() > 0.5 })))
 
   return (
     <div className="space-y-4">
@@ -156,10 +156,10 @@ export function CheckInPanel({ onBack }: { onBack?: () => void }) {
   const [isActive, setIsActive] = useState(false)
 
   const stats = {
-    total: MOCK_STUDENTS.length,
-    present: MOCK_STUDENTS.filter((s) => s.status === "present").length,
-    late: MOCK_STUDENTS.filter((s) => s.status === "late").length,
-    absent: MOCK_STUDENTS.filter((s) => s.status === "absent").length,
+    total: EMPTY_STUDENTS.length,
+    present: EMPTY_STUDENTS.filter((s) => s.status === "present").length,
+    late: EMPTY_STUDENTS.filter((s) => s.status === "late").length,
+    absent: EMPTY_STUDENTS.filter((s) => s.status === "absent").length,
   }
 
   return (
@@ -226,7 +226,7 @@ export function CheckInPanel({ onBack }: { onBack?: () => void }) {
         <CardHeader><CardTitle className="text-base">签到明细</CardTitle></CardHeader>
         <CardContent>
           <div className="divide-y">
-            {MOCK_STUDENTS.map((s) => (
+            {EMPTY_STUDENTS.map((s) => (
               <div key={s.id} className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">{s.name.charAt(0)}</div>
@@ -459,7 +459,7 @@ export function GroupingPanel({ onBack }: { onBack?: () => void }) {
   const [groups, setGroups] = useState<{ id: number; members: string[] }[]>([])
 
   const generateGroups = () => {
-    const shuffled = [...MOCK_STUDENTS].sort(() => Math.random() - 0.5)
+    const shuffled = [...EMPTY_STUDENTS].sort(() => Math.random() - 0.5)
     const result: { id: number; members: string[] }[] = []
     for (let i = 0; i < shuffled.length; i += groupSize) {
       result.push({ id: result.length + 1, members: shuffled.slice(i, i + groupSize).map((s) => s.name) })
@@ -628,22 +628,22 @@ export function InClassTab() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div className="space-y-1">
-              <p className="text-2xl font-bold">{MOCK_STUDENTS.length}</p>
+              <p className="text-2xl font-bold">{EMPTY_STUDENTS.length}</p>
               <p className="text-xs text-muted-foreground">应到人数</p>
             </div>
             <div className="space-y-1">
-              <p className="text-2xl font-bold text-green-600">{MOCK_STUDENTS.filter((s) => s.status === "present").length}</p>
+              <p className="text-2xl font-bold text-green-600">{EMPTY_STUDENTS.filter((s) => s.status === "present").length}</p>
               <p className="text-xs text-muted-foreground">实到人数</p>
             </div>
             <div className="space-y-1">
-              <p className="text-2xl font-bold text-amber-500">{MOCK_STUDENTS.filter((s) => s.status === "late").length}</p>
+              <p className="text-2xl font-bold text-amber-500">{EMPTY_STUDENTS.filter((s) => s.status === "late").length}</p>
               <p className="text-xs text-muted-foreground">迟到人数</p>
             </div>
             <div className="space-y-1">
               <p className="text-2xl font-bold text-blue-600">
-                {MOCK_STUDENTS.length === 0
+                {EMPTY_STUDENTS.length === 0
                   ? "0%"
-                  : `${Math.round((MOCK_STUDENTS.filter((s) => s.status === "present").length / MOCK_STUDENTS.length) * 100)}%`}
+                  : `${Math.round((EMPTY_STUDENTS.filter((s) => s.status === "present").length / EMPTY_STUDENTS.length) * 100)}%`}
               </p>
               <p className="text-xs text-muted-foreground">出勤率</p>
             </div>

@@ -637,7 +637,7 @@ export default function LandingHomePage() {
           <section style={{ marginBottom: 50 }}>
           <SectionHeader title="学生画像排行榜" subtitle="按岗位查看关联专业排行榜" />
           <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-            {/* 岗位筛选 — 平铺多选，模拟20个，可展开 */}
+            {/* 岗位筛选 — 平铺多选 */}
             <PositionFilter selected={selectedPositions} onChange={setSelectedPositions} />
 
             {/* 关联专业卡片 */}

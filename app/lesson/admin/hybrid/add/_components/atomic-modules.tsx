@@ -796,7 +796,7 @@ const RESOURCE_TYPE_LABELS: Record<ResourceItem["type"], string> = {
   custom: "自定义",
 }
 
-const MOCK_RESOURCES: ResourceItem[] = []
+const EMPTY_RESOURCES: ResourceItem[] = []
 
 function ResourceListEditor({
   items,
@@ -872,14 +872,14 @@ function ResourceListEditor({
             <DialogTitle>从资源库关联</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            {MOCK_RESOURCES.length === 0 ? (
+            {EMPTY_RESOURCES.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-gray-400 py-12">
                 <Database className="h-12 w-12 mb-3 opacity-50" />
                 <p className="text-sm">暂无资源数据</p>
                 <p className="text-xs mt-1">请通过其他入口创建资源后再关联</p>
               </div>
             ) : (
-              MOCK_RESOURCES.map((res) => (
+              EMPTY_RESOURCES.map((res) => (
                 <div
                   key={res.id}
                   className="flex items-center justify-between border rounded-lg p-3"
@@ -1276,7 +1276,7 @@ function InClassQuizzesModule({ data, onChange }: AtomicModuleProps) {
   )
 }
 
-const MOCK_QUESTION_BANK: { id: string; title: string; type: string }[] = []
+const EMPTY_QUESTION_BANK: { id: string; title: string; type: string }[] = []
 
 function ClassQuestionsModule({ data, onChange }: AtomicModuleProps) {
   const questions = data.classQuestions || []
@@ -1285,7 +1285,7 @@ function ClassQuestionsModule({ data, onChange }: AtomicModuleProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedQuestionId, setSelectedQuestionId] = useState("")
 
-  const filteredQuestions = MOCK_QUESTION_BANK.filter(
+  const filteredQuestions = EMPTY_QUESTION_BANK.filter(
     (q) =>
       q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       q.type.toLowerCase().includes(searchQuery.toLowerCase())
@@ -1299,7 +1299,7 @@ function ClassQuestionsModule({ data, onChange }: AtomicModuleProps) {
   }
 
   const handleAddBankQuestion = () => {
-    const question = MOCK_QUESTION_BANK.find((q) => q.id === selectedQuestionId)
+    const question = EMPTY_QUESTION_BANK.find((q) => q.id === selectedQuestionId)
     if (!question) return
     onChange({
       classQuestions: [
@@ -1455,7 +1455,7 @@ function ClassQuestionsModule({ data, onChange }: AtomicModuleProps) {
   )
 }
 
-const MOCK_SCENARIOS: { id: string; title: string; desc: string; post: string; batch: string; scope: "mine" | "shared" | "public" }[] = []
+const EMPTY_SCENARIOS: { id: string; title: string; desc: string; post: string; batch: string; scope: "mine" | "shared" | "public" }[] = []
 
 function PracticeTasksModule({ data, onChange }: AtomicModuleProps) {
   const tasks = data.practiceTasks || []
@@ -1467,10 +1467,10 @@ function PracticeTasksModule({ data, onChange }: AtomicModuleProps) {
   const [scenarioPost, setScenarioPost] = useState("全部")
   const [scenarioBatch, setScenarioBatch] = useState("全部")
 
-  const uniquePosts = Array.from(new Set(MOCK_SCENARIOS.map((s) => s.post)))
-  const uniqueBatches = Array.from(new Set(MOCK_SCENARIOS.map((s) => s.batch)))
+  const uniquePosts = Array.from(new Set(EMPTY_SCENARIOS.map((s) => s.post)))
+  const uniqueBatches = Array.from(new Set(EMPTY_SCENARIOS.map((s) => s.batch)))
 
-  const filteredScenarios = MOCK_SCENARIOS.filter((s) => {
+  const filteredScenarios = EMPTY_SCENARIOS.filter((s) => {
     const matchScope = s.scope === scenarioScope
     const matchPost = scenarioPost === "全部" || s.post === scenarioPost
     const matchBatch = scenarioBatch === "全部" || s.batch === scenarioBatch
@@ -1491,7 +1491,7 @@ function PracticeTasksModule({ data, onChange }: AtomicModuleProps) {
   }
 
   const handleAddScenario = () => {
-    const scenario = MOCK_SCENARIOS.find((s) => s.id === selectedScenarioId)
+    const scenario = EMPTY_SCENARIOS.find((s) => s.id === selectedScenarioId)
     if (!scenario) return
     onChange({
       practiceTasks: [
