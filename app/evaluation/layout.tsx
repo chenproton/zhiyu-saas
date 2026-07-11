@@ -25,35 +25,36 @@ export default function EvaluationLayout({
     }
   }, [loading, user, isLanding, router])
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
+  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityType?.code ?? "")
 
-  if (!user || !ALLOWED_IDENTITIES.includes(identityType?.code ?? "")) {
-    return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
-        当前身份暂无权限访问测评管理平台
-      </div>
-    )
-  }
-
-  if (isLanding) {
-    return <>{children}</>
-  }
-
-  const config = {
-    ...evaluationNavigationConfig,
-    topNavItems: portalTopNavItems,
-    sideBackHref: "/portal/apps",
-  }
-
-  return (
-    <PlatformShell config={config}>
+  const content = isLanding ? (
+    <>{children}</>
+  ) : (
+    <PlatformShell
+      config={{
+        ...evaluationNavigationConfig,
+        topNavItems: portalTopNavItems,
+        sideBackHref: "/portal/apps",
+      }}
+    >
       {children}
     </PlatformShell>
+  )
+
+  return (
+    <>
+      {content}
+      {!isLanding && (loading || !allowed) && (
+        <div className="fixed inset-0 z-50 flex h-screen items-center justify-center bg-[#f5f7fa]">
+          {loading ? (
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              当前身份暂无权限访问测评管理平台
+            </div>
+          )}
+        </div>
+      )}
+    </>
   )
 }

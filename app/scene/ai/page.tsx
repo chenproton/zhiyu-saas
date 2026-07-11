@@ -8,5 +8,9 @@ export default function SceneAiRedirectPage() {
   useEffect(() => {
     router.replace("/scene")
   }, [router])
-  return null
+  return (
+    <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+      页面跳转中…
+    </div>
+  )
 }

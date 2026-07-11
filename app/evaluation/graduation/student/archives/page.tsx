@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useData } from "@/components/providers/data-provider"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuth } from "@/components/auth-provider"
 import type { GraduationProjectArchive, RectificationDetail } from "@/lib/types"
 
 const PHASE_LABELS: Record<GraduationProjectArchive['phase'], string> = {

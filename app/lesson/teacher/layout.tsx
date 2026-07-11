@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
 import { unifiedNavigationConfig } from "@/lib/navigation-config"
@@ -12,27 +14,31 @@ export default function TeacherLayout({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const { user, loading, identityType } = useAuth()
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login")
+    }
+  }, [loading, user, router])
 
-  if (!user || !ALLOWED_IDENTITIES.includes(identityType?.code ?? "")) {
-    return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
-        当前身份暂无权限访问教学空间
-      </div>
-    )
-  }
+  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityType?.code ?? "")
 
   return (
     <PlatformShell config={unifiedNavigationConfig}>
       {children}
+      {(loading || !allowed) && (
+        <div className="fixed inset-0 z-50 flex h-screen items-center justify-center bg-[#f5f7fa]">
+          {loading ? (
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              当前身份暂无权限访问教学空间
+            </div>
+          )}
+        </div>
+      )}
     </PlatformShell>
   )
 }

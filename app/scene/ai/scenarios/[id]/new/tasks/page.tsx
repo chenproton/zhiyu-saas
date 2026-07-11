@@ -9,5 +9,9 @@ export default function SceneAiNewTasksRedirectPage() {
   useEffect(() => {
     router.replace(`/scene/scenarios/${params.id}/edit/tasks`)
   }, [router, params.id])
-  return null
+  return (
+    <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+      页面跳转中…
+    </div>
+  )
 }

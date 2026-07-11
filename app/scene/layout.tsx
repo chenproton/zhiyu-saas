@@ -23,21 +23,7 @@ export default function SceneLayout({
     }
   }, [loading, user, router])
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (!user || !ALLOWED_IDENTITIES.includes(identityType?.code ?? "")) {
-    return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
-        当前身份暂无权限访问场景学习平台
-      </div>
-    )
-  }
+  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityType?.code ?? "")
 
   const config = {
     ...sceneNavigationConfig,
@@ -48,6 +34,17 @@ export default function SceneLayout({
   return (
     <PlatformShell config={config}>
       {children}
+      {(loading || !allowed) && (
+        <div className="fixed inset-0 z-50 flex h-screen items-center justify-center bg-[#f5f7fa]">
+          {loading ? (
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              当前身份暂无权限访问场景学习平台
+            </div>
+          )}
+        </div>
+      )}
     </PlatformShell>
   )
 }

@@ -8,5 +8,9 @@ export default function SceneAiGradingSimulationRedirectPage() {
   useEffect(() => {
     router.replace("/scene/approvals")
   }, [router])
-  return null
+  return (
+    <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+      页面跳转中…
+    </div>
+  )
 }

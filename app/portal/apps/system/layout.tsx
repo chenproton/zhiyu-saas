@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -15,7 +15,6 @@ import {
   Settings,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 
 const menuItems = [
   {
@@ -76,20 +75,9 @@ export default function SystemLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const [expandedItems, setExpandedItems] = useState<string[]>([])
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-    // Auto-expand based on current path - 默认展开所有有子菜单的项
-    const expanded: string[] = []
-    menuItems.forEach((item) => {
-      if (item.children) {
-        expanded.push(item.id)
-      }
-    })
-    setExpandedItems(expanded)
-  }, [])
+  const [expandedItems, setExpandedItems] = useState<string[]>(() =>
+    menuItems.filter((item) => item.children).map((item) => item.id)
+  )
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
@@ -99,10 +87,6 @@ export default function SystemLayout({
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
-  if (!mounted) {
-    return null
-  }
-
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] bg-[#f5f7fa]">
       {/* Left Sidebar */}
@@ -110,7 +94,7 @@ export default function SystemLayout({
         {/* Header with back button */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <Link 
+            <Link
               href="/portal/apps"
               className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted hover:bg-primary/10 hover:text-primary transition-colors"
             >
@@ -122,7 +106,7 @@ export default function SystemLayout({
             </div>
           </div>
         </div>
-        
+
         <nav className="p-3">
           {menuItems.map((item) => {
             const Icon = item.icon
