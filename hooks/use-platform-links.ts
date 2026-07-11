@@ -36,7 +36,7 @@ export function usePlatformLinks() {
 
   const fetchLinks = useCallback(async () => {
     try {
-      const res = await fetch("/api/platform-links")
+      const res = await fetch("/api/v1/platform-links")
       if (res.ok) {
         const json = await res.json()
         const platforms: PlatformLink[] = (json.items || []).map((item: any) => ({
@@ -77,7 +77,7 @@ export function usePlatformLinks() {
 
 export async function savePlatformLinks(data: PlatformLinksData): Promise<boolean> {
   try {
-    const res = await fetch("/api/platform-links", {
+    const res = await fetch("/api/v1/platform-links", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -95,7 +95,7 @@ export function useAppModules() {
 
   const fetchModules = useCallback(async () => {
     try {
-      const res = await fetch("/api/app-modules")
+      const res = await fetch("/api/v1/app-modules")
       if (res.ok) {
         const json = await res.json()
         setData(json)
@@ -123,7 +123,7 @@ export function useAppModules() {
 
 export async function saveAppModules(data: AppModulesData): Promise<boolean> {
   try {
-    const res = await fetch("/api/app-modules", {
+    const res = await fetch("/api/v1/app-modules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),

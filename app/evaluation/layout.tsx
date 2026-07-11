@@ -1,7 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
-import { usePathname } from "next/navigation"
 import { PlatformShell } from "@/components/platform-shell"
 import { evaluationNavigationConfig } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
@@ -13,9 +14,16 @@ export default function EvaluationLayout({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const pathname = usePathname()
   const { user, loading, identityType } = useAuth()
   const isLanding = pathname.startsWith("/evaluation/landing")
+
+  useEffect(() => {
+    if (!loading && !user && !isLanding) {
+      router.replace("/login")
+    }
+  }, [loading, user, isLanding, router])
 
   if (loading) {
     return (

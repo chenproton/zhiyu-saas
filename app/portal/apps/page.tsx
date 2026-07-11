@@ -77,7 +77,7 @@ const systemModules = [
 
 const fallbackModules: Record<string, ModuleItem[]> = {
   alliance: [
-    { id: "alliance-entry", title: "产教协同平台", desc: "校企合作与人才品牌运营", href: "/portal" },
+    { id: "alliance-entry", title: "产教协同平台", desc: "暂未开放", href: "#" },
   ],
   career: [
     { id: "career-positions", title: "岗位管理", desc: "产业岗位与学习路径", href: "/job/positions" },
@@ -97,22 +97,22 @@ const fallbackModules: Record<string, ModuleItem[]> = {
     { id: "ability-cert", title: "微证书", desc: "认证规则与颁发", href: "/evaluation/certificates/templates" },
   ],
   affairs: [
-    { id: "affairs-entry", title: "教务服务", desc: "教务管理服务平台", href: "/portal" },
+    { id: "affairs-entry", title: "教务服务", desc: "暂未开放", href: "#" },
   ],
   ai: [
-    { id: "ai-entry", title: "AI 服务", desc: "AI 智能服务平台", href: "/portal" },
+    { id: "ai-entry", title: "AI 服务", desc: "暂未开放", href: "#" },
   ],
   resource: [
     { id: "resource-mall", title: "资源商城", desc: "教学资源交易", href: "/" },
   ],
   opc: [
-    { id: "opc-entry", title: "OPC 专区", desc: "一人公司培育模式", href: "/portal" },
+    { id: "opc-entry", title: "OPC 专区", desc: "暂未开放", href: "#" },
   ],
   decision: [
-    { id: "decision-entry", title: "决策中心", desc: "数智决策中心", href: "/portal" },
+    { id: "decision-entry", title: "决策中心", desc: "暂未开放", href: "#" },
   ],
   research: [
-    { id: "research-entry", title: "教科研服务", desc: "教科研服务中心", href: "/portal" },
+    { id: "research-entry", title: "教科研服务", desc: "暂未开放", href: "#" },
   ],
 }
 
@@ -361,17 +361,20 @@ export default function AppsPage() {
                       <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                         {section.modules.length} 个模块
                       </span>
-                      {platformUrl && (section.id === "alliance" || section.id === "ability") && (
-                        <a
-                          href={platformUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-auto flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-lg hover:bg-primary/5"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          进入平台
-                        </a>
-                      )}
+                      {platformUrl &&
+                        platformUrl !== "#" &&
+                        platformUrl !== "/portal" &&
+                        (section.id === "alliance" || section.id === "ability") && (
+                          <a
+                            href={platformUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-auto flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-lg hover:bg-primary/5"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            进入平台
+                          </a>
+                        )}
                     </div>
 
                     {/* Module Cards Grid */}

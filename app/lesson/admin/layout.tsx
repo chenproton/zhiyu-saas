@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
 import { adminNavigationConfig } from "@/lib/navigation-config"
@@ -25,7 +27,14 @@ export default function LessonAdminLayout({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const { user, loading, identityType } = useAuth()
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login")
+    }
+  }, [loading, user, router])
 
   if (loading) {
     return (
