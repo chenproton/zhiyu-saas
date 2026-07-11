@@ -250,6 +250,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+
+  function convertApiAbilityToLocal(a: any): Ability {
+    return {
+      id: a.id,
+      name: a.name,
+      category: a.category,
+      description: a.description ?? '',
+      isPublic: a.isPublic ?? false,
+      createdAt: a.createdAt,
+    }
+  }
+
+  const loadAbilities = useCallback(async () => {
+    try {
+      const resp = await abilityApi.list({ limit: 1000 })
+      setAbilities(resp.items.map(convertApiAbilityToLocal))
+    } catch (err) {
+      console.error('Failed to load abilities:', err)
+    }
+  }, [])
+
   // 从 localStorage 恢复收藏，并加载真实岗位/批次/推荐/审批流/审批数据
   useEffect(() => {
     const storedFavorites = localStorage.getItem(FAVORITES_KEY)
@@ -261,10 +282,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    Promise.all([loadPositions(), loadBatches(), loadRecommendations(), loadWorkflows(), loadApprovals()]).finally(() => {
+    Promise.all([loadPositions(), loadBatches(), loadRecommendations(), loadWorkflows(), loadApprovals(), loadAbilities()]).finally(() => {
       setIsLoaded(true)
     })
-  }, [loadPositions, loadBatches, loadRecommendations, loadWorkflows, loadApprovals])
+  }, [loadPositions, loadBatches, loadRecommendations, loadWorkflows, loadApprovals, loadAbilities])
 
   // 保存收藏到 localStorage
   useEffect(() => {
@@ -392,25 +413,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // 能力操作
-  const addAbility = (data: Omit<Ability, 'id' | 'createdAt'>) => {
-    const newAbility: Ability = {
-      ...data,
-      id: generateId('ability'),
-      createdAt: new Date().toISOString(),
-    }
-    setAbilities(prev => [...prev, newAbility])
+  const addAbility = async (data: Omit<Ability, 'id' | 'createdAt'>) => {
+    await abilityApi.create({
+      name: data.name,
+      description: data.description || undefined,
+      category: data.category as any,
+      isPublic: data.isPublic,
+    } as Omit<import('@/lib/types/job').AbilityPoint, 'id' | 'createdAt'>)
+    await loadAbilities()
   }
 
-  const updateAbility = (id: string, data: Partial<Ability>) => {
-    setAbilities(prev =>
-      prev.map(ability =>
-        ability.id === id ? { ...ability, ...data } : ability
-      )
-    )
+  const updateAbility = async (id: string, data: Partial<Ability>) => {
+    const existing = abilities.find(a => a.id === id)
+    await abilityApi.update(id, {
+      name: data.name ?? existing?.name ?? '',
+      description: data.description ?? existing?.description,
+      category: data.category ?? existing?.category ?? 'knowledge',
+      isPublic: data.isPublic ?? existing?.isPublic ?? false,
+    } as import('@/lib/types/job').AbilityPoint)
+    await loadAbilities()
   }
 
-  const deleteAbility = (id: string) => {
-    setAbilities(prev => prev.filter(ability => ability.id !== id))
+  const deleteAbility = async (id: string) => {
+    await abilityApi.delete(id)
+    await loadAbilities()
   }
 
   // 审批操作
