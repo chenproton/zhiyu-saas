@@ -273,6 +273,39 @@ func (h *QuestionBankHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	h.transitionStatus(w, r, domain.QuestionBankStatusArchived)
 }
 
+func (h *QuestionBankHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.QuestionBankStatusDraft)
+}
+
+func (h *QuestionBankHandler) Invite(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	id := chi.URLParam(r, "id")
+	var req InviteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UserID == "" {
+		respondError(w, http.StatusBadRequest, "userId is required")
+		return
+	}
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE question_banks SET collaborator_ids = array_append(collaborator_ids, $1), updated_at = NOW()
+		WHERE id = $2 AND NOT (collaborator_ids @> ARRAY[$1]::uuid[])
+	`, req.UserID, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to invite collaborator")
+		return
+	}
+	bank, _ := h.fetchQuestionBank(r.Context(), id)
+	respondJSON(w, http.StatusOK, bank)
+}
+
 func (h *QuestionBankHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.QuestionBankStatus) {
 	id := chi.URLParam(r, "id")
 	_, err := h.DB.Exec(r.Context(), `

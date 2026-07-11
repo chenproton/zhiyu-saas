@@ -41,6 +41,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	statsHandler := &handler.StatsHandler{DB: db}
 	fileHandler := &handler.FileHandler{UploadDir: "../public/uploads"}
 	portalHandler := &handler.PortalHandler{DB: db}
+	importExportHandler := &handler.ImportExportHandler{DB: db}
 
 	// Phase 3.1: portal management handlers
 	tenantHandler := &handler.TenantHandler{DB: db}
@@ -148,6 +149,8 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/resources/{id}/offline", resourceHandler.Offline)
 
 			r.Post("/files/upload", fileHandler.Upload)
+			r.Get("/export/{entity}", importExportHandler.Export)
+			r.Post("/import/{entity}", importExportHandler.Import)
 
 			r.Get("/orders", orderHandler.List)
 			r.Get("/orders/{id}", orderHandler.Get)
@@ -261,6 +264,8 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/job/positions/{id}/review", positionHandler.Review)
 			r.Post("/job/positions/{id}/publish", positionHandler.Publish)
 			r.Post("/job/positions/{id}/archive", positionHandler.Archive)
+			r.Post("/job/positions/{id}/withdraw", positionHandler.Withdraw)
+			r.Post("/job/positions/{id}/invite", positionHandler.Invite)
 
 			r.Get("/job/abilities", abilityHandler.List)
 			r.Get("/job/abilities/{id}", abilityHandler.Get)
@@ -312,6 +317,8 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/scene/scenarios/{id}/review", scenarioHandler.Review)
 			r.Post("/scene/scenarios/{id}/publish", scenarioHandler.Publish)
 			r.Post("/scene/scenarios/{id}/archive", scenarioHandler.Archive)
+			r.Post("/scene/scenarios/{id}/withdraw", scenarioHandler.Withdraw)
+			r.Post("/scene/scenarios/{id}/invite", scenarioHandler.Invite)
 
 			r.Get("/scene/tasks", scenarioTaskHandler.List)
 			r.Get("/scene/tasks/{id}", scenarioTaskHandler.Get)
@@ -365,6 +372,8 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/lesson/courses/{id}/review", courseHandler.Review)
 			r.Post("/lesson/courses/{id}/publish", courseHandler.Publish)
 			r.Post("/lesson/courses/{id}/archive", courseHandler.Archive)
+			r.Post("/lesson/courses/{id}/withdraw", courseHandler.Withdraw)
+			r.Post("/lesson/courses/{id}/invite", courseHandler.Invite)
 
 			r.Get("/lesson/knowledge-points", knowledgePointHandler.List)
 			r.Get("/lesson/knowledge-points/{id}", knowledgePointHandler.Get)
@@ -419,6 +428,8 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/evaluation/question-banks/{id}/review", questionBankHandler.Review)
 			r.Post("/evaluation/question-banks/{id}/publish", questionBankHandler.Publish)
 			r.Post("/evaluation/question-banks/{id}/archive", questionBankHandler.Archive)
+			r.Post("/evaluation/question-banks/{id}/withdraw", questionBankHandler.Withdraw)
+			r.Post("/evaluation/question-banks/{id}/invite", questionBankHandler.Invite)
 
 			r.Get("/evaluation/questions", questionHandler.List)
 			r.Get("/evaluation/questions/{id}", questionHandler.Get)
@@ -436,6 +447,8 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/evaluation/exams/{id}/review", examHandler.Review)
 			r.Post("/evaluation/exams/{id}/publish", examHandler.Publish)
 			r.Post("/evaluation/exams/{id}/archive", examHandler.Archive)
+			r.Post("/evaluation/exams/{id}/withdraw", examHandler.Withdraw)
+			r.Post("/evaluation/exams/{id}/invite", examHandler.Invite)
 			r.Post("/evaluation/exams/{id}/questions", examHandler.AddQuestion)
 			r.Delete("/evaluation/exams/{id}/questions/{questionId}", examHandler.RemoveQuestion)
 

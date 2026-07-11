@@ -595,6 +595,9 @@ export const positionApi = {
     request<CareerPosition>(`/job/positions/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
   publish: (id: string) => request<CareerPosition>(`/job/positions/${id}/publish`, { method: "POST" }),
   archive: (id: string) => request<CareerPosition>(`/job/positions/${id}/archive`, { method: "POST" }),
+  withdraw: (id: string) => request<CareerPosition>(`/job/positions/${id}/withdraw`, { method: "POST" }),
+  invite: (id: string, userId: string) =>
+    request<CareerPosition>(`/job/positions/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
 }
 
 export const abilityApi = {
@@ -681,6 +684,9 @@ export const scenarioApi = {
     request<Scenario>(`/scene/scenarios/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
   publish: (id: string) => request<Scenario>(`/scene/scenarios/${id}/publish`, { method: "POST" }),
   archive: (id: string) => request<Scenario>(`/scene/scenarios/${id}/archive`, { method: "POST" }),
+  withdraw: (id: string) => request<Scenario>(`/scene/scenarios/${id}/withdraw`, { method: "POST" }),
+  invite: (id: string, userId: string) =>
+    request<Scenario>(`/scene/scenarios/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
 }
 
 export const taskApi = {
@@ -723,6 +729,9 @@ export const courseApi = {
     request<Course>(`/lesson/courses/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
   publish: (id: string) => request<Course>(`/lesson/courses/${id}/publish`, { method: "POST" }),
   archive: (id: string) => request<Course>(`/lesson/courses/${id}/archive`, { method: "POST" }),
+  withdraw: (id: string) => request<Course>(`/lesson/courses/${id}/withdraw`, { method: "POST" }),
+  invite: (id: string, userId: string) =>
+    request<Course>(`/lesson/courses/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
 }
 
 export const knowledgeApi = {
@@ -783,6 +792,27 @@ export const fileApi = {
   },
 }
 
+export const importExportApi = {
+  export: (entity: string) => {
+    const token = getToken()
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+    return fetch(`${API_BASE}/export/${entity}`, { headers })
+  },
+  import: async (entity: string, file: File): Promise<{ created: number; failed: number; entity: string }> => {
+    const form = new FormData()
+    form.append("file", file)
+    const token = getToken()
+    const headers: HeadersInit = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    const res = await fetch(`${API_BASE}/import/${entity}`, { method: "POST", body: form, headers })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || `HTTP ${res.status}`)
+    }
+    return res.json()
+  },
+}
+
 export const portalApi = {
   workspaceDashboard: () => request<WorkspaceDashboard>("/portal/workspace/dashboard"),
 }
@@ -803,6 +833,9 @@ export const questionBankApi = {
     request<QuestionBank>(`/evaluation/question-banks/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
   publish: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/publish`, { method: "POST" }),
   archive: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/archive`, { method: "POST" }),
+  withdraw: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/withdraw`, { method: "POST" }),
+  invite: (id: string, userId: string) =>
+    request<QuestionBank>(`/evaluation/question-banks/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
 }
 
 export const questionApi = {
@@ -832,6 +865,9 @@ export const examApi = {
     request<Exam>(`/evaluation/exams/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
   publish: (id: string) => request<Exam>(`/evaluation/exams/${id}/publish`, { method: "POST" }),
   archive: (id: string) => request<Exam>(`/evaluation/exams/${id}/archive`, { method: "POST" }),
+  withdraw: (id: string) => request<Exam>(`/evaluation/exams/${id}/withdraw`, { method: "POST" }),
+  invite: (id: string, userId: string) =>
+    request<Exam>(`/evaluation/exams/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
   addQuestion: (id: string, questionId: string, score: number) =>
     request<Exam>(`/evaluation/exams/${id}/questions`, { method: "POST", body: JSON.stringify({ questionId, score }) }),
   removeQuestion: (id: string, questionId: string) =>

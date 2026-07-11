@@ -22,7 +22,7 @@ import {
   ArrowUpFromLine,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { PositionList } from "@/components/job/positions/position-list"
 import { PageHeaderCard } from "@/components/shared/page-header-card"
 import { Badge } from "@/components/ui/badge"
@@ -72,7 +72,7 @@ type ViewMode = "list" | "group"
 
 export default function PositionsPage() {
   const router = useRouter()
-  const { positions, batches, workflows, addPosition, deletePosition, updatePosition, submitForApproval } = useData()
+  const { positions, batches, workflows, addPosition, deletePosition, updatePosition, submitForApproval, withdrawPosition, invitePosition, importPositions, exportPositions } = useData()
 
   const [activeTab, setActiveTab] = useState<TabType>("my")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
@@ -97,6 +97,10 @@ export default function PositionsPage() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [isBatchMoveDialogOpen, setIsBatchMoveDialogOpen] = useState(false)
   const [moveTargetBatchId, setMoveTargetBatchId] = useState("")
+
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [isCloneRenameDialogOpen, setIsCloneRenameDialogOpen] = useState(false)
   const [cloneRenameValue, setCloneRenameValue] = useState("")
@@ -199,9 +203,13 @@ export default function PositionsPage() {
     setSelectedIds([])
   }
 
-  const handleBatchWithdrawApproval = () => {
-    // 撤回审批功能暂不可用
-    alert("撤回审批功能暂未实现")
+  const handleBatchWithdrawApproval = async () => {
+    for (const id of selectedIds) {
+      const position = positions.find((p) => p.id === id)
+      if (position && position.status === "pending") {
+        await withdrawPosition(id)
+      }
+    }
     setSelectedIds([])
   }
 
@@ -262,8 +270,9 @@ export default function PositionsPage() {
     setSelectedIds([])
   }
 
-  const handleBatchExport = () => {
-    setIsExportDialogOpen(true)
+  const handleBatchExport = async () => {
+    await exportPositions()
+    setIsExportDialogOpen(false)
     setSelectedIds([])
   }
 
@@ -332,12 +341,14 @@ export default function PositionsPage() {
     await submitForApproval(position.id, batch.workflowId, "user-2", "李建设")
   }
 
-  const handleWithdrawApproval = (position: Position) => {
-    alert("撤回审批功能暂未实现")
+  const handleWithdrawApproval = async (position: Position) => {
+    await withdrawPosition(position.id)
   }
 
-  const handleInviteCoBuild = (position: Position) => {
-    alert(`已发送共建邀请至「${position.name}」的协作人员`)
+  const handleInviteCoBuild = async (position: Position) => {
+    const userId = window.prompt(`请输入要邀请共建「${position.name}」的用户 ID`)
+    if (!userId) return
+    await invitePosition(position.id, userId)
   }
 
   const handleAddBatch = () => {
@@ -352,6 +363,26 @@ export default function PositionsPage() {
     setSearchQuery("")
     setSelectedBatchId(null)
     setSelectedStatus(null)
+  }
+
+  const handleImportFileSelect = (files: FileList | null) => {
+    const file = files?.[0]
+    if (file) setImportFile(file)
+  }
+
+  const handleImport = async () => {
+    if (!importFile) return
+    setIsImporting(true)
+    try {
+      const result = await importPositions(importFile)
+      alert(`导入完成：成功 ${result.created} 条，失败 ${result.failed} 条`)
+      setImportFile(null)
+      setIsImportDialogOpen(false)
+    } catch (err: any) {
+      alert(err.message || "导入失败")
+    } finally {
+      setIsImporting(false)
+    }
   }
 
   const handleCreate = async () => {
@@ -781,20 +812,31 @@ export default function PositionsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>导入岗位</DialogTitle>
-            <DialogDescription>上传 Excel 或 CSV 文件批量导入岗位数据</DialogDescription>
+            <DialogDescription>上传 CSV 文件批量导入岗位数据（需包含 name 列）</DialogDescription>
           </DialogHeader>
           <div className="py-8">
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
               <p className="text-sm text-muted-foreground mb-2">
-                拖拽文件到此处，或点击选择文件
+                {importFile ? importFile.name : "点击选择 CSV 文件"}
               </p>
-              <Button variant="outline" size="sm">选择文件</Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => handleImportFileSelect(e.target.files)}
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
-            <Button disabled title="批量导入功能开发中">开始导入</Button>
+            <Button onClick={handleImport} disabled={!importFile || isImporting}>
+              {isImporting ? "导入中..." : "开始导入"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -887,7 +929,7 @@ export default function PositionsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button disabled title="批量导出功能开发中">确认导出</Button>
+            <Button onClick={handleBatchExport}>确认导出</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

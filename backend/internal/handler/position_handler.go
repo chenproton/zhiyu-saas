@@ -282,6 +282,38 @@ func (h *PositionHandler) Submit(w http.ResponseWriter, r *http.Request) {
 	h.transitionStatus(w, r, domain.CareerPositionStatusPending, "")
 }
 
+func (h *PositionHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.CareerPositionStatusDraft, "")
+}
+
+func (h *PositionHandler) Invite(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	id := chi.URLParam(r, "id")
+	var req InviteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UserID == "" {
+		respondError(w, http.StatusBadRequest, "userId is required")
+		return
+	}
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE career_positions SET collaborators = array_append(collaborators, $1), updated_at = NOW()
+		WHERE id = $2 AND NOT (collaborators @> ARRAY[$1]::uuid[])
+	`, req.UserID, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to invite collaborator")
+		return
+	}
+	pos, _ := h.fetchPosition(r.Context(), id)
+	respondJSON(w, http.StatusOK, pos)
+}
+
 func (h *PositionHandler) Review(w http.ResponseWriter, r *http.Request) {
 	if middleware.CurrentUser(r) == nil {
 		respondError(w, http.StatusForbidden, "permission denied")

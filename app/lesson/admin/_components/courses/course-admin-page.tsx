@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ChevronDown,
@@ -53,7 +53,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-import { courseApi, lessonBatchApi, workflowApi } from "@/lib/api"
+import { courseApi, lessonBatchApi, workflowApi, importExportApi } from "@/lib/api"
 import { CourseList } from "./course-list"
 import type { Course, CourseStatus, CourseType } from "@/lib/types/lesson-source"
 import type { Course as BackendCourse, LessonBatch } from "@/lib/types/lesson"
@@ -144,6 +144,10 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
   const [isCloneRenameDialogOpen, setIsCloneRenameDialogOpen] = useState(false)
   const [cloneRenameValue, setCloneRenameValue] = useState("")
   const [cloneTargetCourse, setCloneTargetCourse] = useState<Course | null>(null)
+
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadData = async () => {
     setIsLoading(true)
@@ -259,9 +263,15 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
     await loadData()
   }
 
-  const handleBatchWithdrawApproval = () => {
-    alert("撤回审批功能暂未实现")
+  const handleBatchWithdrawApproval = async () => {
+    for (const id of selectedIds) {
+      const course = courses.find((c) => c.id === id)
+      if (course && course.status === "pending") {
+        await courseApi.withdraw(id)
+      }
+    }
     setSelectedIds([])
+    await loadData()
   }
 
   const handleBatchUnpublish = async () => {
@@ -321,8 +331,21 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
     await loadData()
   }
 
-  const handleBatchExport = () => {
-    setIsExportDialogOpen(true)
+  const handleBatchExport = async () => {
+    const res = await importExportApi.export("courses")
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    const disposition = res.headers.get("content-disposition")
+    const filename = disposition?.match(/filename="?([^";]+)"?/)?.[1] || "courses-export.csv"
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+    setIsExportDialogOpen(false)
+    setSelectedIds([])
   }
 
   const handleBatchMove = () => {
@@ -384,18 +407,58 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
     await loadData()
   }
 
-  const handleWithdrawApproval = () => {
-    alert("撤回审批功能暂未实现")
+  const handleWithdrawApproval = async (course: Course) => {
+    await courseApi.withdraw(course.id)
+    await loadData()
   }
 
-  const handleInviteCoBuild = (course: Course) => {
-    alert(`已发送共建邀请至「${course.name}」的协作人员`)
+  const handleInviteCoBuild = async (course: Course) => {
+    const userId = window.prompt(`请输入要邀请共建「${course.name}」的用户 ID`)
+    if (!userId) return
+    await courseApi.invite(course.id, userId)
+    await loadData()
   }
 
   const handleResetFilters = () => {
     setSearchQuery("")
     setSelectedBatchId(null)
     setSelectedStatus(null)
+  }
+
+  const handleImportFileSelect = (files: FileList | null) => {
+    const file = files?.[0]
+    if (file) setImportFile(file)
+  }
+
+  const handleImport = async () => {
+    if (!importFile) return
+    setIsImporting(true)
+    try {
+      const result = await importExportApi.import("courses", importFile)
+      alert(`导入完成：成功 ${result.created} 条，失败 ${result.failed} 条`)
+      setImportFile(null)
+      setIsImportDialogOpen(false)
+      await loadData()
+    } catch (err: any) {
+      alert(err.message || "导入失败")
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  const handleExport = async () => {
+    const res = await importExportApi.export("courses")
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    const disposition = res.headers.get("content-disposition")
+    const filename = disposition?.match(/filename="?([^";]+)"?/)?.[1] || "courses-export.csv"
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
   }
 
   const handleCreate = async () => {
@@ -681,7 +744,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
               <Send className="mr-1 h-3 w-3" />
               提交审批
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled onClick={handleBatchWithdrawApproval}>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
               <Undo2 className="mr-1 h-3 w-3" />
               撤回审批
             </Button>
@@ -730,6 +793,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
               onSubmitApproval={handleSubmitApproval}
               onWithdrawApproval={handleWithdrawApproval}
               onInviteCoBuild={handleInviteCoBuild}
+              onExport={handleExport}
               className="border-0 rounded-none"
             />
           </CardContent>
@@ -778,6 +842,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
                         onSubmitApproval={handleSubmitApproval}
                         onWithdrawApproval={handleWithdrawApproval}
                         onInviteCoBuild={handleInviteCoBuild}
+                        onExport={handleExport}
                       />
                     </div>
                   </CollapsibleContent>
@@ -807,6 +872,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
                   onSubmitApproval={handleSubmitApproval}
                   onWithdrawApproval={handleWithdrawApproval}
                   onInviteCoBuild={handleInviteCoBuild}
+                  onExport={handleExport}
                 />
               </div>
             </div>
@@ -839,20 +905,31 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
         <DialogContent>
           <DialogHeader>
             <DialogTitle>导入{typeLabel}</DialogTitle>
-            <DialogDescription>上传 Excel 或 CSV 文件批量导入课程数据</DialogDescription>
+            <DialogDescription>上传 CSV 文件批量导入课程数据（需包含 name 列）</DialogDescription>
           </DialogHeader>
           <div className="py-8">
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
               <p className="text-sm text-muted-foreground mb-2">
-                拖拽文件到此处，或点击选择文件
+                {importFile ? importFile.name : "点击选择 CSV 文件"}
               </p>
-              <Button variant="outline" size="sm">选择文件</Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => handleImportFileSelect(e.target.files)}
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
-            <Button disabled>开始导入</Button>
+            <Button onClick={handleImport} disabled={!importFile || isImporting}>
+              {isImporting ? "导入中..." : "开始导入"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -939,7 +1016,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button disabled>确认导出</Button>
+            <Button onClick={handleBatchExport}>确认导出</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

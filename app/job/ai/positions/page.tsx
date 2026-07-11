@@ -64,7 +64,7 @@ type ViewMode = "list" | "group"
 export default function PositionsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { positions, batches, workflows, addPosition, deletePosition, updatePosition, submitForApproval } = useData()
+  const { positions, batches, workflows, addPosition, deletePosition, updatePosition, submitForApproval, withdrawPosition, invitePosition, importPositions, exportPositions } = useData()
 
   const [activeTab, setActiveTab] = useState<TabType>("my")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
@@ -204,9 +204,13 @@ export default function PositionsPage() {
     setSelectedIds([])
   }
 
-  const handleBatchWithdrawApproval = () => {
-    // 撤回审批功能暂不可用
-    alert("撤回审批功能暂未实现")
+  const handleBatchWithdrawApproval = async () => {
+    for (const id of selectedIds) {
+      const position = positions.find((p) => p.id === id)
+      if (position && position.status === "pending") {
+        await withdrawPosition(id)
+      }
+    }
     setSelectedIds([])
   }
 
@@ -265,8 +269,9 @@ export default function PositionsPage() {
     setSelectedIds([])
   }
 
-  const handleBatchExport = () => {
-    setIsExportDialogOpen(true)
+  const handleBatchExport = async () => {
+    await exportPositions()
+    setIsExportDialogOpen(false)
     setSelectedIds([])
   }
 
@@ -335,8 +340,8 @@ export default function PositionsPage() {
     submitForApproval(position.id, batch.workflowId, "user-2", "李建设")
   }
 
-  const handleWithdrawApproval = (position: Position) => {
-    alert("撤回审批功能暂未实现")
+  const handleWithdrawApproval = async (position: Position) => {
+    await withdrawPosition(position.id)
   }
 
   const handleAddBatch = () => {
@@ -449,8 +454,8 @@ export default function PositionsPage() {
   const handleImportFileSelect = useCallback((files: FileList | null) => {
     if (!files || files.length === 0) return
     const file = files[0]
-    if (!file.name.endsWith('.json') && file.type !== 'application/json') {
-      setImportError('请上传 JSON 格式的文件')
+    if (!file.name.endsWith('.csv')) {
+      setImportError('请上传 CSV 格式的文件')
       setImportFile(null)
       return
     }
@@ -470,25 +475,16 @@ export default function PositionsPage() {
     setIsImporting(true)
     setImportError(null)
     try {
-      const text = await importFile.text()
-      const data = JSON.parse(text)
-      const rawArray = Array.isArray(data) ? data : [data]
-      let successCount = 0
-      for (const raw of rawArray) {
-        if (!raw || typeof raw !== 'object') continue
-        const positionData = convertImportToPosition(raw)
-        addPosition(positionData)
-        successCount++
-      }
-      alert(`导入完成，成功创建 ${successCount} 个岗位`)
+      const result = await importPositions(importFile)
+      alert(`导入完成：成功 ${result.created} 条，失败 ${result.failed} 条`)
       setIsImportDialogOpen(false)
       setImportFile(null)
     } catch (err: any) {
-      setImportError('文件解析失败：' + (err?.message || '未知错误'))
+      setImportError('导入失败：' + (err?.message || '未知错误'))
     } finally {
       setIsImporting(false)
     }
-  }, [importFile, convertImportToPosition, addPosition])
+  }, [importFile, importPositions])
 
   return (
     <div className="space-y-6">
@@ -937,7 +933,7 @@ export default function PositionsPage() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>导入岗位</DialogTitle>
-            <DialogDescription>上传 JSON 文件批量导入岗位数据</DialogDescription>
+            <DialogDescription>上传 CSV 文件批量导入岗位数据（需包含 name 列）</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             {!importFile ? (
@@ -950,7 +946,7 @@ export default function PositionsPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".json,application/json"
+                  accept=".csv"
                   className="hidden"
                   onChange={(e) => handleImportFileSelect(e.target.files)}
                 />
@@ -958,7 +954,7 @@ export default function PositionsPage() {
                 <p className="text-sm text-muted-foreground mb-2">
                   拖拽文件到此处，或点击选择文件
                 </p>
-                <p className="text-xs text-muted-foreground">仅支持 .json 格式</p>
+                <p className="text-xs text-muted-foreground">仅支持 .csv 格式</p>
               </div>
             ) : (
               <div className="rounded-lg border bg-muted/30 p-4">
@@ -1029,7 +1025,7 @@ export default function PositionsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button disabled>确认导出</Button>
+            <Button onClick={handleBatchExport}>确认导出</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

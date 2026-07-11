@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowDownFromLine,
@@ -24,10 +24,11 @@ import {
   Trash2,
   Undo2,
   Upload,
+  UserPlus,
   X,
   XCircle,
 } from "lucide-react"
-import { examApi, evaluationBatchApi, workflowApi } from "@/lib/api"
+import { examApi, evaluationBatchApi, workflowApi, importExportApi } from "@/lib/api"
 import type { Exam, EvaluationBatch, Workflow } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -155,6 +156,10 @@ export default function ExamsPage() {
   const [isCloneRenameDialogOpen, setIsCloneRenameDialogOpen] = useState(false)
   const [cloneRenameValue, setCloneRenameValue] = useState("")
   const [cloneTargetExam, setCloneTargetExam] = useState<BackendExam | null>(null)
+
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -326,11 +331,23 @@ export default function ExamsPage() {
 
   const handleWithdrawApproval = async (id: string) => {
     try {
-      await examApi.update(id, { status: "draft" })
+      await examApi.withdraw(id)
       await loadData()
     } catch (err) {
       console.error("撤回审批失败", err)
       alert("撤回审批失败")
+    }
+  }
+
+  const handleInviteCoBuild = async (exam: BackendExam) => {
+    const userId = window.prompt(`请输入要邀请共建「${exam.name}」的用户 ID`)
+    if (!userId) return
+    try {
+      await examApi.invite(exam.id, userId)
+      await loadData()
+    } catch (err) {
+      console.error("邀请共建失败", err)
+      alert("邀请共建失败")
     }
   }
 
@@ -413,7 +430,7 @@ export default function ExamsPage() {
   const handleBatchWithdrawApproval = async () => {
     for (const exam of selectedExams) {
       if (exam.status === "pending") {
-        await examApi.update(exam.id, { status: "draft" })
+        await examApi.withdraw(exam.id)
       }
     }
     setSelectedIds([])
@@ -483,8 +500,9 @@ export default function ExamsPage() {
     await loadData()
   }
 
-  const handleBatchExport = () => {
-    setIsExportDialogOpen(true)
+  const handleBatchExport = async () => {
+    await handleExport()
+    setIsExportDialogOpen(false)
     setSelectedIds([])
   }
 
@@ -512,6 +530,42 @@ export default function ExamsPage() {
     setSearchQuery("")
     setSelectedBatchId(null)
     setSelectedStatus(null)
+  }
+
+  const handleImportFileSelect = (files: FileList | null) => {
+    const file = files?.[0]
+    if (file) setImportFile(file)
+  }
+
+  const handleImport = async () => {
+    if (!importFile) return
+    setIsImporting(true)
+    try {
+      const result = await importExportApi.import("exams", importFile)
+      alert(`导入完成：成功 ${result.created} 条，失败 ${result.failed} 条`)
+      setImportFile(null)
+      setIsImportDialogOpen(false)
+      await loadData()
+    } catch (err: any) {
+      alert(err.message || "导入失败")
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  const handleExport = async () => {
+    const res = await importExportApi.export("exams")
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    const disposition = res.headers.get("content-disposition")
+    const filename = disposition?.match(/filename="?([^";]+)"?/)?.[1] || "exams-export.csv"
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
   }
 
   const allSelected = filteredExams.length > 0 && filteredExams.every((e) => selectedIds.includes(e.id))
@@ -619,6 +673,15 @@ export default function ExamsPage() {
                         提交审批
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-indigo-600 hover:text-indigo-700"
+                      onClick={() => handleInviteCoBuild(exam)}
+                    >
+                      <UserPlus className="mr-1 h-3 w-3" />
+                      邀请共建
+                    </Button>
                     {exam.status === "pending" && (
                       <>
                         <Button
@@ -1158,18 +1221,31 @@ export default function ExamsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>导入试卷</DialogTitle>
-            <DialogDescription>上传 Excel 或 CSV 文件批量导入试卷数据</DialogDescription>
+            <DialogDescription>上传 CSV 文件批量导入试卷数据（需包含 name 列）</DialogDescription>
           </DialogHeader>
           <div className="py-8">
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground mb-2">拖拽文件到此处，或点击选择文件</p>
-              <Button variant="outline" size="sm">选择文件</Button>
+              <p className="text-sm text-muted-foreground mb-2">
+                {importFile ? importFile.name : "点击选择 CSV 文件"}
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => handleImportFileSelect(e.target.files)}
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
-            <Button disabled title="批量导入功能开发中">开始导入</Button>
+            <Button onClick={handleImport} disabled={!importFile || isImporting}>
+              {isImporting ? "导入中..." : "开始导入"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1194,7 +1270,7 @@ export default function ExamsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button disabled title="批量导出功能开发中">确认导出</Button>
+            <Button onClick={handleBatchExport}>确认导出</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -232,6 +232,14 @@ func (h *ScenarioHandler) Submit(w http.ResponseWriter, r *http.Request) {
 	h.transitionStatus(w, r, domain.ScenarioStatusPending)
 }
 
+func (h *ScenarioHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	h.transitionStatus(w, r, domain.ScenarioStatusDraft)
+}
+
 func (h *ScenarioHandler) Review(w http.ResponseWriter, r *http.Request) {
 	if middleware.CurrentUser(r) == nil {
 		respondError(w, http.StatusUnauthorized, "unauthorized")
@@ -282,6 +290,34 @@ func (h *ScenarioHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.transitionStatus(w, r, domain.ScenarioStatusArchived)
+}
+
+func (h *ScenarioHandler) Invite(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	id := chi.URLParam(r, "id")
+	var req InviteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UserID == "" {
+		respondError(w, http.StatusBadRequest, "userId is required")
+		return
+	}
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE scenarios SET co_builder_ids = array_append(co_builder_ids, $1), updated_at = NOW()
+		WHERE id = $2 AND NOT (co_builder_ids @> ARRAY[$1]::uuid[])
+	`, req.UserID, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to invite co-builder")
+		return
+	}
+	scenario, _ := h.fetchScenario(r.Context(), id)
+	if scenario == nil {
+		respondError(w, http.StatusNotFound, "scenario not found")
+		return
+	}
+	respondJSON(w, http.StatusOK, scenario)
 }
 
 func (h *ScenarioHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.ScenarioStatus) {

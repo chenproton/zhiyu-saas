@@ -12,7 +12,7 @@ import type {
   PositionRecommendation,
 } from '@/lib/types/job-source'
 import type { CareerPosition, JobBatch, PositionRecommendation as ApiPositionRecommendation } from '@/lib/types/job'
-import { positionApi, batchApi, recommendApi, workflowApi, abilityApi, approvalApi } from '@/lib/api'
+import { positionApi, batchApi, recommendApi, workflowApi, abilityApi, approvalApi, importExportApi } from '@/lib/api'
 
 
 interface DataContextType {
@@ -37,6 +37,10 @@ interface DataContextType {
   addPosition: (position: Omit<Position, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Position>
   updatePosition: (id: string, data: Partial<Position>) => Promise<void>
   deletePosition: (id: string) => Promise<void>
+  withdrawPosition: (id: string) => Promise<void>
+  invitePosition: (id: string, userId: string) => Promise<void>
+  importPositions: (file: File) => Promise<{ created: number; failed: number }>
+  exportPositions: () => Promise<void>
 
   // 审批流操作
   addWorkflow: (workflow: Omit<Workflow, 'id' | 'createdAt'>) => Promise<void>
@@ -381,6 +385,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await loadBatches()
   }
 
+  const withdrawPosition = async (id: string) => {
+    await positionApi.withdraw(id)
+    await loadPositions()
+    await loadBatches()
+  }
+
+  const invitePosition = async (id: string, userId: string) => {
+    await positionApi.invite(id, userId)
+    await loadPositions()
+  }
+
+  const importPositions = async (file: File) => {
+    const result = await importExportApi.import('career_positions', file)
+    await loadPositions()
+    await loadBatches()
+    return result
+  }
+
+  const exportPositions = async () => {
+    const res = await importExportApi.export('career_positions')
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const disposition = res.headers.get('content-disposition')
+    const filename = disposition?.match(/filename="?([^";]+)"?/)?.[1] || 'career_positions-export.csv'
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+  }
+
   // 审批流操作
   const addWorkflow = async (data: Omit<Workflow, 'id' | 'createdAt'>) => {
     await workflowApi.create({
@@ -572,6 +609,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addPosition,
         updatePosition,
         deletePosition,
+        withdrawPosition,
+        invitePosition,
+        importPositions,
+        exportPositions,
         addWorkflow,
         updateWorkflow,
         deleteWorkflow,

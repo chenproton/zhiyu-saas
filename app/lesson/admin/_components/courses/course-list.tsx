@@ -20,6 +20,7 @@ interface CourseListProps {
   onSubmitApproval?: (course: Course) => void
   onWithdrawApproval?: (course: Course) => void
   onInviteCoBuild?: (course: Course) => void
+  onExport?: (course: Course) => void
   className?: string
 }
 
@@ -34,6 +35,7 @@ export function CourseList({
   onSubmitApproval,
   onWithdrawApproval,
   onInviteCoBuild,
+  onExport,
   className,
 }: CourseListProps) {
   if (courses.length === 0) return null
@@ -133,7 +135,10 @@ export function CourseList({
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs text-amber-600 hover:text-amber-700"
-                      disabled
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onWithdrawApproval(course)
+                      }}
                     >
                       <Undo2 className="mr-1 h-3 w-3" />
                       撤回审批
@@ -158,21 +163,29 @@ export function CourseList({
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs text-indigo-600 hover:text-indigo-700"
-                      disabled
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onInviteCoBuild(course)
+                      }}
                     >
                       <UserPlus className="mr-1 h-3 w-3" />
                       邀请共建
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    disabled
-                  >
-                    <Download className="mr-1 h-3 w-3" />
-                    导出
-                  </Button>
+                  {onExport && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onExport(course)
+                      }}
+                    >
+                      <Download className="mr-1 h-3 w-3" />
+                      导出
+                    </Button>
+                  )}
                   {onDelete && (
                     <Button
                       variant="ghost"

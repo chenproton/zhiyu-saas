@@ -278,6 +278,39 @@ func (h *ExamHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	h.transitionStatus(w, r, domain.ExamStatusArchived)
 }
 
+func (h *ExamHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	h.transitionStatus(w, r, domain.ExamStatusDraft)
+}
+
+func (h *ExamHandler) Invite(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	id := chi.URLParam(r, "id")
+	var req InviteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UserID == "" {
+		respondError(w, http.StatusBadRequest, "userId is required")
+		return
+	}
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE exams SET collaborator_ids = array_append(collaborator_ids, $1), updated_at = NOW()
+		WHERE id = $2 AND NOT (collaborator_ids @> ARRAY[$1]::uuid[])
+	`, req.UserID, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to invite collaborator")
+		return
+	}
+	exam, _ := h.fetchExam(r.Context(), id)
+	respondJSON(w, http.StatusOK, exam)
+}
+
 func (h *ExamHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.ExamStatus) {
 	id := chi.URLParam(r, "id")
 	_, err := h.DB.Exec(r.Context(), `

@@ -23,7 +23,7 @@ import {
   MessageSquare,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { ScenarioList, type ScenarioListItem } from "@/components/scene/scenarios/scenario-list"
 import { PageHeaderCard } from "@/components/shared/page-header-card"
 import { Badge } from "@/components/ui/badge"
@@ -63,7 +63,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-import { scenarioApi, sceneBatchApi, workflowApi, taskApi } from "@/lib/api"
+import { scenarioApi, sceneBatchApi, workflowApi, taskApi, importExportApi } from "@/lib/api"
 import type { Scenario, SceneBatch } from "@/lib/types/scene"
 import type { Workflow } from "@/lib/types/backend"
 
@@ -114,6 +114,10 @@ export default function SceneHallPage() {
 
   const [isRejectReasonDialogOpen, setIsRejectReasonDialogOpen] = useState(false)
   const [rejectReasonScenario, setRejectReasonScenario] = useState<ScenarioListItem | null>(null)
+
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -280,7 +284,7 @@ export default function SceneHallPage() {
     for (const scenario of selectedScenarios) {
       if (scenario.status === "pending") {
         try {
-          await scenarioApi.update(scenario.id, { status: "draft" })
+          await scenarioApi.withdraw(scenario.id)
         } catch (err) {
           console.error("撤回审批失败", err)
         }
@@ -356,8 +360,20 @@ export default function SceneHallPage() {
     await refresh()
   }
 
-  const handleBatchExport = () => {
-    setIsExportDialogOpen(true)
+  const handleBatchExport = async () => {
+    const res = await importExportApi.export("scenarios")
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    const disposition = res.headers.get("content-disposition")
+    const filename = disposition?.match(/filename="?([^";]+)"?/)?.[1] || "scenarios-export.csv"
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+    setIsExportDialogOpen(false)
     setSelectedIds([])
   }
 
@@ -439,7 +455,7 @@ export default function SceneHallPage() {
 
   const handleWithdrawApproval = async (scenario: ScenarioListItem) => {
     try {
-      await scenarioApi.update(scenario.id, { status: "draft" })
+      await scenarioApi.withdraw(scenario.id)
       await refresh()
     } catch (err) {
       console.error("撤回审批失败", err)
@@ -447,8 +463,16 @@ export default function SceneHallPage() {
     }
   }
 
-  const handleInviteCoBuild = (scenario: ScenarioListItem) => {
-    alert(`邀请共建功能开发中，已记录对场景「${scenario.name}」的共建意向。`)
+  const handleInviteCoBuild = async (scenario: ScenarioListItem) => {
+    const userId = window.prompt(`请输入要邀请共建「${scenario.name}」的用户 ID`)
+    if (!userId) return
+    try {
+      await scenarioApi.invite(scenario.id, userId)
+      await refresh()
+    } catch (err) {
+      console.error("邀请共建失败", err)
+      alert("邀请共建失败，请稍后重试")
+    }
   }
 
   const handleViewRejectReason = (scenario: ScenarioListItem) => {
@@ -479,6 +503,27 @@ export default function SceneHallPage() {
     setSearchQuery("")
     setSelectedBatchId(null)
     setSelectedStatus(null)
+  }
+
+  const handleImportFileSelect = (files: FileList | null) => {
+    const file = files?.[0]
+    if (file) setImportFile(file)
+  }
+
+  const handleImport = async () => {
+    if (!importFile) return
+    setIsImporting(true)
+    try {
+      const result = await importExportApi.import("scenarios", importFile)
+      alert(`导入完成：成功 ${result.created} 条，失败 ${result.failed} 条`)
+      setImportFile(null)
+      setIsImportDialogOpen(false)
+      await refresh()
+    } catch (err: any) {
+      alert(err.message || "导入失败")
+    } finally {
+      setIsImporting(false)
+    }
   }
 
   const handleCreate = async () => {
@@ -915,18 +960,32 @@ export default function SceneHallPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>导入场景</DialogTitle>
-            <DialogDescription>上传 Excel 或 JSON 文件批量导入场景数据</DialogDescription>
+            <DialogDescription>上传 CSV 文件批量导入场景数据（需包含 name 列）</DialogDescription>
           </DialogHeader>
           <div className="py-6">
-            <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center">
+            <div
+              className="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-center cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => handleImportFileSelect(e.target.files)}
+              />
               <Upload className="h-10 w-10 text-slate-300 mb-3" />
-              <p className="text-sm text-slate-600 font-medium">点击或拖拽文件到此处上传</p>
-              <p className="text-xs text-slate-400 mt-1">支持 .xlsx, .json 格式，单个文件不超过 10MB</p>
+              <p className="text-sm text-slate-600 font-medium">
+                {importFile ? importFile.name : "点击选择 CSV 文件"}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">支持 .csv 格式</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsImportDialogOpen(false)}>开始导入</Button>
+            <Button onClick={handleImport} disabled={!importFile || isImporting}>
+              {isImporting ? "导入中..." : "开始导入"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1028,7 +1087,7 @@ export default function SceneHallPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsExportDialogOpen(false)}>确认导出</Button>
+            <Button onClick={handleBatchExport}>确认导出</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
