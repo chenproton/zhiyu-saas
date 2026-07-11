@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useParams } from "next/navigation"
 import {
   ArrowLeft, Clock, FileText, CheckCircle2, AlertCircle, Send,
@@ -29,7 +29,8 @@ import {
 } from "@/components/ui/dialog"
 import { useData } from "@/components/providers/data-provider"
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts"
-import type { Exam } from "@/lib/types"
+import type { Exam, ExamUsage } from "@/lib/types"
+import { examUsageApi, examResultApi } from "@/lib/api"
 import { PrdAnnotation } from "@/components/prd-annotation"
 import { getAnnotation } from "@/lib/prd-annotations"
 
@@ -83,19 +84,47 @@ export default function ExamDetailPage() {
   const [timeLeft, setTimeLeft] = useState(0)
   const [examAccessState, setExamAccessState] = useState<'not-in-range' | 'not-started' | 'started'>('started')
   const [showAudienceDialog, setShowAudienceDialog] = useState(false)
+  const [usages, setUsages] = useState<ExamUsage[]>([])
+  const [currentUsage, setCurrentUsage] = useState<ExamUsage | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!examId) return
+    examUsageApi
+      .list({ examId })
+      .then((res) => {
+        const items = res.items || []
+        setUsages(items)
+        if (items.length > 0 && !currentUsage) setCurrentUsage(items[0])
+      })
+      .catch(() => {})
+  }, [examId])
+
+  const handleSubmit = useCallback(async () => {
+    if (!currentUsage) return
+    setSubmitting(true)
+    try {
+      await examResultApi.submit({ examUsageId: currentUsage.id, answers })
+      setSubmitted(true)
+    } catch {
+      alert("提交失败，请重试")
+    } finally {
+      setSubmitting(false)
+    }
+  }, [currentUsage, answers])
 
   useEffect(() => {
     if (started && exam && !submitted) {
       setTimeLeft(exam.duration * 60)
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
-          if (prev <= 1) { clearInterval(timer); setSubmitted(true); return 0 }
+          if (prev <= 1) { clearInterval(timer); handleSubmit(); return 0 }
           return prev - 1
         })
       }, 1000)
       return () => clearInterval(timer)
     }
-  }, [started, exam, submitted])
+  }, [started, exam, submitted, handleSubmit])
 
   if (!exam) {
     return (
@@ -231,8 +260,8 @@ export default function ExamDetailPage() {
               </div>
             ))}
             <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-              <Button size="lg" style={{ gap: 8 }} onClick={() => setSubmitted(true)}>
-                <Send style={{ width: 20, height: 20 }} /> 提交试卷
+              <Button size="lg" style={{ gap: 8 }} onClick={handleSubmit} disabled={!currentUsage || submitting}>
+                <Send style={{ width: 20, height: 20 }} /> {submitting ? "提交中..." : "提交试卷"}
               </Button>
             </div>
           </div>
@@ -416,14 +445,14 @@ export default function ExamDetailPage() {
           </div>
           <div style={{ marginTop: 24, display: "flex", justifyContent: "center" }}>
             <PrdAnnotation data={getAnnotation("le-start-btn")}>
-              {examAccessState === 'started' && exam.status === "published" ? (
+              {examAccessState === 'started' && exam.status === "published" && currentUsage ? (
                 <Button size="lg" style={{ gap: 8, background: "#3370ff" }} onClick={() => setStarted(true)}>
                   <PlayCircle style={{ width: 20, height: 20 }} /> 开始考试
                 </Button>
               ) : (
                 <Button size="lg" variant="outline" disabled style={{ gap: 8 }}>
                   <PlayCircle style={{ width: 20, height: 20 }} />
-                  {examAccessState === 'not-in-range' ? '您不在本次考试范围内' : examAccessState === 'not-started' ? '考试尚未开始' : exam.status === "draft" || exam.status === "unsubmitted" || exam.status === "pending" || exam.status === "rejected" ? "考试未发布" : "考试已结束"}
+                  {!currentUsage ? '暂无考试安排' : examAccessState === 'not-in-range' ? '您不在本次考试范围内' : examAccessState === 'not-started' ? '考试尚未开始' : exam.status === "draft" || exam.status === "unsubmitted" || exam.status === "pending" || exam.status === "rejected" ? "考试未发布" : "考试已结束"}
                 </Button>
               )}
             </PrdAnnotation>

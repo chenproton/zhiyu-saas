@@ -122,6 +122,23 @@ type ExamUsage struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
+// ExamResult represents a student's submission result for an exam usage.
+type ExamResult struct {
+	ID           string    `json:"id"`
+	ExamUsageID  string    `json:"examUsageId"`
+	UserID       string    `json:"userId"`
+	StudentName  string    `json:"studentName"`
+	ClassName    string    `json:"className"`
+	Grade        string    `json:"grade"`
+	Major        string    `json:"major"`
+	Score        float64   `json:"score"`
+	TotalScore   float64   `json:"totalScore"`
+	IsPass       bool      `json:"isPass"`
+	Answers      JSONMap   `json:"answers,omitempty"`
+	SubmitTime   time.Time `json:"submitTime"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
 // EvaluationMethodCategory represents a top-level evaluation category.
 type EvaluationMethodCategory struct {
 	ID   string `json:"id"`

@@ -65,6 +65,7 @@ import type {
   Exam,
   ExamQuestion,
   ExamUsage,
+  ExamResult,
   EvaluationMethodCategory,
   EvaluationMethod,
   SceneEvaluationResult,
@@ -811,6 +812,13 @@ export const examUsageApi = {
   delete: (id: string) => request<{ id: string }>(`/evaluation/exam-usages/${id}`, { method: "DELETE" }),
   start: (id: string) => request<ExamUsage>(`/evaluation/exam-usages/${id}/start`, { method: "POST" }),
   finish: (id: string) => request<ExamUsage>(`/evaluation/exam-usages/${id}/finish`, { method: "POST" }),
+}
+
+export const examResultApi = {
+  list: (params?: { usageId?: string; limit?: number; offset?: number }) =>
+    request<ListResponse<ExamResult>>(`/evaluation/exam-results${buildQuery(params || {})}`),
+  submit: (req: { examUsageId: string; answers: Record<string, string | string[]> }) =>
+    request<ExamResult>("/evaluation/exam-results", { method: "POST", body: JSON.stringify(req) }),
 }
 
 export const evaluationResultApi = {

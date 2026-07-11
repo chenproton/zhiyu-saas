@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PrdAnnotation } from "@/components/prd-annotation"
 import { getAnnotation } from "@/lib/prd-annotations"
-import { examUsageApi } from "@/lib/api"
+import { examUsageApi, examResultApi } from "@/lib/api"
 import type { ExamUsage } from "@/lib/types"
 
 interface ExamStudentResult {
@@ -45,13 +45,11 @@ interface ExamStudentResult {
   rank: number
 }
 
-// 考试结果列表待后端接口支持，目前展示为空
-const results: ExamStudentResult[] = []
-
 function ExamResultsContent() {
   const searchParams = useSearchParams()
   const usageId = searchParams.get("usageId") || ""
   const [usage, setUsage] = useState<ExamUsage | null>(null)
+  const [results, setResults] = useState<ExamStudentResult[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [passFilter, setPassFilter] = useState<string>("all")
@@ -62,10 +60,29 @@ function ExamResultsContent() {
       return
     }
     setLoading(true)
-    examUsageApi
-      .get(usageId)
-      .then((res) => setUsage(res))
-      .catch(() => setUsage(null))
+    Promise.all([
+      examUsageApi.get(usageId).catch(() => null),
+      examResultApi.list({ usageId }).catch(() => ({ items: [], total: 0 })),
+    ])
+      .then(([usageRes, resultRes]) => {
+        setUsage(usageRes)
+        const items = resultRes.items || []
+        setResults(
+          items.map((r, idx) => ({
+            id: r.id,
+            studentName: r.studentName || "匿名",
+            studentId: r.userId,
+            className: r.className || "-",
+            grade: r.grade || "-",
+            major: r.major || "-",
+            score: r.score,
+            totalScore: r.totalScore,
+            submitTime: new Date(r.submitTime),
+            isPass: r.isPass,
+            rank: idx + 1,
+          }))
+        )
+      })
       .finally(() => setLoading(false))
   }, [usageId])
 

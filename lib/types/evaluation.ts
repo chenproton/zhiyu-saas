@@ -910,6 +910,21 @@ export interface ExamUsage {
   updatedAt: string
 }
 
+export interface ExamResult {
+  id: string
+  examUsageId: string
+  userId: string
+  studentName: string
+  className: string
+  grade: string
+  major: string
+  score: number
+  totalScore: number
+  isPass: boolean
+  submitTime: string
+  createdAt: string
+}
+
 export interface CertificationAbilityItem {
   id: string
   ruleId: string

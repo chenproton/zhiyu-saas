@@ -93,6 +93,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	questionHandler := &handler.QuestionHandler{DB: db}
 	examHandler := &handler.ExamHandler{DB: db}
 	examUsageHandler := &handler.ExamUsageHandler{DB: db}
+	examResultHandler := &handler.ExamResultHandler{DB: db}
 	evaluationResultHandler := &handler.EvaluationResultHandler{DB: db}
 	certificationHandler := &handler.CertificationHandler{DB: db}
 	graduationHandler := &handler.GraduationHandler{DB: db}
@@ -435,6 +436,9 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Delete("/evaluation/exam-usages/{id}", examUsageHandler.Delete)
 			r.Post("/evaluation/exam-usages/{id}/start", examUsageHandler.Start)
 			r.Post("/evaluation/exam-usages/{id}/finish", examUsageHandler.Finish)
+
+			r.Get("/evaluation/exam-results", examResultHandler.List)
+			r.Post("/evaluation/exam-results", examResultHandler.Create)
 
 			r.Get("/evaluation/results", evaluationResultHandler.List)
 			r.Get("/evaluation/results/{id}", evaluationResultHandler.Get)
