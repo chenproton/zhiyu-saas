@@ -2,7 +2,14 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { User, UserRole } from '@/lib/types/job-source'
-import { mockUsers } from '@/lib/mock-data/job/users'
+
+// Fallback demo users for the job platform until real auth integration is completed.
+const fallbackUsers: User[] = [
+  { id: 'user-1', name: '张管理', email: 'admin@example.com', role: 'admin', department: '教务处' },
+  { id: 'user-2', name: '李建设', email: 'builder@example.com', role: 'builder', department: '计算机学院' },
+  { id: 'user-3', name: '王审批', email: 'reviewer@example.com', role: 'reviewer', department: '教务处' },
+  { id: 'user-4', name: '赵学生', email: 'student@example.com', role: 'student', department: '计算机学院' },
+]
 
 interface AuthContextType {
   user: User | null
@@ -26,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         const data = JSON.parse(stored)
-        const foundUser = mockUsers.find(u => u.id === data.userId)
+        const foundUser = fallbackUsers.find(u => u.id === data.userId)
         if (foundUser) {
           setUser(foundUser)
         }
@@ -34,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 忽略解析错误
       }
     } else {
-      const adminUser = mockUsers.find(u => u.role === 'admin')
+      const adminUser = fallbackUsers.find(u => u.role === 'admin')
       if (adminUser) {
         setUser(adminUser)
       }
@@ -54,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, isLoaded])
 
   const login = (role: UserRole) => {
-    const foundUser = mockUsers.find(u => u.role === role)
+    const foundUser = fallbackUsers.find(u => u.role === role)
     if (foundUser) {
       setUser(foundUser)
     }
@@ -65,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const switchRole = (role: UserRole) => {
-    const foundUser = mockUsers.find(u => u.role === role)
+    const foundUser = fallbackUsers.find(u => u.role === role)
     if (foundUser) {
       setUser(foundUser)
     }
