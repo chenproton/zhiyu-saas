@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
-import { sceneNavigationConfig } from "@/lib/navigation-config"
+import { sceneNavigationConfig, portalTopNavItems } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 
 const ALLOWED_IDENTITIES = ["platform_admin", "school_admin", "teacher", "student"]
@@ -39,8 +39,13 @@ export default function SceneLayout({
     )
   }
 
+  const config = {
+    ...sceneNavigationConfig,
+    topNavItems: portalTopNavItems,
+  }
+
   return (
-    <PlatformShell config={sceneNavigationConfig}>
+    <PlatformShell config={config}>
       {children}
     </PlatformShell>
   )

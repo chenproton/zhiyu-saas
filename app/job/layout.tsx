@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
-import { jobNavigationConfig } from "@/lib/navigation-config"
+import { jobNavigationConfig, portalTopNavItems } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 
 const ALLOWED_IDENTITIES = ["platform_admin", "school_admin", "teacher"]
@@ -39,8 +39,13 @@ export default function JobLayout({
     )
   }
 
+  const config = {
+    ...jobNavigationConfig,
+    topNavItems: portalTopNavItems,
+  }
+
   return (
-    <PlatformShell config={jobNavigationConfig}>
+    <PlatformShell config={config}>
       {children}
     </PlatformShell>
   )

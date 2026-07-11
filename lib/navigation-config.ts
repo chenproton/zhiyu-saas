@@ -1,8 +1,17 @@
-import type { PlatformNavigationConfig } from "@/components/platform-shell"
+import type { PlatformNavigationConfig, TopNavItem } from "@/components/platform-shell"
 
 const externalPortalUrl = "http://111.170.170.202:3001/portal"
 const externalWorkspaceUrl = "http://111.170.170.202:3001/portal/workspace"
 const externalAppsUrl = "http://111.170.170.202:3001/portal/apps"
+
+/* ============================================================
+   全局统一顶部导航（各子系统共用）
+   ============================================================ */
+export const portalTopNavItems: TopNavItem[] = [
+  { id: "portal", label: "门户首页", href: "/portal", icon: "home" },
+  { id: "workspace", label: "我的服务台", href: "/portal/workspace", icon: "briefcase" },
+  { id: "apps", label: "应用服务中心", href: "/portal/apps", icon: "layoutGrid" },
+]
 
 /* ============================================================
    统一导航树（数字课程平台）
