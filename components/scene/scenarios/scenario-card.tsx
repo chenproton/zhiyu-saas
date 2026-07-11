@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import type { Scenario } from "@/lib/scene-mock-data"
+import type { Scenario } from "@/lib/types/scene"
 
 interface ScenarioCardProps {
   scenario: Scenario
@@ -30,7 +30,6 @@ const statusConfig = {
 export function ScenarioCard({ scenario }: ScenarioCardProps) {
   const status = statusConfig[scenario.status]
 
-  // Render difficulty stars
   const renderDifficulty = (level: number) => {
     return (
       <div className="flex items-center gap-0.5">
@@ -48,23 +47,20 @@ export function ScenarioCard({ scenario }: ScenarioCardProps) {
   }
 
   return (
-    <Link href={`/scenarios/${scenario.id}/edit`} className="block group">
+    <Link href={`/scene/scenarios/${scenario.id}/edit`} className="block group">
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
-        {/* Cover image */}
         <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden">
           <Image
-            src={scenario.coverImage}
+            src={scenario.coverImage || "/placeholder.svg"}
             alt={scenario.name}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
-          {/* Status badge */}
           <div className="absolute top-3 left-3">
             <Badge variant="secondary" className={cn("text-xs font-medium", status.className)}>
               {status.label}
             </Badge>
           </div>
-          {/* Version badge */}
           <div className="absolute top-3 right-3">
             <Badge variant="outline" className="bg-white/90 backdrop-blur-sm text-xs font-medium text-gray-600">
               {scenario.version}
@@ -72,32 +68,27 @@ export function ScenarioCard({ scenario }: ScenarioCardProps) {
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-4">
-          {/* Tags */}
           <div className="flex items-center gap-2 mb-2">
             {renderDifficulty(scenario.difficulty)}
             <Badge variant="secondary" className="bg-gray-50 text-gray-500 text-xs">
-              {scenario.professionName}
+              {scenario.professionName || scenario.professionId || "未分类"}
             </Badge>
           </div>
 
-          {/* Title */}
           <h3 className="font-semibold text-gray-800 text-base leading-tight mb-2 line-clamp-2 group-hover:text-primary transition-colors">
             {scenario.name}
           </h3>
 
-          {/* Position and batch */}
-          <p className="text-sm text-gray-500 mb-1">{scenario.positionName}</p>
-          <p className="text-xs text-gray-400 mb-3 truncate">{scenario.batchName}</p>
+          <p className="text-sm text-gray-500 mb-1">{scenario.careerPositionId || "-"}</p>
+          <p className="text-xs text-gray-400 mb-3 truncate">{scenario.batchId || "-"}</p>
 
-          {/* Footer */}
           <div className="flex items-center justify-between pt-3 border-t border-gray-50">
             <div className="flex items-center gap-1.5 text-gray-400">
               <User className="h-3.5 w-3.5" />
-              <span className="text-sm">{scenario.creatorName}</span>
-              {scenario.coBuilders.length > 0 && (
-                <span className="text-xs">+{scenario.coBuilders.length}</span>
+              <span className="text-sm">{scenario.creatorId || "-"}</span>
+              {(scenario.coBuilderIds?.length ?? 0) > 0 && (
+                <span className="text-xs">+{scenario.coBuilderIds?.length}</span>
               )}
             </div>
 

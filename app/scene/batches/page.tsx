@@ -1,7 +1,7 @@
 "use client"
 
 import { FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,108 +38,163 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { batches, approvalWorkflows } from "@/lib/scene-mock-data"
-import type { Batch } from "@/lib/scene-mock-data"
-import { PrdAnnotation } from "@/components/prd-annotation"
-import { getAnnotation } from "@/lib/prd-annotations"
+import { sceneBatchApi, workflowApi } from "@/lib/api"
+import type { SceneBatch } from "@/lib/types/scene"
+import type { Workflow } from "@/lib/types/backend"
+import { useToast } from "@/hooks/use-toast"
+
+interface BatchView extends SceneBatch {
+  workflowName?: string
+}
 
 export default function BatchesPage() {
+  const { toast } = useToast()
+  const [batches, setBatches] = useState<BatchView[]>([])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [loading, setLoading] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [localBatches, setLocalBatches] = useState<Batch[]>(batches)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingBatch, setEditingBatch] = useState<BatchView | null>(null)
   const [newBatchName, setNewBatchName] = useState("")
   const [newBatchWorkflow, setNewBatchWorkflow] = useState("")
 
-  const handleAddBatch = () => {
-    if (!newBatchName || !newBatchWorkflow) return
-    const newBatch: Batch = {
-      id: `batch-${Date.now()}`,
-      name: newBatchName,
-      code: Array.from({ length: 6 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 36)]).join(""),
-      departmentId: "",
-      departmentName: "",
-      workflowId: newBatchWorkflow,
-      workflowName: approvalWorkflows.find((w) => w.id === newBatchWorkflow)?.name || "",
-      scenarioCount: 0,
-      createdAt: new Date().toISOString().split("T")[0],
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [batchRes, wfRes] = await Promise.all([
+        sceneBatchApi.list({ limit: 1000 }),
+        workflowApi.list({ limit: 1000 }),
+      ])
+      setWorkflows(wfRes.items)
+      const wfMap = new Map(wfRes.items.map((w) => [w.id, w.name]))
+      setBatches(
+        batchRes.items.map((b) => ({
+          ...b,
+          workflowName: b.workflowId ? wfMap.get(b.workflowId) : undefined,
+        }))
+      )
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "加载失败", description: err.message || "无法获取批次数据" })
+    } finally {
+      setLoading(false)
     }
-    setLocalBatches((prev) => [...prev, newBatch])
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const resetForm = () => {
     setNewBatchName("")
     setNewBatchWorkflow("")
-    setIsCreateDialogOpen(false)
+    setEditingBatch(null)
   }
+
+  const handleAddBatch = async () => {
+    if (!newBatchName || !newBatchWorkflow) return
+    try {
+      await sceneBatchApi.create({
+        name: newBatchName,
+        code: `BG-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
+        workflowId: newBatchWorkflow,
+        status: "open",
+      })
+      await loadData()
+      setIsCreateDialogOpen(false)
+      resetForm()
+      toast({ title: "创建成功" })
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "创建失败", description: err.message || "请稍后重试" })
+    }
+  }
+
+  const openEdit = (batch: BatchView) => {
+    setEditingBatch(batch)
+    setNewBatchName(batch.name)
+    setNewBatchWorkflow(batch.workflowId || "")
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateBatch = async () => {
+    if (!editingBatch || !newBatchName || !newBatchWorkflow) return
+    try {
+      await sceneBatchApi.update(editingBatch.id, {
+        name: newBatchName,
+        workflowId: newBatchWorkflow,
+      })
+      await loadData()
+      setIsEditDialogOpen(false)
+      resetForm()
+      toast({ title: "保存成功" })
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "保存失败", description: err.message || "请稍后重试" })
+    }
+  }
+
+  const handleDeleteBatch = async (id: string) => {
+    if (!confirm("确定删除该批次吗？")) return
+    try {
+      await sceneBatchApi.delete(id)
+      await loadData()
+      toast({ title: "删除成功" })
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "删除失败", description: err.message || "请稍后重试" })
+    }
+  }
+
+  const renderForm = (isEdit: boolean) => (
+    <div className="grid gap-4 py-4">
+      <div className="grid gap-2">
+        <Label htmlFor="batchName">分组名称</Label>
+        <Input
+          id="batchName"
+          value={newBatchName}
+          onChange={(e) => setNewBatchName(e.target.value)}
+          placeholder="例如：2026春季电商实训场景开发"
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="workflow">关联审批流 <span className="text-red-500">*</span></Label>
+        <Select value={newBatchWorkflow} onValueChange={setNewBatchWorkflow}>
+          <SelectTrigger id="workflow">
+            <SelectValue placeholder="选择审批流程" />
+          </SelectTrigger>
+          <SelectContent>
+            {workflows.map((wf) => (
+              <SelectItem key={wf.id} value={wf.id}>
+                <span className="inline-flex items-center">
+                  <span>{wf.name}</span>
+                  <span className="text-xs text-gray-400 ml-2">({wf.steps.length}步)</span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-gray-500">批次内所有场景将强制使用相同的审批流程</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <PrdAnnotation data={getAnnotation("batches-title")}>
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-800">批次分组管理</h1>
-            <p className="text-sm text-gray-500 mt-1">管理场景建设批次分组，关联审批流程</p>
-          </div>
-        </PrdAnnotation>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-800">批次分组管理</h1>
+          <p className="text-sm text-gray-500 mt-1">管理场景建设批次分组，关联审批流程</p>
+        </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <PrdAnnotation data={getAnnotation("batches-create")}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                新增批次
-              </Button>
-            </DialogTrigger>
-          </PrdAnnotation>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              新增批次
+            </Button>
+          </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <PrdAnnotation data={getAnnotation("dialog-batch-form")}>
-                <div>
-                  <DialogTitle>新增批次</DialogTitle>
-                  <DialogDescription>
-                    创建新的场景建设批次分组，并关联审批流程。
-                  </DialogDescription>
-                </div>
-              </PrdAnnotation>
+              <DialogTitle>新增批次</DialogTitle>
+              <DialogDescription>创建新的场景建设批次分组，并关联审批流程。</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="batchName">分组名称</Label>
-                <Input
-                  id="batchName"
-                  value={newBatchName}
-                  onChange={(e) => setNewBatchName(e.target.value)}
-                  placeholder="例如：2026春季电商实训场景开发"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="batchCode">批次编号</Label>
-                <Input
-                  id="batchCode"
-                  value={`BG-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`}
-                  disabled
-                  className="bg-gray-50 text-gray-500"
-                />
-                <p className="text-xs text-gray-500">批次编号自动生成，不可修改</p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="workflow">关联审批流 <span className="text-red-500">*</span></Label>
-                <Select value={newBatchWorkflow} onValueChange={setNewBatchWorkflow}>
-                  <SelectTrigger id="workflow">
-                    <SelectValue placeholder="选择审批流程" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {approvalWorkflows.map((wf) => (
-                      <SelectItem key={wf.id} value={wf.id}>
-                        <span className="inline-flex items-center">
-                          <span>{wf.name}</span>
-                          <span className="text-xs text-gray-400 ml-2">({wf.steps.length}步)</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-500">
-                  批次内所有场景将强制使用相同的审批流程
-                </p>
-              </div>
-            </div>
+            {renderForm(false)}
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 取消
@@ -152,14 +207,31 @@ export default function BatchesPage() {
         </Dialog>
       </div>
 
-      {/* Batches table */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>编辑批次</DialogTitle>
+            <DialogDescription>修改批次名称与关联审批流程。</DialogDescription>
+          </DialogHeader>
+          {renderForm(true)}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleUpdateBatch} disabled={!newBatchName || !newBatchWorkflow}>
+              保存修改
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <FolderKanban className="h-4 w-4" />
             批次列表
           </CardTitle>
-          <CardDescription>共 {localBatches.length} 个批次分组</CardDescription>
+          <CardDescription>共 {batches.length} 个批次分组</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -169,43 +241,62 @@ export default function BatchesPage() {
                   <TableHead className="text-xs font-medium text-slate-500">分组名称</TableHead>
                   <TableHead className="text-xs font-medium text-slate-500">批次编号</TableHead>
                   <TableHead className="text-xs font-medium text-slate-500">审批流程</TableHead>
-                  <TableHead className="text-xs font-medium text-slate-500">场景数</TableHead>
+                  <TableHead className="text-xs font-medium text-slate-500">状态</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {localBatches.map((batch) => (
-                  <TableRow key={batch.id}>
-                    <TableCell className="font-medium">{batch.name}</TableCell>
-                    <TableCell className="text-sm text-gray-600">{batch.code}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {batch.workflowName || "-"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">{batch.scenarioCount}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            编辑
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-500 focus:text-red-500">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            删除
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      加载中...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : batches.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      暂无批次数据
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  batches.map((batch) => (
+                    <TableRow key={batch.id}>
+                      <TableCell className="font-medium">{batch.name}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{batch.code || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {batch.workflowName || "-"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {batch.status === "open" ? "开启" : "关闭"}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEdit(batch)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              编辑
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-red-500 focus:text-red-500"
+                              onClick={() => handleDeleteBatch(batch.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              删除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
