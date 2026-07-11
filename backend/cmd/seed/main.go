@@ -157,6 +157,10 @@ func main() {
 		fmt.Println("seed users error:", err)
 		os.Exit(1)
 	}
+	if err := seedJobData(ctx, tx); err != nil {
+		fmt.Println("seed job data error:", err)
+		os.Exit(1)
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		fmt.Println("commit error:", err)
@@ -852,6 +856,427 @@ func mapRoleToRoleCode(role string, identityTypeCode ...string) string {
 	default:
 		return "student"
 	}
+}
+
+func seedJobData(ctx context.Context, tx pgx.Tx) error {
+	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	teacherID := uuid.MustParse("71111111-1111-1111-1111-111111111114")
+
+	workflows := []struct {
+		id          uuid.UUID
+		name        string
+		description string
+		steps       string
+	}{
+		{
+			uuid.MustParse("a1111111-1111-1111-1111-111111111111"),
+			"二级学院审批",
+			"由二级学院进行岗位信息审核",
+			`[{"name":"学院审核","approverId":"71111111-1111-1111-1111-111111111112"}]`,
+		},
+		{
+			uuid.MustParse("a1111111-1111-1111-1111-111111111112"),
+			"教务处终审",
+			"由教务处进行最终审核",
+			`[{"name":"教务处终审","approverId":"71111111-1111-1111-1111-111111111114"}]`,
+		},
+	}
+	for _, w := range workflows {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO workflows (id, tenant_id, name, scene, description, steps, usage_count, status, created_at)
+			VALUES ($1, $2, $3, 'job', $4, $5::jsonb, 0, 'active', NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				tenant_id = EXCLUDED.tenant_id, name = EXCLUDED.name, scene = EXCLUDED.scene,
+				description = EXCLUDED.description, steps = EXCLUDED.steps, usage_count = EXCLUDED.usage_count,
+				status = EXCLUDED.status
+		`, w.id, tenantID, w.name, w.description, w.steps)
+		if err != nil {
+			return fmt.Errorf("seed workflow %s: %w", w.name, err)
+		}
+	}
+
+	batches := []struct {
+		id         uuid.UUID
+		name       string
+		code       string
+		orgNodeID  uuid.UUID
+		major      string
+		workflowID uuid.UUID
+	}{
+		{
+			uuid.MustParse("a2222222-2222-2222-2222-222222222221"),
+			"2024年春季岗位建设批次",
+			"BATCH-2024-SPRING",
+			uuid.MustParse("31111111-1111-1111-1111-111111111113"),
+			"信息安全技术应用",
+			uuid.MustParse("a1111111-1111-1111-1111-111111111111"),
+		},
+		{
+			uuid.MustParse("a2222222-2222-2222-2222-222222222222"),
+			"2024年秋季岗位建设批次",
+			"BATCH-2024-FALL",
+			uuid.MustParse("31111111-1111-1111-1111-111111111113"),
+			"云计算技术应用",
+			uuid.MustParse("a1111111-1111-1111-1111-111111111112"),
+		},
+	}
+	for _, b := range batches {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO batches (id, name, code, org_node_id, major, workflow_id, status,
+				position_count, published_count, pending_count, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, 'open', 0, 0, 0, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, code = EXCLUDED.code, org_node_id = EXCLUDED.org_node_id,
+				major = EXCLUDED.major, workflow_id = EXCLUDED.workflow_id, status = EXCLUDED.status,
+				position_count = EXCLUDED.position_count, published_count = EXCLUDED.published_count,
+				pending_count = EXCLUDED.pending_count, updated_at = NOW()
+		`, b.id, b.name, b.code, b.orgNodeID, b.major, b.workflowID)
+		if err != nil {
+			return fmt.Errorf("seed batch %s: %w", b.name, err)
+		}
+	}
+
+	abilityPoints := []struct {
+		id          uuid.UUID
+		name        string
+		description string
+		category    string
+	}{
+		{uuid.MustParse("a3333333-3333-3333-3333-333333333331"), "网络安全基础", "掌握网络安全基本概念与防护原理", "technical"},
+		{uuid.MustParse("a3333333-3333-3333-3333-333333333332"), "渗透测试", "具备 Web 与系统渗透测试能力", "technical"},
+		{uuid.MustParse("a3333333-3333-3333-3333-333333333333"), "漏洞分析", "能够分析常见安全漏洞成因与利用方式", "technical"},
+		{uuid.MustParse("a3333333-3333-3333-3333-333333333334"), "安全运维", "熟悉安全设备配置与日常运维", "technical"},
+		{uuid.MustParse("a3333333-3333-3333-3333-333333333335"), "代码审计", "具备源代码安全审计与修复能力", "technical"},
+		{uuid.MustParse("a3333333-3333-3333-3333-333333333336"), "应急响应", "能够处置安全事件并开展溯源分析", "technical"},
+		{uuid.MustParse("a3333333-3333-3333-3333-333333333337"), "云计算基础", "掌握云计算架构与主流平台操作", "technical"},
+		{uuid.MustParse("a3333333-3333-3333-3333-333333333338"), "容器安全", "熟悉 Docker/Kubernetes 安全配置", "technical"},
+	}
+	for _, ap := range abilityPoints {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO ability_points (id, name, description, category, is_public, created_at)
+			VALUES ($1, $2, $3, $4, true, NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, description = EXCLUDED.description, category = EXCLUDED.category,
+				is_public = EXCLUDED.is_public
+		`, ap.id, ap.name, ap.description, ap.category)
+		if err != nil {
+			return fmt.Errorf("seed ability point %s: %w", ap.name, err)
+		}
+	}
+
+	positions := []struct {
+		id           uuid.UUID
+		batchID      uuid.UUID
+		name         string
+		shortName    string
+		positionType string
+		salaryMin    int
+		salaryMax    int
+		description  string
+		requirements []string
+		careerPath   string
+		version      string
+		status       string
+		majorIDs     []uuid.UUID
+	}{
+		{
+			uuid.MustParse("a4444444-4444-4444-4444-444444444441"),
+			uuid.MustParse("a2222222-2222-2222-2222-222222222221"),
+			"网络安全运维工程师",
+			"安全运维",
+			"enterprise",
+			8000, 15000,
+			"负责企业网络安全设备运维、安全策略配置及日常安全监控。",
+			[]string{"熟悉防火墙、IDS/IPS 配置", "具备 Linux 系统运维经验", "了解常见网络协议"},
+			"安全运维工程师 → 安全架构师 → 安全总监",
+			"v1.0",
+			"draft",
+			[]uuid.UUID{uuid.MustParse("51111111-1111-1111-1111-111111111111")},
+		},
+		{
+			uuid.MustParse("a4444444-4444-4444-4444-444444444442"),
+			uuid.MustParse("a2222222-2222-2222-2222-222222222221"),
+			"渗透测试工程师",
+			"渗透测试",
+			"enterprise",
+			10000, 20000,
+			"开展 Web 应用、移动应用及内网渗透测试，输出安全测试报告。",
+			[]string{"熟练掌握渗透测试工具", "具备漏洞挖掘与利用能力", "能够编写测试报告"},
+			"渗透测试工程师 → 红队专家 → 安全研究负责人",
+			"v1.0",
+			"pending",
+			[]uuid.UUID{uuid.MustParse("51111111-1111-1111-1111-111111111111")},
+		},
+		{
+			uuid.MustParse("a4444444-4444-4444-4444-444444444443"),
+			uuid.MustParse("a2222222-2222-2222-2222-222222222221"),
+			"信息安全教学岗",
+			"安全教学",
+			"teaching",
+			6000, 12000,
+			"面向高职学生开展信息安全课程教学与实训指导。",
+			[]string{"具备信息安全专业背景", "熟悉高职教学方法", "持有相关职业资格证书"},
+			"专任教师 → 专业负责人 → 教学副院长",
+			"v1.0",
+			"approved",
+			[]uuid.UUID{uuid.MustParse("51111111-1111-1111-1111-111111111111")},
+		},
+		{
+			uuid.MustParse("a4444444-4444-4444-4444-444444444444"),
+			uuid.MustParse("a2222222-2222-2222-2222-222222222222"),
+			"云计算运维工程师",
+			"云运维",
+			"enterprise",
+			9000, 18000,
+			"负责云平台资源管理、容器编排及云安全策略落地。",
+			[]string{"熟悉 OpenStack/Docker/Kubernetes", "具备云网络与安全配置经验", "了解 DevOps 流程"},
+			"云运维工程师 → 云架构师 → 技术总监",
+			"v1.0",
+			"published",
+			[]uuid.UUID{uuid.MustParse("51111111-1111-1111-1111-111111111112")},
+		},
+		{
+			uuid.MustParse("a4444444-4444-4444-4444-444444444445"),
+			uuid.MustParse("a2222222-2222-2222-2222-222222222222"),
+			"云计算技术应用教学岗",
+			"云教学",
+			"teaching",
+			6000, 12000,
+			"承担云计算技术应用专业课程教学与实验指导。",
+			[]string{"具备云计算专业背景", "能够设计实验实训项目", "熟悉主流云平台操作"},
+			"专任教师 → 专业负责人 → 系主任",
+			"v1.0",
+			"archived",
+			[]uuid.UUID{uuid.MustParse("51111111-1111-1111-1111-111111111112")},
+		},
+	}
+	for _, p := range positions {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO career_positions (id, batch_id, name, short_name, position_type, salary_min, salary_max,
+				description, requirements, career_path, version, status, created_by, major_ids, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				batch_id = EXCLUDED.batch_id, name = EXCLUDED.name, short_name = EXCLUDED.short_name,
+				position_type = EXCLUDED.position_type, salary_min = EXCLUDED.salary_min, salary_max = EXCLUDED.salary_max,
+				description = EXCLUDED.description, requirements = EXCLUDED.requirements, career_path = EXCLUDED.career_path,
+				version = EXCLUDED.version, status = EXCLUDED.status, created_by = EXCLUDED.created_by,
+				major_ids = EXCLUDED.major_ids, updated_at = NOW()
+		`, p.id, p.batchID, p.name, p.shortName, p.positionType, p.salaryMin, p.salaryMax,
+			p.description, p.requirements, p.careerPath, p.version, p.status, teacherID, p.majorIDs)
+		if err != nil {
+			return fmt.Errorf("seed career position %s: %w", p.name, err)
+		}
+	}
+
+	responsibilities := []struct {
+		id       uuid.UUID
+		position uuid.UUID
+		name     string
+		desc     string
+		sort     int
+	}{
+		{uuid.MustParse("a5555555-5555-5555-5555-555555555551"), uuid.MustParse("a4444444-4444-4444-4444-444444444441"), "安全设备运维", "负责防火墙、IDS/IPS、WAF 等安全设备的日常运维与策略调优", 1},
+		{uuid.MustParse("a5555555-5555-5555-5555-555555555552"), uuid.MustParse("a4444444-4444-4444-4444-444444444441"), "安全策略管理", "制定并维护网络安全策略、访问控制策略", 2},
+		{uuid.MustParse("a5555555-5555-5555-5555-555555555553"), uuid.MustParse("a4444444-4444-4444-4444-444444444441"), "安全事件监控", "监控安全告警，进行初步分析与应急响应", 3},
+		{uuid.MustParse("a5555555-5555-5555-5555-555555555554"), uuid.MustParse("a4444444-4444-4444-4444-444444444442"), "Web 渗透测试", "对 Web 应用进行黑盒/白盒渗透测试", 1},
+		{uuid.MustParse("a5555555-5555-5555-5555-555555555555"), uuid.MustParse("a4444444-4444-4444-4444-444444444442"), "内网渗透测试", "开展内网横向移动与权限提升测试", 2},
+		{uuid.MustParse("a5555555-5555-5555-5555-555555555556"), uuid.MustParse("a4444444-4444-4444-4444-444444444442"), "安全报告编写", "整理测试过程与结果，输出渗透测试报告", 3},
+		{uuid.MustParse("a5555555-5555-5555-5555-555555555557"), uuid.MustParse("a4444444-4444-4444-4444-444444444443"), "课程教学", "承担网络安全相关课程理论教学", 1},
+		{uuid.MustParse("a5555555-5555-5555-5555-555555555558"), uuid.MustParse("a4444444-4444-4444-4444-444444444443"), "实训指导", "指导学生完成安全运维与渗透测试实训", 2},
+		{uuid.MustParse("a5555555-5555-5555-5555-555555555559"), uuid.MustParse("a4444444-4444-4444-4444-444444444444"), "云平台运维", "负责云平台计算、网络、存储资源管理", 1},
+		{uuid.MustParse("a5555555-5555-5555-5555-55555555555a"), uuid.MustParse("a4444444-4444-4444-4444-444444444444"), "容器编排管理", "管理 Docker/Kubernetes 容器集群与安全配置", 2},
+		{uuid.MustParse("a5555555-5555-5555-5555-55555555555b"), uuid.MustParse("a4444444-4444-4444-4444-444444444445"), "云计算课程教学", "承担云计算技术应用课程教学", 1},
+		{uuid.MustParse("a5555555-5555-5555-5555-55555555555c"), uuid.MustParse("a4444444-4444-4444-4444-444444444445"), "实验指导", "指导学生完成云平台与容器实验", 2},
+	}
+	for _, r := range responsibilities {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO position_responsibilities (id, career_position_id, name, description, sort_order)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (id) DO UPDATE SET
+				career_position_id = EXCLUDED.career_position_id, name = EXCLUDED.name,
+				description = EXCLUDED.description, sort_order = EXCLUDED.sort_order
+		`, r.id, r.position, r.name, r.desc, r.sort)
+		if err != nil {
+			return fmt.Errorf("seed responsibility %s: %w", r.name, err)
+		}
+	}
+
+	bindings := []struct {
+		id             uuid.UUID
+		position       uuid.UUID
+		responsibility uuid.UUID
+		ability        uuid.UUID
+		level          string
+		weight         float64
+	}{
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666661"), uuid.MustParse("a4444444-4444-4444-4444-444444444441"), uuid.MustParse("a5555555-5555-5555-5555-555555555551"), uuid.MustParse("a3333333-3333-3333-3333-333333333331"), "L2", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666662"), uuid.MustParse("a4444444-4444-4444-4444-444444444441"), uuid.MustParse("a5555555-5555-5555-5555-555555555551"), uuid.MustParse("a3333333-3333-3333-3333-333333333334"), "L3", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666663"), uuid.MustParse("a4444444-4444-4444-4444-444444444441"), uuid.MustParse("a5555555-5555-5555-5555-555555555552"), uuid.MustParse("a3333333-3333-3333-3333-333333333331"), "L2", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666664"), uuid.MustParse("a4444444-4444-4444-4444-444444444441"), uuid.MustParse("a5555555-5555-5555-5555-555555555553"), uuid.MustParse("a3333333-3333-3333-3333-333333333336"), "L2", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666665"), uuid.MustParse("a4444444-4444-4444-4444-444444444442"), uuid.MustParse("a5555555-5555-5555-5555-555555555554"), uuid.MustParse("a3333333-3333-3333-3333-333333333332"), "L3", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666666"), uuid.MustParse("a4444444-4444-4444-4444-444444444442"), uuid.MustParse("a5555555-5555-5555-5555-555555555554"), uuid.MustParse("a3333333-3333-3333-3333-333333333333"), "L2", 0.50},
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666667"), uuid.MustParse("a4444444-4444-4444-4444-444444444442"), uuid.MustParse("a5555555-5555-5555-5555-555555555555"), uuid.MustParse("a3333333-3333-3333-3333-333333333332"), "L3", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666668"), uuid.MustParse("a4444444-4444-4444-4444-444444444442"), uuid.MustParse("a5555555-5555-5555-5555-555555555556"), uuid.MustParse("a3333333-3333-3333-3333-333333333333"), "L2", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666669"), uuid.MustParse("a4444444-4444-4444-4444-444444444443"), uuid.MustParse("a5555555-5555-5555-5555-555555555557"), uuid.MustParse("a3333333-3333-3333-3333-333333333331"), "L2", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-66666666666a"), uuid.MustParse("a4444444-4444-4444-4444-444444444443"), uuid.MustParse("a5555555-5555-5555-5555-555555555557"), uuid.MustParse("a3333333-3333-3333-3333-333333333332"), "L2", 0.50},
+		{uuid.MustParse("a6666666-6666-6666-6666-66666666666b"), uuid.MustParse("a4444444-4444-4444-4444-444444444443"), uuid.MustParse("a5555555-5555-5555-5555-555555555558"), uuid.MustParse("a3333333-3333-3333-3333-333333333334"), "L3", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-66666666666c"), uuid.MustParse("a4444444-4444-4444-4444-444444444444"), uuid.MustParse("a5555555-5555-5555-5555-555555555559"), uuid.MustParse("a3333333-3333-3333-3333-333333333337"), "L2", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-66666666666d"), uuid.MustParse("a4444444-4444-4444-4444-444444444444"), uuid.MustParse("a5555555-5555-5555-5555-555555555559"), uuid.MustParse("a3333333-3333-3333-3333-333333333338"), "L2", 0.50},
+		{uuid.MustParse("a6666666-6666-6666-6666-66666666666e"), uuid.MustParse("a4444444-4444-4444-4444-444444444444"), uuid.MustParse("a5555555-5555-5555-5555-55555555555a"), uuid.MustParse("a3333333-3333-3333-3333-333333333338"), "L3", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-66666666666f"), uuid.MustParse("a4444444-4444-4444-4444-444444444445"), uuid.MustParse("a5555555-5555-5555-5555-55555555555b"), uuid.MustParse("a3333333-3333-3333-3333-333333333337"), "L2", 1.00},
+		{uuid.MustParse("a6666666-6666-6666-6666-666666666670"), uuid.MustParse("a4444444-4444-4444-4444-444444444445"), uuid.MustParse("a5555555-5555-5555-5555-55555555555c"), uuid.MustParse("a3333333-3333-3333-3333-333333333338"), "L2", 1.00},
+	}
+	for _, b := range bindings {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO position_ability_bindings (id, career_position_id, responsibility_id, ability_point_id,
+				source, domain, required_level, rubric_description, attributes, weight)
+			VALUES ($1, $2, $3, $4, 'custom', '', $5, '', '{}', $6)
+			ON CONFLICT (id) DO UPDATE SET
+				career_position_id = EXCLUDED.career_position_id, responsibility_id = EXCLUDED.responsibility_id,
+				ability_point_id = EXCLUDED.ability_point_id, source = EXCLUDED.source, domain = EXCLUDED.domain,
+				required_level = EXCLUDED.required_level, rubric_description = EXCLUDED.rubric_description,
+				attributes = EXCLUDED.attributes, weight = EXCLUDED.weight
+		`, b.id, b.position, b.responsibility, b.ability, b.level, b.weight)
+		if err != nil {
+			return fmt.Errorf("seed binding %s: %w", b.id, err)
+		}
+	}
+
+	domains := []struct {
+		id       uuid.UUID
+		position uuid.UUID
+		name     string
+		desc     string
+		bindings []uuid.UUID
+		sort     int
+	}{
+		{uuid.MustParse("a7777777-7777-7777-7777-777777777771"), uuid.MustParse("a4444444-4444-4444-4444-444444444441"), "安全运维域", "覆盖安全设备运维与事件监控能力", []uuid.UUID{uuid.MustParse("a6666666-6666-6666-6666-666666666661"), uuid.MustParse("a6666666-6666-6666-6666-666666666662"), uuid.MustParse("a6666666-6666-6666-6666-666666666664")}, 1},
+		{uuid.MustParse("a7777777-7777-7777-7777-777777777772"), uuid.MustParse("a4444444-4444-4444-4444-444444444441"), "网络防护域", "覆盖网络安全策略与基础防护能力", []uuid.UUID{uuid.MustParse("a6666666-6666-6666-6666-666666666661"), uuid.MustParse("a6666666-6666-6666-6666-666666666663")}, 2},
+		{uuid.MustParse("a7777777-7777-7777-7777-777777777773"), uuid.MustParse("a4444444-4444-4444-4444-444444444442"), "渗透测试域", "覆盖 Web 与内网渗透测试能力", []uuid.UUID{uuid.MustParse("a6666666-6666-6666-6666-666666666665"), uuid.MustParse("a6666666-6666-6666-6666-666666666666"), uuid.MustParse("a6666666-6666-6666-6666-666666666667")}, 1},
+		{uuid.MustParse("a7777777-7777-7777-7777-777777777774"), uuid.MustParse("a4444444-4444-4444-4444-444444444442"), "漏洞分析域", "覆盖漏洞挖掘与分析能力", []uuid.UUID{uuid.MustParse("a6666666-6666-6666-6666-666666666666"), uuid.MustParse("a6666666-6666-6666-6666-666666666668")}, 2},
+		{uuid.MustParse("a7777777-7777-7777-7777-777777777775"), uuid.MustParse("a4444444-4444-4444-4444-444444444443"), "教学能力域", "覆盖信息安全教学与实训指导能力", []uuid.UUID{uuid.MustParse("a6666666-6666-6666-6666-666666666669"), uuid.MustParse("a6666666-6666-6666-6666-66666666666a"), uuid.MustParse("a6666666-6666-6666-6666-66666666666b")}, 1},
+		{uuid.MustParse("a7777777-7777-7777-7777-777777777776"), uuid.MustParse("a4444444-4444-4444-4444-444444444444"), "云计算运维域", "覆盖云平台与容器运维能力", []uuid.UUID{uuid.MustParse("a6666666-6666-6666-6666-66666666666c"), uuid.MustParse("a6666666-6666-6666-6666-66666666666d"), uuid.MustParse("a6666666-6666-6666-6666-66666666666e")}, 1},
+		{uuid.MustParse("a7777777-7777-7777-7777-777777777777"), uuid.MustParse("a4444444-4444-4444-4444-444444444445"), "云计算教学域", "覆盖云计算课程教学与实验指导能力", []uuid.UUID{uuid.MustParse("a6666666-6666-6666-6666-66666666666f"), uuid.MustParse("a6666666-6666-6666-6666-666666666670")}, 1},
+	}
+	for _, d := range domains {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO ability_domains (id, career_position_id, name, description, binding_ids, sort_order)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (id) DO UPDATE SET
+				career_position_id = EXCLUDED.career_position_id, name = EXCLUDED.name,
+				description = EXCLUDED.description, binding_ids = EXCLUDED.binding_ids, sort_order = EXCLUDED.sort_order
+		`, d.id, d.position, d.name, d.desc, d.bindings, d.sort)
+		if err != nil {
+			return fmt.Errorf("seed ability domain %s: %w", d.name, err)
+		}
+	}
+
+	recommendations := []struct {
+		id      uuid.UUID
+		major   string
+		position uuid.UUID
+		posType string
+		reason  string
+		sort    int
+	}{
+		{uuid.MustParse("a8888888-8888-8888-8888-888888888881"), "信息安全技术应用", uuid.MustParse("a4444444-4444-4444-4444-444444444441"), "enterprise", "契合信息安全专业核心能力，岗位需求量大", 1},
+		{uuid.MustParse("a8888888-8888-8888-8888-888888888882"), "信息安全技术应用", uuid.MustParse("a4444444-4444-4444-4444-444444444442"), "enterprise", "适合具备渗透测试兴趣的学生发展方向", 2},
+	}
+	for _, r := range recommendations {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO position_recommendations (id, major, career_position_id, position_type, reason, sort_order, is_visible, created_by, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, true, $7, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				major = EXCLUDED.major, career_position_id = EXCLUDED.career_position_id,
+				position_type = EXCLUDED.position_type, reason = EXCLUDED.reason, sort_order = EXCLUDED.sort_order,
+				is_visible = EXCLUDED.is_visible, created_by = EXCLUDED.created_by, updated_at = NOW()
+		`, r.id, r.major, r.position, r.posType, r.reason, r.sort, teacherID)
+		if err != nil {
+			return fmt.Errorf("seed recommendation %s: %w", r.major, err)
+		}
+	}
+
+	learnRoads := []struct {
+		id     uuid.UUID
+		name   string
+		desc   string
+		posIDs []uuid.UUID
+		steps  string
+	}{
+		{
+			uuid.MustParse("a9999999-9999-9999-9999-999999999991"),
+			"信息安全工程师成长路径",
+			"从安全运维到渗透测试的完整学习路径",
+			[]uuid.UUID{
+				uuid.MustParse("a4444444-4444-4444-4444-444444444441"),
+				uuid.MustParse("a4444444-4444-4444-4444-444444444442"),
+				uuid.MustParse("a4444444-4444-4444-4444-444444444443"),
+			},
+			`[{"name":"网络安全基础","abilityPointIds":["a3333333-3333-3333-3333-333333333331"]},{"name":"安全运维实践","abilityPointIds":["a3333333-3333-3333-3333-333333333334"]},{"name":"渗透测试进阶","abilityPointIds":["a3333333-3333-3333-3333-333333333332","a3333333-3333-3333-3333-333333333333"]}]`,
+		},
+		{
+			uuid.MustParse("a9999999-9999-9999-9999-999999999992"),
+			"云计算工程师成长路径",
+			"从云计算基础到容器安全的完整学习路径",
+			[]uuid.UUID{
+				uuid.MustParse("a4444444-4444-4444-4444-444444444444"),
+				uuid.MustParse("a4444444-4444-4444-4444-444444444445"),
+			},
+			`[{"name":"云计算基础","abilityPointIds":["a3333333-3333-3333-3333-333333333337"]},{"name":"容器安全","abilityPointIds":["a3333333-3333-3333-3333-333333333338"]},{"name":"云平台运维实战","abilityPointIds":["a3333333-3333-3333-3333-333333333337","a3333333-3333-3333-3333-333333333338"]}]`,
+		},
+	}
+	for _, lr := range learnRoads {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO learn_roads (id, name, description, position_ids, steps, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5::jsonb, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name, description = EXCLUDED.description, position_ids = EXCLUDED.position_ids,
+				steps = EXCLUDED.steps, updated_at = NOW()
+		`, lr.id, lr.name, lr.desc, lr.posIDs, lr.steps)
+		if err != nil {
+			return fmt.Errorf("seed learn road %s: %w", lr.name, err)
+		}
+	}
+
+	banners := []struct {
+		id     uuid.UUID
+		title  string
+		image  string
+		link   string
+		sort   int
+		active bool
+	}{
+		{
+			uuid.MustParse("aa111111-1111-1111-1111-111111111111"),
+			"网络安全岗位推荐",
+			"https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&q=80&auto=format&fit=crop",
+			"/job/positions",
+			1,
+			true,
+		},
+		{
+			uuid.MustParse("aa111111-1111-1111-1111-111111111112"),
+			"云计算岗位推荐",
+			"https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&q=80&auto=format&fit=crop",
+			"/job/positions",
+			2,
+			true,
+		},
+	}
+	for _, b := range banners {
+		_, err := tx.Exec(ctx, `
+			INSERT INTO banner_configs (id, title, image_url, link_url, sort_order, is_active, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+			ON CONFLICT (id) DO UPDATE SET
+				title = EXCLUDED.title, image_url = EXCLUDED.image_url, link_url = EXCLUDED.link_url,
+				sort_order = EXCLUDED.sort_order, is_active = EXCLUDED.is_active, updated_at = NOW()
+		`, b.id, b.title, b.image, b.link, b.sort, b.active)
+		if err != nil {
+			return fmt.Errorf("seed banner config %s: %w", b.title, err)
+		}
+	}
+
+	return nil
 }
 
 func str(s string) *string {

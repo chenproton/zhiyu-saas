@@ -136,3 +136,23 @@ type ScenarioGradeMapping struct {
 	Description *string `json:"description,omitempty"`
 	Color       *string `json:"color,omitempty"`
 }
+
+type SceneBatchStatus string
+
+const (
+	SceneBatchStatusOpen   SceneBatchStatus = "open"
+	SceneBatchStatusClosed SceneBatchStatus = "closed"
+)
+
+type SceneBatch struct {
+	ID            string           `json:"id"`
+	Name          string           `json:"name"`
+	Code          *string          `json:"code,omitempty"`
+	OrgNodeID     *string          `json:"orgNodeId,omitempty"`
+	Major         *string          `json:"major,omitempty"`
+	WorkflowID    *string          `json:"workflowId,omitempty"`
+	Status        SceneBatchStatus `json:"status"`
+	ScenarioCount int              `json:"scenarioCount"`
+	CreatedAt     time.Time        `json:"createdAt"`
+	UpdatedAt     time.Time        `json:"updatedAt"`
+}

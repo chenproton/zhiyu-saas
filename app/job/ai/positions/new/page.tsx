@@ -111,7 +111,7 @@ export default function AiAssisted2NewPositionPage() {
     }, 150)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const positionData: Omit<Position, 'id' | 'createdAt' | 'updatedAt'> = {
       batchId: draft.batchId || '',
       version: draft.version,
@@ -135,7 +135,7 @@ export default function AiAssisted2NewPositionPage() {
       collaborators: [CURRENT_USER.id],
       favoriteCount: 0,
     }
-    addPosition(positionData)
+    await addPosition(positionData)
     router.push('/job/ai/positions')
   }
 

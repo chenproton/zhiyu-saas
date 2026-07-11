@@ -186,16 +186,16 @@ export default function PositionsPage() {
   const canBatchPublish = selectedPositions.some((p) => p.status === "approved")
   const canBatchDelete = selectedPositions.some((p) => p.status === "draft" || p.status === "rejected")
 
-  const handleBatchSubmitApproval = () => {
-    selectedIds.forEach((id) => {
+  const handleBatchSubmitApproval = async () => {
+    for (const id of selectedIds) {
       const position = positions.find((p) => p.id === id)
       if (position && (position.status === "draft" || position.status === "rejected")) {
         const batch = batches.find((b) => b.id === position.batchId)
         if (batch) {
-          submitForApproval(id, batch.workflowId, "user-2", "李建设")
+          await submitForApproval(id, batch.workflowId, "user-2", "李建设")
         }
       }
-    })
+    }
     setSelectedIds([])
   }
 
@@ -205,35 +205,37 @@ export default function PositionsPage() {
     setSelectedIds([])
   }
 
-  const handleBatchUnpublish = () => {
-    selectedIds.forEach((id) => {
+  const handleBatchUnpublish = async () => {
+    for (const id of selectedIds) {
       const position = positions.find((p) => p.id === id)
       if (position && position.status === "published") {
-        updatePosition(id, { status: "draft" })
+        await updatePosition(id, { status: "draft" })
       }
-    })
+    }
     setSelectedIds([])
   }
 
-  const handleBatchPublish = () => {
-    selectedIds.forEach((id) => {
+  const handleBatchPublish = async () => {
+    for (const id of selectedIds) {
       const position = positions.find((p) => p.id === id)
       if (position && position.status === "approved") {
-        updatePosition(id, { status: "published" })
+        await updatePosition(id, { status: "published" })
       }
-    })
+    }
     setSelectedIds([])
   }
 
-  const handleBatchDelete = () => {
-    selectedIds.forEach((id) => deletePosition(id))
+  const handleBatchDelete = async () => {
+    for (const id of selectedIds) {
+      await deletePosition(id)
+    }
     setSelectedIds([])
   }
 
-  const handleBatchClone = () => {
+  const handleBatchClone = async () => {
     const toClone = positions.filter((p) => selectedIds.includes(p.id))
-    toClone.forEach((position) => {
-      addPosition({
+    for (const position of toClone) {
+      await addPosition({
         batchId: position.batchId,
         version: position.version,
         status: "draft",
@@ -256,7 +258,7 @@ export default function PositionsPage() {
         collaborators: [CURRENT_USER_ID],
         favoriteCount: 0,
       })
-    })
+    }
     setSelectedIds([])
   }
 
@@ -269,11 +271,11 @@ export default function PositionsPage() {
     setIsBatchMoveDialogOpen(true)
   }
 
-  const handleConfirmMove = () => {
+  const handleConfirmMove = async () => {
     if (!moveTargetBatchId) return
-    selectedIds.forEach((id) => {
-      updatePosition(id, { batchId: moveTargetBatchId })
-    })
+    for (const id of selectedIds) {
+      await updatePosition(id, { batchId: moveTargetBatchId })
+    }
     setSelectedIds([])
     setIsBatchMoveDialogOpen(false)
     setMoveTargetBatchId("")
@@ -285,9 +287,9 @@ export default function PositionsPage() {
     setIsCloneRenameDialogOpen(true)
   }
 
-  const handleConfirmClone = () => {
+  const handleConfirmClone = async () => {
     if (!cloneTargetPosition) return
-    addPosition({
+    await addPosition({
       batchId: cloneTargetPosition.batchId,
       version: "V1.0",
       status: "draft",
@@ -315,19 +317,19 @@ export default function PositionsPage() {
     setCloneRenameValue("")
   }
 
-  const handleDelete = (position: Position) => {
+  const handleDelete = async (position: Position) => {
     if (confirm(`确定要删除岗位「${position.name}」吗？`)) {
-      deletePosition(position.id)
+      await deletePosition(position.id)
     }
   }
 
-  const handleSubmitApproval = (position: Position) => {
+  const handleSubmitApproval = async (position: Position) => {
     const batch = batches.find((b) => b.id === position.batchId)
     if (!batch) {
       alert("该岗位未关联批次，无法提交审批")
       return
     }
-    submitForApproval(position.id, batch.workflowId, "user-2", "李建设")
+    await submitForApproval(position.id, batch.workflowId, "user-2", "李建设")
   }
 
   const handleWithdrawApproval = (position: Position) => {
@@ -352,8 +354,8 @@ export default function PositionsPage() {
     setSelectedStatus(null)
   }
 
-  const handleCreate = () => {
-    const newPosition = addPosition({
+  const handleCreate = async () => {
+    const newPosition = await addPosition({
       batchId: "",
       version: "V1.0",
       status: "draft",

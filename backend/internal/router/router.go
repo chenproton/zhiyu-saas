@@ -55,6 +55,10 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	platformLinkHandler := &handler.PlatformLinkHandler{DB: db}
 	appModuleHandler := &handler.AppModuleHandler{DB: db}
 
+	// Shared workflow & approval handlers
+	workflowHandler := &handler.WorkflowHandler{DB: db}
+	approvalHandler := &handler.ApprovalHandler{DB: db}
+
 	// Phase 3.2: job handlers
 	positionHandler := &handler.PositionHandler{DB: db}
 	abilityHandler := &handler.AbilityHandler{DB: db}
@@ -63,6 +67,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	jobBatchHandler := &handler.JobBatchHandler{DB: db}
 	recommendHandler := &handler.RecommendHandler{DB: db}
 	learnRoadHandler := &handler.LearnRoadHandler{DB: db}
+	jobBannerHandler := &handler.JobBannerHandler{DB: db}
 
 	// Phase 3.3: scene handlers
 	scenarioHandler := &handler.ScenarioHandler{DB: db}
@@ -72,6 +77,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	taskKnowledgeAbilityHandler := &handler.TaskKnowledgeAbilityHandler{DB: db}
 	scenarioWeightHandler := &handler.ScenarioWeightHandler{DB: db}
 	scenarioGradeHandler := &handler.ScenarioGradeHandler{DB: db}
+	sceneBatchHandler := &handler.SceneBatchHandler{DB: db}
 
 	// Phase 3.4: lesson handlers
 	courseHandler := &handler.CourseHandler{DB: db}
@@ -94,6 +100,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	microCertHandler := &handler.MicroCertHandler{DB: db}
 	appealHandler := &handler.AppealHandler{DB: db}
 	evaluationMethodHandler := &handler.EvaluationMethodHandler{DB: db}
+	evaluationBatchHandler := &handler.EvaluationBatchHandler{DB: db}
 
 	auth := authmw.JWT(jwtSecret)
 
@@ -224,6 +231,18 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Put("/app-modules/{id}", appModuleHandler.Update)
 			r.Delete("/app-modules/{id}", appModuleHandler.Delete)
 
+			// Shared workflow & approval routes
+			r.Get("/workflows", workflowHandler.List)
+			r.Post("/workflows", workflowHandler.Create)
+			r.Get("/workflows/{id}", workflowHandler.Get)
+			r.Put("/workflows/{id}", workflowHandler.Update)
+			r.Delete("/workflows/{id}", workflowHandler.Delete)
+
+			r.Get("/approvals", approvalHandler.List)
+			r.Post("/approvals", approvalHandler.Create)
+			r.Get("/approvals/{id}", approvalHandler.Get)
+			r.Post("/approvals/{id}/review", approvalHandler.Review)
+
 			// Phase 3.2: job routes
 			r.Get("/job/positions", positionHandler.List)
 			r.Get("/job/positions/{id}", positionHandler.Get)
@@ -268,6 +287,12 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Post("/job/learn-roads", learnRoadHandler.Create)
 			r.Put("/job/learn-roads/{id}", learnRoadHandler.Update)
 			r.Delete("/job/learn-roads/{id}", learnRoadHandler.Delete)
+
+			r.Get("/job/banners", jobBannerHandler.List)
+			r.Get("/job/banners/{id}", jobBannerHandler.Get)
+			r.Post("/job/banners", jobBannerHandler.Create)
+			r.Put("/job/banners/{id}", jobBannerHandler.Update)
+			r.Delete("/job/banners/{id}", jobBannerHandler.Delete)
 
 			// Phase 3.3: scene routes
 			r.Get("/scene/scenarios", scenarioHandler.List)
@@ -314,6 +339,13 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Get("/scene/grade-mappings", scenarioGradeHandler.ListGradeMappings)
 			r.Post("/scene/grade-mappings", scenarioGradeHandler.UpsertGradeMapping)
 			r.Put("/scene/grade-mappings/{id}", scenarioGradeHandler.UpsertGradeMapping)
+
+			r.Get("/scene/batches", sceneBatchHandler.List)
+			r.Post("/scene/batches", sceneBatchHandler.Create)
+			r.Get("/scene/batches/{id}", sceneBatchHandler.Get)
+			r.Put("/scene/batches/{id}", sceneBatchHandler.Update)
+			r.Delete("/scene/batches/{id}", sceneBatchHandler.Delete)
+			r.Post("/scene/batches/{id}/status", sceneBatchHandler.UpdateStatus)
 
 			// Phase 3.4: lesson routes
 			r.Get("/lesson/courses", courseHandler.List)
@@ -444,6 +476,13 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Get("/evaluation/appeals/{id}", appealHandler.Get)
 			r.Post("/evaluation/appeals", appealHandler.Create)
 			r.Post("/evaluation/appeals/{id}/process", appealHandler.Process)
+
+			r.Get("/evaluation/batches", evaluationBatchHandler.List)
+			r.Post("/evaluation/batches", evaluationBatchHandler.Create)
+			r.Get("/evaluation/batches/{id}", evaluationBatchHandler.Get)
+			r.Put("/evaluation/batches/{id}", evaluationBatchHandler.Update)
+			r.Delete("/evaluation/batches/{id}", evaluationBatchHandler.Delete)
+			r.Post("/evaluation/batches/{id}/status", evaluationBatchHandler.UpdateStatus)
 		})
 	})
 

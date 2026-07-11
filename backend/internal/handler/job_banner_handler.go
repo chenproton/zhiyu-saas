@@ -1,0 +1,245 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zhiyu-saas/backend/internal/middleware"
+)
+
+type JobBannerHandler struct {
+	DB *pgxpool.Pool
+}
+
+type JobBannerConfig struct {
+	ID        string    `json:"id"`
+	Title     string    `json:"title"`
+	ImageURL  string    `json:"imageUrl"`
+	LinkURL   *string   `json:"linkUrl,omitempty"`
+	SortOrder int       `json:"sortOrder"`
+	IsActive  bool      `json:"isActive"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type JobBannerListResponse struct {
+	Items []JobBannerConfig `json:"items"`
+	Total int               `json:"total"`
+}
+
+type CreateJobBannerRequest struct {
+	Title     string  `json:"title"`
+	ImageURL  string  `json:"imageUrl"`
+	LinkURL   *string `json:"linkUrl"`
+	SortOrder int     `json:"sortOrder"`
+	IsActive  bool    `json:"isActive"`
+}
+
+type UpdateJobBannerRequest struct {
+	Title     string  `json:"title"`
+	ImageURL  string  `json:"imageUrl"`
+	LinkURL   *string `json:"linkUrl"`
+	SortOrder int     `json:"sortOrder"`
+	IsActive  bool    `json:"isActive"`
+}
+
+func (h *JobBannerHandler) List(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	isActiveStr := r.URL.Query().Get("isActive")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50
+	offset := 0
+	if v, err := parseInt(limitStr, 50); err == nil && v > 0 {
+		limit = v
+	}
+	if v, err := parseInt(offsetStr, 0); err == nil && v >= 0 {
+		offset = v
+	}
+
+	where := []string{"1=1"}
+	args := []interface{}{}
+	argIdx := 1
+
+	if isActiveStr != "" {
+		where = append(where, "is_active = $"+itoa(argIdx))
+		args = append(args, isActiveStr == "true")
+		argIdx++
+	}
+
+	countQuery := "SELECT COUNT(*) FROM banner_configs WHERE " + strings.Join(where, " AND ")
+	var total int
+	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
+
+	query := `
+		SELECT id, title, image_url, link_url, sort_order, is_active, created_at, updated_at
+		FROM banner_configs
+		WHERE ` + strings.Join(where, " AND ") + `
+		ORDER BY sort_order ASC, created_at DESC
+		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := h.DB.Query(r.Context(), query, args...)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list banners")
+		return
+	}
+	defer rows.Close()
+
+	items, err := h.scanBannerRows(rows)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to scan banners")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, JobBannerListResponse{Items: items, Total: total})
+}
+
+func (h *JobBannerHandler) Get(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	banner, err := h.fetchBanner(r.Context(), id)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "banner not found")
+		return
+	}
+	respondJSON(w, http.StatusOK, banner)
+}
+
+func (h *JobBannerHandler) Create(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req CreateJobBannerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Title == "" || req.ImageURL == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	id := uuid.NewString()
+
+	_, err := h.DB.Exec(r.Context(), `
+		INSERT INTO banner_configs (id, title, image_url, link_url, sort_order, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, id, req.Title, req.ImageURL, req.LinkURL, req.SortOrder, req.IsActive)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to create banner")
+		return
+	}
+
+	banner, _ := h.fetchBanner(r.Context(), id)
+	respondJSON(w, http.StatusCreated, banner)
+}
+
+func (h *JobBannerHandler) Update(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchBanner(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "banner not found")
+		return
+	}
+
+	var req UpdateJobBannerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Title == "" || req.ImageURL == "" {
+		respondError(w, http.StatusBadRequest, "missing required fields")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `
+		UPDATE banner_configs SET
+			title = $1, image_url = $2, link_url = $3, sort_order = $4, is_active = $5, updated_at = NOW()
+		WHERE id = $6
+	`, req.Title, req.ImageURL, req.LinkURL, req.SortOrder, req.IsActive, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update banner")
+		return
+	}
+
+	banner, _ := h.fetchBanner(r.Context(), id)
+	respondJSON(w, http.StatusOK, banner)
+}
+
+func (h *JobBannerHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	if middleware.CurrentUser(r) == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchBanner(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "banner not found")
+		return
+	}
+
+	_, err := h.DB.Exec(r.Context(), `DELETE FROM banner_configs WHERE id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to delete banner")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *JobBannerHandler) fetchBanner(ctx context.Context, id string) (JobBannerConfig, error) {
+	var b JobBannerConfig
+	var linkURL *string
+
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, title, image_url, link_url, sort_order, is_active, created_at, updated_at
+		FROM banner_configs WHERE id = $1
+	`, id).Scan(
+		&b.ID, &b.Title, &b.ImageURL, &linkURL, &b.SortOrder, &b.IsActive, &b.CreatedAt, &b.UpdatedAt,
+	)
+	if err != nil {
+		return b, err
+	}
+	b.LinkURL = linkURL
+	return b, nil
+}
+
+func (h *JobBannerHandler) scanBannerRows(rows pgx.Rows) ([]JobBannerConfig, error) {
+	items := make([]JobBannerConfig, 0)
+	for rows.Next() {
+		var b JobBannerConfig
+		var linkURL *string
+		if err := rows.Scan(
+			&b.ID, &b.Title, &b.ImageURL, &linkURL, &b.SortOrder, &b.IsActive, &b.CreatedAt, &b.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		b.LinkURL = linkURL
+		items = append(items, b)
+	}
+	return items, nil
+}
