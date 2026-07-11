@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import type { GradeMapping } from "@/lib/scene-mock-data"
+import type { GradeMapping } from "@/lib/types/scene-mock"
 
 interface GradeMappingEditorProps {
   grades: GradeMapping[]

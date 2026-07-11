@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Lightbulb, Plus, Search, X, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,8 +24,8 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { granularCourses } from "@/lib/mock-data-lesson"
-import type { KnowledgePointItem } from "@/lib/mock-data-lesson"
+import { courseApi } from "@/lib/api"
+import type { Course, KnowledgePointItem } from "@/lib/types/lesson"
 
 interface KnowledgeSelectorProps {
   selected: KnowledgePointItem[]
@@ -97,6 +97,13 @@ export function KnowledgeSelector({ selected, pool, onChange, onAddCustom }: Kno
   const [glSelectOpen, setGlSelectOpen] = useState(false)
   const [glSelectTargetKp, setGlSelectTargetKp] = useState<string | null>(null)
   const [glSearch, setGlSearch] = useState("")
+  const [granularCourses, setGranularCourses] = useState<Course[]>([])
+
+  useEffect(() => {
+    courseApi.list({ type: "granular" }).then((res) => {
+      setGranularCourses(res.items || [])
+    }).catch(() => setGranularCourses([]))
+  }, [])
 
   const poolIds = useMemo(() => new Set(pool.map((kp) => kp.id)), [pool])
   const isReferenceKp = (kpId: string) => poolIds.has(kpId)

@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, Search } from "lucide-react"
 import { useState, useMemo } from "react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import type { Profession, Scenario } from "@/lib/scene-mock-data"
+import type { Profession, Scenario } from "@/lib/types/scene-mock"
 
 interface ProfessionTreeProps {
   professions: Profession[]

@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import type { EvalPoint, GradeMapping, KnowledgePointItem } from "@/lib/mock-data-lesson"
+import type { EvalPoint, GradeMapping, KnowledgePointItem } from "@/lib/types/lesson"
 
 interface EvaluationRulesEditorProps {
   evalPoints: EvalPoint[]

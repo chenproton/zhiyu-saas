@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { Resource } from "@/lib/scene-mock-data"
+import type { Resource } from "@/lib/types/scene-mock"
 
 interface ResourceUploaderProps {
   resources: Resource[]

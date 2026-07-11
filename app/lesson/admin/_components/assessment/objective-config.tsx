@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import type { ObjectiveConfig, QuestionItem } from "@/lib/mock-data-lesson"
+import type { ObjectiveConfig, QuestionItem } from "@/lib/types/lesson"
 
 interface ObjectiveConfigEditorProps {
   config: ObjectiveConfig

@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { RubricEditor } from "./rubric-editor"
-import type { SubjectiveConfig, RubricPoint, RubricLevel } from "@/lib/scene-mock-data"
+import type { SubjectiveConfig, RubricPoint, RubricLevel } from "@/lib/types/scene-mock"
 
 interface SubjectiveConfigEditorProps {
   config: SubjectiveConfig

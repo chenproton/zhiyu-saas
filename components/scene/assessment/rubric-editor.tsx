@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import type { RubricLevel } from "@/lib/scene-mock-data"
+import type { RubricLevel } from "@/lib/types/scene-mock"
 
 interface RubricEditorProps {
   levels: RubricLevel[]

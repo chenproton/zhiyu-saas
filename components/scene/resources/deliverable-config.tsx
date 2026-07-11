@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import type { DeliverableType } from "@/lib/scene-mock-data"
+import type { DeliverableType } from "@/lib/types/scene-mock"
 
 interface DeliverableConfigProps {
   deliverables: DeliverableType[]

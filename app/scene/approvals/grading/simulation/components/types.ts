@@ -1,4 +1,4 @@
-import type { ObjectiveSubmissionAnswer, SubmissionAttachment } from "@/lib/scene-mock-data"
+import type { ObjectiveSubmissionAnswer, SubmissionAttachment } from "@/lib/types/scene-mock"
 
 export type LearningMode = "separate" | "integrated"
 export type TaskPhase = "learning" | "assessment" | "submitted"

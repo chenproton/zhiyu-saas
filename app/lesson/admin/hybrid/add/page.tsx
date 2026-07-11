@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState, useRef, useCallback, useMemo } from "react"
+import { Suspense, useState, useRef, useCallback, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { MAJORS } from "@/lib/types/lesson-source"
 import { ArrowLeft, Save, Send, Info, Plus, X, BookOpen, Layers, BookMarked, Microscope, Briefcase, Database, FileStack, Monitor, CheckCircle2, BarChart3, ClipboardList, Zap, Shuffle, MessageSquare, HelpCircle, ChevronDown, ChevronRight, Bold, Italic, Underline, List, ListOrdered, Image as ImageIcon, ImageUp, Link as LinkIcon, AlignLeft } from "lucide-react"
 import { toast } from "sonner"
-import { hybridCourses } from "@/lib/mock-data-lesson"
+import { courseApi } from "@/lib/api"
+import type { Course } from "@/lib/types/lesson"
 import type { SystemCourseNode, NodeRefType } from "@/lib/types/lesson-source"
 import CourseNodeTree from "../../system/add/_components/CourseNodeTree"
 import { WEB_FRONTEND_SEMESTER_NODES } from "./_mock/semester-nodes"
@@ -76,7 +77,15 @@ function HybridCourseAddForm() {
   const editId = searchParams.get("id")
   const claimCourse = searchParams.get("claimCourse")
   const claimSessionsParam = searchParams.get("claimSessions")
-  const existing = editId ? hybridCourses.find((c) => c.id === editId) : null
+  const [existing, setExisting] = useState<Course | null>(null)
+
+  useEffect(() => {
+    if (!editId) {
+      setExisting(null)
+      return
+    }
+    courseApi.get(editId).then((c) => setExisting(c)).catch(() => setExisting(null))
+  }, [editId])
 
   interface ClaimPayload {
     course?: string

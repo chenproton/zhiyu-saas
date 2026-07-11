@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import type { ObjectiveConfig, QuestionItem } from "@/lib/scene-mock-data"
+import type { ObjectiveConfig, QuestionItem } from "@/lib/types/scene-mock"
 
 interface ObjectiveConfigEditorProps {
   config: ObjectiveConfig

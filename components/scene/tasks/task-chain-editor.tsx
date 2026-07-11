@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { TaskNode } from "./task-node"
-import type { Task } from "@/lib/scene-mock-data"
+import type { Task } from "@/lib/types/scene-mock"
 import { useState } from "react"
 
 interface TaskChainEditorProps {

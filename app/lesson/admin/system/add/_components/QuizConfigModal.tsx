@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { mockQuestionBank } from "@/lib/mock-data-lesson"
+import { questionApi } from "@/lib/api"
 import type { NodeQuiz, QuizQuestion } from "@/lib/types/lesson-source"
 import { X, FileText, BookOpen, Check } from "lucide-react"
 
@@ -50,6 +50,20 @@ export default function QuizConfigModal({
   const [qbKeyword, setQbKeyword] = useState("")
   const [quizTitle, setQuizTitle] = useState("")
   const [timeLimit, setTimeLimit] = useState(120)
+  const [questionBank, setQuestionBank] = useState<QuizQuestion[]>([])
+
+  useEffect(() => {
+    questionApi.list({ limit: 200 }).then((res) => {
+      setQuestionBank((res.items || []).map((q) => ({
+        id: q.id,
+        type: q.type === "short_answer" ? "essay" : q.type === "fill" ? "essay" : q.type as QuizQuestion["type"],
+        question: q.content,
+        options: q.options ? q.options.map((text, i) => ({ key: String.fromCharCode(65 + i), text })) : undefined,
+        answer: Array.isArray(q.answer) ? q.answer.join(",") : q.answer,
+        score: q.score,
+      })))
+    }).catch(() => setQuestionBank([]))
+  }, [])
 
   // Paper settings
   const [allowRetake, setAllowRetake] = useState(false)
@@ -57,8 +71,8 @@ export default function QuizConfigModal({
   const [showScore, setShowScore] = useState(true)
 
   const filteredQuestions = useMemo(() => {
-    if (!qbKeyword.trim()) return mockQuestionBank
-    return mockQuestionBank.filter((q) =>
+    if (!qbKeyword.trim()) return questionBank
+    return questionBank.filter((q) =>
       q.question.toLowerCase().includes(qbKeyword.trim().toLowerCase())
     )
   }, [qbKeyword])
@@ -80,7 +94,7 @@ export default function QuizConfigModal({
 
   const handleConfirm = () => {
     if (quizType === "question_bank") {
-      const questions: QuizQuestion[] = mockQuestionBank
+      const questions: QuizQuestion[] = questionBank
         .filter((q) => selectedQuestions.has(q.id))
         .map((q) => ({ ...q }))
       if (questions.length === 0) return
@@ -119,7 +133,7 @@ export default function QuizConfigModal({
     setShowScore(true)
   }
 
-  const selectedList = mockQuestionBank.filter((q) => selectedQuestions.has(q.id))
+  const selectedList = questionBank.filter((q) => selectedQuestions.has(q.id))
 
   return (
     <Dialog

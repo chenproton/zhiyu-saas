@@ -63,34 +63,10 @@ import { RichTextEditor } from "../../_components/common/rich-text-editor"
 import CourseNodeTree from "./_components/CourseNodeTree"
 import PublishCheckPanel from "./_components/PublishCheckPanel"
 
-import type {
-  KnowledgePointItem,
-} from "@/lib/mock-data-lesson"
+import type { KnowledgePointItem } from "@/lib/types/lesson"
+import { courseApi, knowledgeApi } from "@/lib/api"
 
-/* ---------- mock data ---------- */
-
-const MOCK_KNOWLEDGE_POOL: KnowledgePointItem[] = [
-  { id: "kp-1", name: "SQL注入", code: "KP-001", description: "常见的Web安全漏洞", linked: false },
-  { id: "kp-2", name: "XSS攻击", code: "KP-002", description: "跨站脚本攻击", linked: false },
-  { id: "kp-3", name: "CSRF防护", code: "KP-003", description: "跨站请求伪造防护", linked: false },
-  { id: "kp-4", name: "密码学", code: "KP-004", description: "加密与解密技术", linked: false },
-  { id: "kp-5", name: "渗透测试", code: "KP-005", description: "安全评估方法", linked: false },
-  { id: "kp-6", name: "缓冲区溢出", code: "KP-006", description: "内存安全问题", linked: false },
-  { id: "kp-7", name: "逆向工程", code: "KP-007", description: "程序分析与还原", linked: false },
-  { id: "kp-8", name: "恶意代码", code: "KP-008", description: "病毒与木马分析", linked: false },
-  { id: "kp-9", name: "安全编码", code: "KP-009", description: "防御性编程实践", linked: false },
-  { id: "kp-10", name: "漏洞挖掘", code: "KP-010", description: "发现未知漏洞的方法", linked: false },
-]
-
-const MOCK_RESOURCE_POOL: ResourceItem[] = [
-  { id: "res-1", name: "SQL注入课件.pptx", type: "document", url: "/resources/1.pptx", uploadedBy: "张老师", uploadedAt: "2024-01-15" },
-  { id: "res-2", name: "渗透测试实验手册.pdf", type: "document", url: "/resources/2.pdf", uploadedBy: "李老师", uploadedAt: "2024-02-20" },
-  { id: "res-3", name: "Web安全教学视频", type: "video", url: "/resources/3.mp4", uploadedBy: "王老师", uploadedAt: "2024-03-10" },
-  { id: "res-4", name: "OWASP官方文档", type: "link", url: "https://owasp.org", uploadedBy: "赵老师", uploadedAt: "2024-03-15" },
-  { id: "res-5", name: "漏洞案例数据集.xlsx", type: "spreadsheet", url: "/resources/5.xlsx", uploadedBy: "刘老师", uploadedAt: "2024-04-01" },
-  { id: "res-6", name: "安全工具截图", type: "image", url: "/resources/6.jpg", uploadedBy: "陈老师", uploadedAt: "2024-04-10" },
-  { id: "res-7", name: "课程音频讲解", type: "audio", url: "/resources/7.mp3", uploadedBy: "周老师", uploadedAt: "2024-05-01" },
-]
+/* ---------- data loaded from APIs ---------- */
 
 const INITIAL_NODES: SystemCourseNode[] = [
   {
@@ -192,18 +168,6 @@ const INITIAL_NODES: SystemCourseNode[] = [
   },
 ]
 
-/* ---------- mock grain course pool ---------- */
-const MOCK_GRAIN_COURSES = [
-  { id: "grain-1", name: "P值与显著性", description: "统计推断基础概念", source: "统计学院", duration: 2 },
-  { id: "grain-2", name: "T检验实战", description: "小样本均值检验方法", source: "数据分析系", duration: 4 },
-  { id: "grain-3", name: "SQL注入防御", description: "Web安全防护技术", source: "网络安全系", duration: 3 },
-  { id: "grain-4", name: "XSS攻击原理", description: "跨站脚本攻击分析", source: "网络安全系", duration: 2 },
-  { id: "grain-5", name: "组件封装实践", description: "前端组件化开发规范", source: "前端工程系", duration: 3 },
-  { id: "grain-6", name: "状态管理进阶", description: "React/Vue 状态管理", source: "前端工程系", duration: 4 },
-  { id: "grain-7", name: "回归分析入门", description: "线性回归与非线性回归", source: "统计学院", duration: 5 },
-  { id: "grain-8", name: "数据可视化", description: "常用图表制作与美化", source: "数据分析系", duration: 3 },
-]
-
 /* ---------- node editing mode ---------- */
 
 type AddMode = "upload" | "clone" | "quote"
@@ -215,6 +179,14 @@ interface NodeDraft {
   selectedResourceIds: string[]
   selectedEvalMethods: string[]
   difficulty: number
+}
+
+interface GrainCourseOption {
+  id: string
+  name: string
+  description: string
+  source: string
+  duration: number
 }
 
 /* ---------- convert preview tree ---------- */
@@ -372,17 +344,30 @@ function AddSystemPageInner() {
   const [grainSelectorMode, setGrainSelectorMode] = useState<AddMode>("clone")
   const [grainSearch, setGrainSearch] = useState("")
   const [grainSelectedId, setGrainSelectedId] = useState<string | null>(null)
+  const [grainCourses, setGrainCourses] = useState<GrainCourseOption[]>([])
+
+  useEffect(() => {
+    courseApi.list({ type: "granular" }).then((res) => {
+      setGrainCourses((res.items || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        description: c.category,
+        source: c.major || c.creatorId || "",
+        duration: c.nodeCount,
+      })))
+    }).catch(() => setGrainCourses([]))
+  }, [])
 
   const filteredGrainCourses = useMemo(() => {
     const kw = grainSearch.trim()
-    if (!kw) return MOCK_GRAIN_COURSES
-    return MOCK_GRAIN_COURSES.filter(
+    if (!kw) return grainCourses
+    return grainCourses.filter(
       (g) =>
         g.name.includes(kw) ||
         g.description.includes(kw) ||
         g.source.includes(kw)
     )
-  }, [grainSearch])
+  }, [grainSearch, grainCourses])
 
   /* per-node draft cache */
   const [nodeDrafts, setNodeDrafts] = useState<Record<string, NodeDraft>>({})
@@ -399,9 +384,22 @@ function AddSystemPageInner() {
 
   /* module 2: knowledge points */
   const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePointItem[]>([])
+  const [knowledgePool, setKnowledgePool] = useState<KnowledgePointItem[]>([])
+
+  useEffect(() => {
+    knowledgeApi.list({ limit: 200 }).then((res) => {
+      setKnowledgePool((res.items || []).map((k) => ({
+        id: k.id,
+        name: k.name,
+        code: k.code,
+        description: k.description,
+        linked: k.linked,
+      })))
+    }).catch(() => setKnowledgePool([]))
+  }, [])
 
   /* module 3: resources */
-  const [resourcePool] = useState<ResourceItem[]>(MOCK_RESOURCE_POOL)
+  const [resourcePool] = useState<ResourceItem[]>([])
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([])
 
   /* module 4: assessment */
@@ -489,7 +487,7 @@ function AddSystemPageInner() {
 
   const handleGrainConfirm = useCallback(() => {
     if (!grainSelectedId || !selectedNodeId) return
-    const grain = MOCK_GRAIN_COURSES.find((g) => g.id === grainSelectedId)
+    const grain = grainCourses.find((g) => g.id === grainSelectedId)
     if (!grain) return
 
     const isQuote = grainSelectorMode === "quote"
@@ -911,7 +909,7 @@ function AddSystemPageInner() {
                     <CardContent className="pt-0">
                       <KnowledgeSelector
                         selected={knowledgePoints}
-                        pool={MOCK_KNOWLEDGE_POOL}
+                        pool={knowledgePool}
                         onChange={setKnowledgePoints}
                         onAddCustom={(name, description) => {
                           const newKp: KnowledgePointItem = {

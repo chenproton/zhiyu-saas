@@ -124,3 +124,84 @@ export interface LessonBatch {
   createdAt: string
   updatedAt: string
 }
+
+// ==================== Admin component local types (migrated from lib/mock-data-lesson) ====================
+
+export type ResourceType = "document" | "video" | "link" | "file"
+
+export interface Resource {
+  id: string
+  name: string
+  type: ResourceType
+  url: string
+  size?: string
+}
+
+export type LessonQuestionType = "single" | "multiple" | "judgment"
+
+export interface QuestionItem {
+  id: string
+  type: LessonQuestionType
+  content: string
+  options?: string[]
+  answer: string | string[]
+  score: number
+}
+
+export interface ObjectiveConfig {
+  questions: QuestionItem[]
+  totalScore: number
+}
+
+export interface RubricLevel {
+  id: string
+  name: string
+  minScore: number
+  maxScore: number
+  description: string
+  color: string
+}
+
+export interface RubricPoint {
+  id: string
+  name: string
+  weight: number
+  maxScore: number
+  levels: RubricLevel[]
+}
+
+export interface SubjectiveConfig {
+  rubricPoints: RubricPoint[]
+  synthesisRule: "sum" | "weighted"
+}
+
+export interface GradeMapping {
+  id: string
+  grade: string
+  minScore: number
+  maxScore: number
+  color: string
+  remark?: string
+}
+
+export interface KnowledgePointItem {
+  id: string
+  name: string
+  code?: string
+  description?: string
+  linked: boolean
+  granularLessons?: string[]
+}
+
+export interface EvalPoint {
+  id: string
+  name: string
+  desc: string
+  subType?: string
+  types?: string[]
+  knowledgePointIds?: string[]
+  abilityPointIds?: string[]
+  scoringMethod?: "score" | "level" | "rubric"
+  gradeMapping?: GradeMapping[]
+  weight?: number
+}

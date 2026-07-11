@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
-import type { EvalPoint, GradeMapping, KnowledgePointItem } from "@/lib/mock-data-lesson"
+import type { EvalPoint, GradeMapping, KnowledgePointItem } from "@/lib/types/lesson"
 
 // ============ Types & Configs ============
 

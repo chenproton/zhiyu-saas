@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -20,8 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Search } from "lucide-react"
-import { granularCourses } from "@/lib/mock-data-lesson"
-import type { Course } from "@/lib/types/lesson-source"
+import { courseApi } from "@/lib/api"
+import type { Course } from "@/lib/types/lesson"
 import { COURSE_STATUS_LABELS, COURSE_STATUS_COLORS } from "@/lib/types/lesson-source"
 
 interface GrainCourseModalProps {
@@ -42,10 +42,17 @@ export default function GrainCourseModal({
   const [searchCreator, setSearchCreator] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [courses, setCourses] = useState<Course[]>([])
   const pageSize = 5
 
+  useEffect(() => {
+    courseApi.list({ type: "granular" }).then((res) => {
+      setCourses(res.items || [])
+    }).catch(() => setCourses([]))
+  }, [])
+
   const filtered = useMemo(() => {
-    let result = [...granularCourses]
+    let result = [...courses]
     if (searchName.trim()) {
       result = result.filter((c) =>
         c.name.toLowerCase().includes(searchName.trim().toLowerCase())
@@ -58,18 +65,18 @@ export default function GrainCourseModal({
     }
     if (searchCreator.trim()) {
       result = result.filter((c) =>
-        c.teacher.toLowerCase().includes(searchCreator.trim().toLowerCase())
+        (c.teacherId || "").toLowerCase().includes(searchCreator.trim().toLowerCase())
       )
     }
     return result
-  }, [searchName, searchCode, searchCreator])
+  }, [searchName, searchCode, searchCreator, courses])
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const pageData = filtered.slice((page - 1) * pageSize, page * pageSize)
 
   const handleConfirm = () => {
     if (!selectedId) return
-    const course = granularCourses.find((c) => c.id === selectedId)
+    const course = courses.find((c) => c.id === selectedId)
     if (!course) return
     onSelect(course, mode)
     onOpenChange(false)
@@ -157,7 +164,7 @@ export default function GrainCourseModal({
                     <TableCell className="text-muted-foreground text-xs">
                       {course.code}
                     </TableCell>
-                    <TableCell>{course.teacher}</TableCell>
+                    <TableCell>{course.teacherId}</TableCell>
                     <TableCell>
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
@@ -167,7 +174,7 @@ export default function GrainCourseModal({
                         {COURSE_STATUS_LABELS[course.status]}
                       </span>
                     </TableCell>
-                    <TableCell>{course.lessonCount}</TableCell>
+                    <TableCell>{course.nodeCount}</TableCell>
                   </TableRow>
                 ))
               ) : (

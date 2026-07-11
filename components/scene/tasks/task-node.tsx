@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import type { Task } from "@/lib/scene-mock-data"
+import type { Task } from "@/lib/types/scene-mock"
 
 interface TaskNodeProps {
   task: Task
