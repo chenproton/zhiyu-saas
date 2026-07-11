@@ -43,9 +43,9 @@ interface DataContextType {
   deletePosition: (id: string) => Promise<void>
 
   // 审批流操作
-  addWorkflow: (workflow: Omit<Workflow, 'id' | 'createdAt'>) => void
-  updateWorkflow: (id: string, data: Partial<Workflow>) => void
-  deleteWorkflow: (id: string) => void
+  addWorkflow: (workflow: Omit<Workflow, 'id' | 'createdAt'>) => Promise<void>
+  updateWorkflow: (id: string, data: Partial<Workflow>) => Promise<void>
+  deleteWorkflow: (id: string) => Promise<void>
 
   // 能力操作
   addAbility: (ability: Omit<Ability, 'id' | 'createdAt'>) => void
@@ -186,7 +186,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // 从 localStorage 恢复收藏，并加载真实岗位/批次/推荐数据
+  function convertApiWorkflowToLocal(w: any): Workflow {
+    return {
+      id: w.id,
+      name: w.name,
+      description: w.description ?? '',
+      steps: (w.steps || []).map((s: any, index: number) => ({
+        id: s.id || `step-${w.id}-${index}`,
+        name: s.name || '',
+        role: s.role || s.reviewerType || 'reviewer',
+        order: s.order ?? index + 1,
+      })),
+      createdAt: w.createdAt,
+    }
+  }
+
+  const loadWorkflows = useCallback(async () => {
+    try {
+      const resp = await workflowApi.list({ limit: 1000 })
+      setWorkflows(resp.items.map(convertApiWorkflowToLocal))
+    } catch (err) {
+      console.error('Failed to load workflows:', err)
+    }
+  }, [])
+
+  // 从 localStorage 恢复收藏，并加载真实岗位/批次/推荐/审批流数据
   useEffect(() => {
     const storedFavorites = localStorage.getItem(FAVORITES_KEY)
     if (storedFavorites) {
@@ -197,10 +221,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    Promise.all([loadPositions(), loadBatches(), loadRecommendations()]).finally(() => {
+    Promise.all([loadPositions(), loadBatches(), loadRecommendations(), loadWorkflows()]).finally(() => {
       setIsLoaded(true)
     })
-  }, [loadPositions, loadBatches, loadRecommendations])
+  }, [loadPositions, loadBatches, loadRecommendations, loadWorkflows])
 
   // 保存收藏到 localStorage
   useEffect(() => {
@@ -301,25 +325,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // 审批流操作
-  const addWorkflow = (data: Omit<Workflow, 'id' | 'createdAt'>) => {
-    const newWorkflow: Workflow = {
-      ...data,
-      id: generateId('workflow'),
-      createdAt: new Date().toISOString(),
-    }
-    setWorkflows(prev => [...prev, newWorkflow])
+  const addWorkflow = async (data: Omit<Workflow, 'id' | 'createdAt'>) => {
+    await workflowApi.create({
+      name: data.name,
+      description: data.description || undefined,
+      steps: data.steps as any,
+      status: 'active',
+    } as Omit<import('@/lib/types/backend').Workflow, 'id' | 'createdAt' | 'usageCount'>)
+    await loadWorkflows()
   }
 
-  const updateWorkflow = (id: string, data: Partial<Workflow>) => {
-    setWorkflows(prev =>
-      prev.map(workflow =>
-        workflow.id === id ? { ...workflow, ...data } : workflow
-      )
-    )
+  const updateWorkflow = async (id: string, data: Partial<Workflow>) => {
+    const existing = workflows.find(w => w.id === id)
+    await workflowApi.update(id, {
+      name: data.name ?? existing?.name ?? '',
+      description: data.description ?? existing?.description,
+      steps: (data.steps ?? existing?.steps ?? []) as any,
+      status: 'active',
+    })
+    await loadWorkflows()
   }
 
-  const deleteWorkflow = (id: string) => {
-    setWorkflows(prev => prev.filter(workflow => workflow.id !== id))
+  const deleteWorkflow = async (id: string) => {
+    await workflowApi.delete(id)
+    await loadWorkflows()
   }
 
   // 能力操作
