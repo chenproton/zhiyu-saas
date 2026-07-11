@@ -205,7 +205,7 @@ export default function CheckoutPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">支付方式</CardTitle>
-            <CardDescription>模拟支付，点击确认支付即视为支付成功</CardDescription>
+            <CardDescription>平台内支付，点击确认支付即完成订单</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3 rounded-lg border border-border p-4">
@@ -213,8 +213,8 @@ export default function CheckoutPage() {
                 <CheckCircle className="h-5 w-5 text-success" />
               </div>
               <div className="flex-1">
-                <p className="font-medium text-foreground">模拟支付</p>
-                <p className="text-sm text-muted-foreground">无需对接真实支付通道</p>
+                <p className="font-medium text-foreground">平台支付</p>
+                <p className="text-sm text-muted-foreground">通过平台账户完成结算</p>
               </div>
             </div>
           </CardContent>

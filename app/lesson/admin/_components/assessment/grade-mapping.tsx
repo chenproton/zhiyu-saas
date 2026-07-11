@@ -142,7 +142,7 @@ export function GradeMappingEditor({ grades, onChange }: GradeMappingEditorProps
 
       {/* Score preview */}
       <div className="p-4 bg-gray-50 rounded-lg">
-        <h4 className="text-sm font-medium text-gray-600 mb-3">分数模拟测试</h4>
+        <h4 className="text-sm font-medium text-gray-600 mb-3">分数换算验证</h4>
         <div className="flex items-center gap-4">
           <ScorePreview grades={grades} />
         </div>

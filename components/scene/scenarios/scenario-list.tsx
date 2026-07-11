@@ -196,10 +196,7 @@ export function ScenarioList<T extends ScenarioListItem = ScenarioListItem>({
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onInviteCoBuild?.(scenario)
-                      }}
+                      disabled
                     >
                       <UserPlus className="mr-1 h-3 w-3" />
                       邀请共建
