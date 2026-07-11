@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react"
 import {
   Calendar,
   Eye,
-  GraduationCap,
+  EyeOff,
   ImageIcon,
   Layers,
+  LinkIcon,
   Pencil,
   Plus,
   Search,
@@ -33,133 +34,18 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import { useData } from "@/lib/stores/data-context"
+import { jobBannerApi } from "@/lib/api"
+import type { BannerConfig } from "@/lib/types/job"
+import { useToast } from "@/hooks/use-toast"
 
 type BannerStatus = "visible" | "hidden"
 
-interface Banner {
-  id: string
-  imageData: string
-  fileName: string
-  title: string
-  description: string
-  college: string
-  boundPosition: string
-  jumpPosition: string
+interface Banner extends BannerConfig {
   status: BannerStatus
-  sortOrder: number
-  createdAt: string
 }
 
-const STORAGE_KEY = "zhiyu_banners"
-const SEED_KEY = "zhiyu_banners_seeded"
-
-const COLLEGES = [
-  "全部",
-  "校本级",
-  "智能制造学院",
-  "信息技术学院",
-  "经济管理学院",
-  "艺术设计学院",
-  "新能源工程学院",
-  "生物医药学院",
-  "现代服务学院",
-  "国际教育学院",
-  "创新创业学院",
-  "继续教育学院",
-]
-
-const SAMPLE_BANNERS: Omit<Banner, "id" | "createdAt">[] = [
-  {
-    imageData:
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&h=400&fit=crop",
-    fileName: "banner-it.jpg",
-    title: "信息技术，引领未来",
-    description: "覆盖前端、后端、数据分析、人工智能等热门岗位",
-    college: "信息技术学院",
-    boundPosition: "前端开发工程师",
-    jumpPosition: "前端开发工程师",
-    status: "visible",
-    sortOrder: 1,
-  },
-  {
-    imageData:
-      "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1200&h=400&fit=crop",
-    fileName: "banner-manufacture.jpg",
-    title: "智能制造，匠心筑梦",
-    description: "机械、电气、自动化、嵌入式工程师能力模型",
-    college: "智能制造学院",
-    boundPosition: "机械工程师",
-    jumpPosition: "机械工程师",
-    status: "visible",
-    sortOrder: 2,
-  },
-  {
-    imageData:
-      "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&h=400&fit=crop",
-    fileName: "banner-ecommerce.jpg",
-    title: "电商运营，玩转新零售",
-    description: "电商运营、新媒体、直播带货岗位能力精准对接",
-    college: "经济管理学院",
-    boundPosition: "电商运营专员",
-    jumpPosition: "电商运营专员",
-    status: "visible",
-    sortOrder: 3,
-  },
-  {
-    imageData:
-      "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&h=400&fit=crop",
-    fileName: "banner-finance.jpg",
-    title: "财税精英，从这里起步",
-    description: "会计、税务、财务分析岗位能力模型",
-    college: "经济管理学院",
-    boundPosition: "会计师",
-    jumpPosition: "会计师",
-    status: "hidden",
-    sortOrder: 4,
-  },
-  {
-    imageData:
-      "https://images.unsplash.com/photo-1533750349088-cd871a92f312?w=1200&h=400&fit=crop",
-    fileName: "banner-art.jpg",
-    title: "艺术设计，创意无限",
-    description: "品牌、视觉、UI 设计岗位能力对接",
-    college: "艺术设计学院",
-    boundPosition: "品牌经理",
-    jumpPosition: "品牌经理",
-    status: "visible",
-    sortOrder: 5,
-  },
-]
-
-function loadBanners(): Banner[] {
-  if (typeof window === "undefined") return []
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    return JSON.parse(raw)
-  } catch {
-    return []
-  }
-}
-
-function saveBanners(banners: Banner[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(banners))
-}
-
-function seedSampleBanners() {
-  if (typeof window === "undefined") return
-  if (localStorage.getItem(SEED_KEY)) return
-  const list: Banner[] = SAMPLE_BANNERS.map((b, idx) => ({
-    ...b,
-    id: `banner_sample_${idx}`,
-    createdAt: new Date(Date.now() - idx * 86400000).toISOString(),
-  }))
-  saveBanners(list)
-  localStorage.setItem(SEED_KEY, "1")
-}
+const STATUS_TABS = ["全部", "展示中", "已隐藏"] as const
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr)
@@ -170,75 +56,80 @@ function formatDate(dateStr: string) {
   ).padStart(2, "0")}`
 }
 
+function toLocalBanner(b: BannerConfig): Banner {
+  return {
+    ...b,
+    status: b.isActive ? "visible" : "hidden",
+  }
+}
+
 export default function BannerManagementPage() {
-  const { positions } = useData()
+  const { toast } = useToast()
   const [banners, setBanners] = useState<Banner[]>([])
+  const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState("")
-  const [activeCollege, setActiveCollege] = useState("全部")
+  const [activeTab, setActiveTab] = useState<(typeof STATUS_TABS)[number]>("全部")
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null)
-  const [imageData, setImageData] = useState("")
-  const [fileName, setFileName] = useState("")
+  const [imageUrl, setImageUrl] = useState("")
   const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [college, setCollege] = useState(COLLEGES[1])
-  const [boundPosition, setBoundPosition] = useState("")
-  const [jumpPosition, setJumpPosition] = useState("")
-  const [status, setStatus] = useState<BannerStatus>("visible")
+  const [linkUrl, setLinkUrl] = useState("")
   const [sortOrder, setSortOrder] = useState(0)
+  const [isActive, setIsActive] = useState(true)
+
+  const loadBanners = async () => {
+    setLoading(true)
+    try {
+      const res = await jobBannerApi.list()
+      setBanners(res.items.map(toLocalBanner))
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "加载失败", description: err.message || "无法获取轮播图列表" })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     setMounted(true)
-    seedSampleBanners()
-    setBanners(loadBanners())
+    loadBanners()
   }, [])
-
-  const positionOptions = useMemo(
-    () => Array.from(new Set(positions.map((p) => p.name).filter(Boolean))),
-    [positions]
-  )
 
   const filteredBanners = useMemo(() => {
     let result = [...banners]
-    if (activeCollege !== "全部") {
-      result = result.filter((b) => b.college === activeCollege)
+    if (activeTab === "展示中") {
+      result = result.filter((b) => b.isActive)
+    } else if (activeTab === "已隐藏") {
+      result = result.filter((b) => !b.isActive)
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       result = result.filter(
         (b) =>
           b.title.toLowerCase().includes(q) ||
-          b.description.toLowerCase().includes(q) ||
-          b.fileName.toLowerCase().includes(q) ||
-          b.boundPosition.toLowerCase().includes(q) ||
-          b.college.toLowerCase().includes(q)
+          (b.linkUrl || "").toLowerCase().includes(q)
       )
     }
     return result.sort((a, b) => a.sortOrder - b.sortOrder)
-  }, [banners, activeCollege, searchQuery])
+  }, [banners, activeTab, searchQuery])
 
   const visibleCount = useMemo(
-    () => banners.filter((b) => b.status === "visible").length,
+    () => banners.filter((b) => b.isActive).length,
     [banners]
   )
   const hiddenCount = useMemo(
-    () => banners.filter((b) => b.status === "hidden").length,
+    () => banners.filter((b) => !b.isActive).length,
     [banners]
   )
 
   const resetForm = () => {
-    setImageData("")
-    setFileName("")
+    setImageUrl("")
     setTitle("")
-    setDescription("")
-    setCollege(COLLEGES[1])
-    setBoundPosition("")
-    setJumpPosition("")
-    setStatus("visible")
+    setLinkUrl("")
     setSortOrder(0)
+    setIsActive(true)
     setEditingBanner(null)
   }
 
@@ -249,15 +140,11 @@ export default function BannerManagementPage() {
 
   const handleOpenEdit = (banner: Banner) => {
     setEditingBanner(banner)
-    setImageData(banner.imageData)
-    setFileName(banner.fileName)
+    setImageUrl(banner.imageUrl)
     setTitle(banner.title)
-    setDescription(banner.description)
-    setCollege(banner.college || COLLEGES[1])
-    setBoundPosition(banner.boundPosition)
-    setJumpPosition(banner.jumpPosition)
-    setStatus(banner.status)
+    setLinkUrl(banner.linkUrl || "")
     setSortOrder(banner.sortOrder)
+    setIsActive(banner.isActive)
     setIsDialogOpen(true)
   }
 
@@ -265,87 +152,84 @@ export default function BannerManagementPage() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith("image/")) {
-      alert("请上传图片文件")
+      toast({ variant: "destructive", title: "文件类型错误", description: "请上传图片文件" })
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      alert("图片大小不能超过 5MB")
+      toast({ variant: "destructive", title: "文件过大", description: "图片大小不能超过 5MB" })
       return
     }
     const reader = new FileReader()
     reader.onload = (event) => {
-      setImageData(event.target?.result as string)
-      setFileName(file.name)
+      setImageUrl(event.target?.result as string)
     }
     reader.readAsDataURL(file)
   }
 
-  const handleSubmit = () => {
-    if (!imageData) {
-      alert("请先上传轮播图")
+  const handleSubmit = async () => {
+    if (!imageUrl) {
+      toast({ variant: "destructive", title: "请上传图片", description: "轮播图图片不能为空" })
+      return
+    }
+    if (!title.trim()) {
+      toast({ variant: "destructive", title: "请输入标题", description: "轮播图标题不能为空" })
       return
     }
 
-    const list = loadBanners()
-    if (editingBanner) {
-      const index = list.findIndex((b) => b.id === editingBanner.id)
-      if (index >= 0) {
-        list[index] = {
-          ...editingBanner,
-          imageData,
-          fileName,
-          title,
-          description,
-          college,
-          boundPosition,
-          jumpPosition,
-          status,
-          sortOrder,
-        }
-      }
-    } else {
-      list.push({
-        id: `banner_${Date.now()}`,
-        imageData,
-        fileName,
-        title,
-        description,
-        college,
-        boundPosition,
-        jumpPosition,
-        status,
-        sortOrder,
-        createdAt: new Date().toISOString(),
-      })
+    const payload = {
+      title: title.trim(),
+      imageUrl,
+      linkUrl: linkUrl.trim() || undefined,
+      sortOrder,
+      isActive,
     }
 
-    saveBanners(list)
-    setBanners(list)
-    setIsDialogOpen(false)
-    resetForm()
+    try {
+      if (editingBanner) {
+        await jobBannerApi.update(editingBanner.id, payload)
+      } else {
+        await jobBannerApi.create(payload as Omit<BannerConfig, "id" | "createdAt" | "updatedAt">)
+      }
+      await loadBanners()
+      setIsDialogOpen(false)
+      resetForm()
+      toast({ title: editingBanner ? "保存成功" : "添加成功" })
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "操作失败", description: err.message || "请稍后重试" })
+    }
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("确定删除该轮播图吗？")) return
-    const list = loadBanners().filter((b) => b.id !== id)
-    saveBanners(list)
-    setBanners(list)
+    try {
+      await jobBannerApi.delete(id)
+      await loadBanners()
+      toast({ title: "删除成功" })
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "删除失败", description: err.message || "请稍后重试" })
+    }
   }
 
-  const handleToggleStatus = (banner: Banner) => {
-    const list = loadBanners().map((b) =>
-      b.id === banner.id
-        ? { ...b, status: b.status === "visible" ? "hidden" : "visible" }
-        : b
-    ) as Banner[]
-    saveBanners(list)
-    setBanners(list)
+  const handleToggleStatus = async (banner: Banner) => {
+    try {
+      await jobBannerApi.update(banner.id, {
+        title: banner.title,
+        imageUrl: banner.imageUrl,
+        linkUrl: banner.linkUrl,
+        sortOrder: banner.sortOrder,
+        isActive: !banner.isActive,
+      })
+      await loadBanners()
+      toast({ title: !banner.isActive ? "已启用展示" : "已隐藏" })
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "操作失败", description: err.message || "请稍后重试" })
+    }
   }
 
   const stats = [
     { label: "全部轮播图", value: banners.length, icon: Layers, color: "text-blue-600 bg-blue-50" },
     { label: "展示中", value: visibleCount, icon: Eye, color: "text-green-600 bg-green-50" },
-    { label: "已隐藏", value: hiddenCount, icon: Eye, color: "text-gray-600 bg-gray-100" },
+    { label: "已隐藏", value: hiddenCount, icon: EyeOff, color: "text-gray-600 bg-gray-100" },
   ]
 
   if (!mounted) {
@@ -402,7 +286,7 @@ export default function BannerManagementPage() {
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="搜索轮播图标题、描述、岗位..."
+              placeholder="搜索轮播图标题、跳转链接..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -410,18 +294,18 @@ export default function BannerManagementPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {COLLEGES.map((c) => (
+            {STATUS_TABS.map((tab) => (
               <button
-                key={c}
-                onClick={() => setActiveCollege(c)}
+                key={tab}
+                onClick={() => setActiveTab(tab)}
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  activeCollege === c
+                  activeTab === tab
                     ? "bg-primary text-primary-foreground"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 )}
               >
-                {c}
+                {tab}
               </button>
             ))}
           </div>
@@ -436,17 +320,20 @@ export default function BannerManagementPage() {
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
             <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-slate-50 text-xs font-medium text-slate-500 border-b border-slate-100 items-center">
               <div className="col-span-2">轮播图</div>
-              <div className="col-span-2">描述</div>
+              <div className="col-span-3">标题</div>
               <div className="col-span-1 text-center">排序</div>
               <div className="col-span-2">创建时间</div>
               <div className="col-span-1 text-center">状态</div>
-              <div className="col-span-2">所属学院</div>
-              <div className="col-span-1">跳转岗位</div>
+              <div className="col-span-2">跳转链接</div>
               <div className="col-span-1 text-right">操作</div>
             </div>
 
             <div className="divide-y divide-slate-100">
-              {filteredBanners.length === 0 ? (
+              {loading ? (
+                <div className="flex items-center justify-center py-16 text-slate-400">
+                  <p className="text-sm">加载中...</p>
+                </div>
+              ) : filteredBanners.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                   <ImageIcon className="h-12 w-12 mb-4 opacity-50" />
                   <p className="text-sm">暂无轮播图，点击右上角按钮新增</p>
@@ -459,14 +346,14 @@ export default function BannerManagementPage() {
                   >
                     <div className="col-span-2">
                       <img
-                        src={banner.imageData}
-                        alt={banner.title || banner.fileName}
+                        src={banner.imageUrl}
+                        alt={banner.title}
                         className="h-14 w-24 rounded-md object-cover border border-slate-100"
                       />
                     </div>
 
-                    <div className="col-span-2 text-sm text-slate-600 truncate">
-                      {banner.description || "暂无描述"}
+                    <div className="col-span-3 text-sm text-slate-700 truncate font-medium">
+                      {banner.title}
                     </div>
 
                     <div className="col-span-1 text-center text-sm text-slate-600">
@@ -482,30 +369,24 @@ export default function BannerManagementPage() {
 
                     <div className="col-span-1 text-center">
                       <Switch
-                        checked={banner.status === "visible"}
+                        checked={banner.isActive}
                         onCheckedChange={() => handleToggleStatus(banner)}
-                        aria-label={banner.status === "visible" ? "展示中" : "已隐藏"}
+                        aria-label={banner.isActive ? "展示中" : "已隐藏"}
                       />
                     </div>
 
-                    <div className="col-span-2 text-sm text-slate-600 truncate">
-                      <div className="flex items-center gap-1.5">
-                        <GraduationCap className="h-3.5 w-3.5 text-slate-400" />
-                        {banner.college || "校本级"}
-                      </div>
-                    </div>
-
                     <div className="col-span-1 text-sm text-slate-600 truncate">
-                      {banner.jumpPosition ? (
+                      {banner.linkUrl ? (
                         <Badge variant="secondary" className="text-xs bg-purple-50 text-purple-600">
-                          {banner.jumpPosition}
+                          <LinkIcon className="mr-1 h-3 w-3" />
+                          {banner.linkUrl}
                         </Badge>
                       ) : (
                         <span className="text-slate-400">无跳转</span>
                       )}
                     </div>
 
-                    <div className="col-span-1 text-right relative">
+                    <div className="col-span-2 text-right relative">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-sm z-10 px-2 py-1 rounded-lg shadow-sm border border-slate-100">
                         <Button
                           variant="ghost"
@@ -540,7 +421,7 @@ export default function BannerManagementPage() {
           <DialogHeader>
             <DialogTitle>{editingBanner ? "编辑轮播图" : "新增轮播图"}</DialogTitle>
             <DialogDescription>
-              上传轮播图并完善相关信息，图片将保存在浏览器本地。
+              上传轮播图并完善相关信息，数据将保存到服务端。
             </DialogDescription>
           </DialogHeader>
 
@@ -561,9 +442,9 @@ export default function BannerManagementPage() {
                   id="banner-upload"
                 />
                 <label htmlFor="banner-upload" className="cursor-pointer block">
-                  {imageData ? (
+                  {imageUrl ? (
                     <img
-                      src={imageData}
+                      src={imageUrl}
                       alt="预览"
                       className="max-h-[180px] mx-auto rounded-md object-cover"
                     />
@@ -573,11 +454,17 @@ export default function BannerManagementPage() {
                       <span className="text-sm text-slate-500">点击上传图片</span>
                     </div>
                   )}
-                  {fileName && (
-                    <span className="block text-xs text-slate-500 mt-2">{fileName}</span>
-                  )}
                 </label>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>标题</Label>
+              <Input
+                placeholder="请输入轮播图标题"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -594,50 +481,22 @@ export default function BannerManagementPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>所属学院</Label>
-                <Select value={college} onValueChange={setCollege}>
+                <Label>跳转链接</Label>
+                <Select
+                  value={linkUrl || "__none__"}
+                  onValueChange={(v) => setLinkUrl(v === "__none__" ? "" : v)}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择所属学院" />
+                    <SelectValue placeholder="不设置跳转" />
                   </SelectTrigger>
                   <SelectContent>
-                    {COLLEGES.filter((c) => c !== "全部").map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="__none__">不设置跳转</SelectItem>
+                    <SelectItem value="/job/positions">岗位列表</SelectItem>
+                    <SelectItem value="/evaluation/landing">测评中心</SelectItem>
+                    <SelectItem value="/scene">场景大厅</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>描述</Label>
-              <Textarea
-                placeholder="请输入轮播图副标题或描述"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>
-                点击跳转岗位
-                <span className="text-xs text-muted-foreground ml-1">非必填</span>
-              </Label>
-              <Select value={jumpPosition || "__none__"} onValueChange={(v) => setJumpPosition(v === "__none__" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="不设置跳转" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">不设置跳转</SelectItem>
-                  {positionOptions.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
@@ -648,10 +507,8 @@ export default function BannerManagementPage() {
                 </p>
               </div>
               <Switch
-                checked={status === "visible"}
-                onCheckedChange={(checked) =>
-                  setStatus(checked ? "visible" : "hidden")
-                }
+                checked={isActive}
+                onCheckedChange={setIsActive}
               />
             </div>
           </div>
@@ -660,7 +517,7 @@ export default function BannerManagementPage() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleSubmit} disabled={!imageData}>
+            <Button onClick={handleSubmit} disabled={!imageUrl || !title.trim()}>
               {editingBanner ? "保存" : "添加"}
             </Button>
           </DialogFooter>
