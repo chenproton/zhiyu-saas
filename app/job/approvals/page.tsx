@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useAuth } from "@/lib/stores/auth-context"
+import { useAuth } from "@/components/auth-provider"
 import { useData } from "@/lib/stores/data-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -51,8 +51,18 @@ const APPROVAL_TABS = [
   { value: "all", label: "全部记录", icon: FileText },
 ]
 
+function mapIdentityToJobRole(code?: string): string {
+  if (!code) return ""
+  if (code === "platform_admin" || code === "school_admin") return "admin"
+  if (code === "teacher") return "teacher"
+  if (code === "student") return "student"
+  if (code.startsWith("enterprise")) return "enterprise"
+  return code
+}
+
 export default function ApprovalsPage() {
-  const { user } = useAuth()
+  const { user, identityType } = useAuth()
+  const role = mapIdentityToJobRole(identityType?.code)
   const { approvals, positions, workflows, approveApproval, rejectApproval } = useData()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("pending")
@@ -67,15 +77,15 @@ export default function ApprovalsPage() {
   const builderRoles = ["builder", "teacher", "enterprise", "student"]
   const myApprovals = approvals.filter((approval) => {
     // 管理员可以看到所有审批
-    if (user?.role === "admin") return true
+    if (role === "admin") return true
     // 审批人只能看到自己负责的审批（根据当前步骤角色判断）
-    if (reviewerRoles.includes(user?.role ?? "")) {
+    if (reviewerRoles.includes(role)) {
       const workflow = workflows.find(w => w.id === approval.workflowId)
       const currentStep = workflow?.steps[approval.currentStepIndex]
       return currentStep?.role === "reviewer" || currentStep?.role === "admin"
     }
     // 岗位建设者只能看到自己提交的审批
-    if (user && builderRoles.includes(user.role)) {
+    if (user && builderRoles.includes(role)) {
       return approval.submittedBy === user.id
     }
     return false
@@ -160,7 +170,7 @@ export default function ApprovalsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">审批管理中心</h1>
         <p className="text-muted-foreground">
-          {user?.role === "builder"
+          {role === "builder"
             ? "查看您提交的审批进度和结果"
             : "处理待审批的岗位建设申请"}
         </p>
@@ -350,7 +360,7 @@ export default function ApprovalsPage() {
                             审批历史
                           </Button>
                           {approval.status === "pending" &&
-                            (user?.role === "admin" || user?.role === "reviewer") && (
+                            (role === "admin" || role === "reviewer") && (
                               <>
                                 <Button
                                   variant="ghost"
@@ -496,7 +506,7 @@ export default function ApprovalsPage() {
               关闭
             </Button>
             {selectedApproval?.status === "pending" &&
-              (user?.role === "admin" || user?.role === "reviewer") && (
+              (role === "admin" || role === "reviewer") && (
                 <>
                   <Button
                     variant="outline"

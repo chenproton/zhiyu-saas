@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useData } from '@/lib/stores/data-context'
-import { useAuth } from '@/lib/stores/auth-context'
+import { useAuth } from '@/components/auth-provider'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

@@ -588,10 +588,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await loadRecommendations()
   }
 
-  if (!isLoaded) {
-    return null
-  }
-
   return (
     <DataContext.Provider
       value={{
