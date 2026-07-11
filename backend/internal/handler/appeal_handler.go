@@ -24,10 +24,9 @@ type AppealListResponse struct {
 }
 
 type CreateAppealRequest struct {
-	StudentID   string `json:"studentId"`
-	StudentName string `json:"studentName"`
-	Type        string `json:"type"`
-	Reason      string `json:"reason"`
+	UserID string `json:"userId"`
+	Type   string `json:"type"`
+	Reason string `json:"reason"`
 }
 
 type ProcessAppealRequest struct {
@@ -44,7 +43,6 @@ func (h *AppealHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	appealType := r.URL.Query().Get("type")
 	status := r.URL.Query().Get("status")
-	search := r.URL.Query().Get("search")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
@@ -71,18 +69,13 @@ func (h *AppealHandler) List(w http.ResponseWriter, r *http.Request) {
 		args = append(args, status)
 		argIdx++
 	}
-	if search != "" {
-		where = append(where, "student_name ILIKE $"+itoa(argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
 
 	countQuery := "SELECT COUNT(*) FROM appeal_records WHERE " + strings.Join(where, " AND ")
 	var total int
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, student_id, student_name, type, reason, status, created_at, updated_at
+		SELECT id, user_id, type, reason, status, created_at
 		FROM appeal_records
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -133,16 +126,16 @@ func (h *AppealHandler) Create(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.StudentID == "" || req.Type == "" || req.Reason == "" {
+	if req.UserID == "" || req.Type == "" || req.Reason == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
 	}
 
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO appeal_records (id, student_id, student_name, type, reason, status)
-		VALUES ($1, $2, $3, $4, $5, 'pending')
-	`, id, req.StudentID, req.StudentName, req.Type, req.Reason)
+		INSERT INTO appeal_records (id, user_id, type, reason, status)
+		VALUES ($1, $2, $3, $4, 'pending')
+	`, id, req.UserID, req.Type, req.Reason)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create appeal")
 		return
@@ -171,7 +164,7 @@ func (h *AppealHandler) Process(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := h.DB.Exec(r.Context(), `
-		UPDATE appeal_records SET status = $1, updated_at = NOW() WHERE id = $2
+		UPDATE appeal_records SET status = $1 WHERE id = $2
 	`, req.Status, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to process appeal")
@@ -185,9 +178,9 @@ func (h *AppealHandler) Process(w http.ResponseWriter, r *http.Request) {
 func (h *AppealHandler) fetchAppeal(ctx context.Context, id string) (domain.AppealRecord, error) {
 	var a domain.AppealRecord
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, student_id, student_name, type, reason, status, created_at, updated_at
+		SELECT id, user_id, type, reason, status, created_at
 		FROM appeal_records WHERE id = $1
-	`, id).Scan(&a.ID, &a.StudentID, &a.StudentName, &a.Type, &a.Reason, &a.Status, &a.CreatedAt, &a.UpdatedAt)
+	`, id).Scan(&a.ID, &a.UserID, &a.Type, &a.Reason, &a.Status, &a.CreatedAt)
 	return a, err
 }
 
@@ -195,7 +188,7 @@ func (h *AppealHandler) scanAppealRows(rows pgx.Rows) ([]domain.AppealRecord, er
 	items := make([]domain.AppealRecord, 0)
 	for rows.Next() {
 		var a domain.AppealRecord
-		if err := rows.Scan(&a.ID, &a.StudentID, &a.StudentName, &a.Type, &a.Reason, &a.Status, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.UserID, &a.Type, &a.Reason, &a.Status, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, a)

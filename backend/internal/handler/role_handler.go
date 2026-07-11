@@ -181,7 +181,7 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := h.DB.Exec(r.Context(), `
-		UPDATE roles SET name = $1, description = $2, permissions = $3, updated_at = NOW()
+		UPDATE roles SET name = $1, description = $2, permissions = $3
 		WHERE id = $4
 	`, req.Name, req.Description, req.Permissions, id)
 	if err != nil {
@@ -242,7 +242,7 @@ func (h *RoleHandler) Assign(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO user_roles (id, user_id, role_id)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (user_id, role_id) DO NOTHING
-	`, "ur-"+uuid.NewString(), req.UserID, id)
+	`, uuid.NewString(), req.UserID, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to assign role")
 		return

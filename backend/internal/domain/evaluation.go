@@ -104,85 +104,73 @@ type ExamUsage struct {
 
 // EvaluationMethodCategory represents a top-level evaluation category.
 type EvaluationMethodCategory struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Order     int       `json:"order"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Order int   `json:"order"`
 }
 
 // EvaluationMethod represents a second-level evaluation method.
 type EvaluationMethod struct {
-	ID              string    `json:"id"`
-	CategoryID      string    `json:"categoryId"`
-	Name            string    `json:"name"`
-	Enabled         bool      `json:"enabled"`
-	RelatedTaskIDs  []string  `json:"relatedTaskIds"`
-	Description     *string   `json:"description,omitempty"`
-	DocLink         *string   `json:"docLink,omitempty"`
-	SubCategoryName *string   `json:"subCategoryName,omitempty"`
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
+	ID              string  `json:"id"`
+	CategoryID      string  `json:"categoryId"`
+	Name            string  `json:"name"`
+	Enabled         bool    `json:"enabled"`
+	SubCategoryName *string `json:"subCategoryName,omitempty"`
+	Description     *string `json:"description,omitempty"`
+	DocLink         *string `json:"docLink,omitempty"`
 }
 
 // SceneEvaluationResult represents the result of a scene task evaluation.
 type SceneEvaluationResult struct {
-	ID               string    `json:"id"`
-	MethodID         string    `json:"methodId"`
-	EvaluationTime   time.Time `json:"evaluationTime"`
-	TaskID           string    `json:"taskId"`
-	TaskName         string    `json:"taskName"`
-	SceneName        string    `json:"sceneName"`
-	EvaluateeType    string    `json:"evaluateeType"`
-	EvaluateeID      string    `json:"evaluateeId"`
-	EvaluateeName    string    `json:"evaluateeName"`
-	EvaluatorIDs     []string  `json:"evaluatorIds"`
-	EvaluatorNames   []string  `json:"evaluatorNames"`
-	EvaluatorType    string    `json:"evaluatorType"`
-	EvaluationStatus string    `json:"evaluationStatus"`
-	Score            float64   `json:"score"`
-	MaxScore         float64   `json:"maxScore"`
-	Comment          *string   `json:"comment,omitempty"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	ID               string   `json:"id"`
+	TaskID           string   `json:"taskId"`
+	SceneID          *string  `json:"sceneId,omitempty"`
+	MethodKey        string   `json:"methodKey"`
+	EvaluateeID      string   `json:"evaluateeId"`
+	EvaluatorID      string   `json:"evaluatorId"`
+	EvaluatorType    string   `json:"evaluatorType"`
+	Status           string   `json:"status"`
+	TotalScore       *float64 `json:"totalScore,omitempty"`
+	MaxScore         float64  `json:"maxScore"`
+	EvalPointScores  JSONMap  `json:"evalPointScores"`
+	ObjectiveAnswers JSONMap  `json:"objectiveAnswers"`
+	SubjectiveContent JSONMap `json:"subjectiveContent"`
+	DrawnQuestions   JSONMap  `json:"drawnQuestions"`
+	Comment          *string  `json:"comment,omitempty"`
+	GradedAt         *time.Time `json:"gradedAt,omitempty"`
+	GradedBy         *string  `json:"gradedBy,omitempty"`
 }
 
 // JobAbilityResult represents a job ability evaluation result.
 type JobAbilityResult struct {
-	ID                    string    `json:"id"`
-	PositionID            string    `json:"positionId"`
-	PositionName          string    `json:"positionName"`
-	PositionCode          string    `json:"positionCode"`
-	StudentName           string    `json:"studentName"`
-	StudentID             string    `json:"studentId"`
-	ClassName             *string   `json:"className,omitempty"`
-	Major                 *string   `json:"major,omitempty"`
-	Department            *string   `json:"department,omitempty"`
-	TotalAbilityPoints    int       `json:"totalAbilityPoints"`
-	AchievedAbilityPoints int       `json:"achievedAbilityPoints"`
-	AchievementRate       float64   `json:"achievementRate"`
-	Grade                 *string   `json:"grade,omitempty"`
-	EvaluationTime        time.Time `json:"evaluationTime"`
-	CreatedAt             time.Time `json:"createdAt"`
+	ID                    string  `json:"id"`
+	CareerPositionID      string  `json:"careerPositionId"`
+	UserID                string  `json:"userId"`
+	ClassName             *string `json:"className,omitempty"`
+	Major                 *string `json:"major,omitempty"`
+	TotalAbilityPoints    int     `json:"totalAbilityPoints"`
+	AchievedAbilityPoints int     `json:"achievedAbilityPoints"`
+	AchievementRate       float64 `json:"achievementRate"`
+	Grade                 *string `json:"grade,omitempty"`
+	EvaluatedAt           string  `json:"evaluatedAt"`
 }
 
 // CertificationRule represents a position certification rule.
 type CertificationRule struct {
-	ID           string    `json:"id"`
-	PositionID   *string   `json:"positionId,omitempty"`
-	PositionName string    `json:"positionName"`
-	Status       string    `json:"status"`
-	RuleSource   string    `json:"ruleSource"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID              string    `json:"id"`
+	CareerPositionID string   `json:"careerPositionId"`
+	Status          string    `json:"status"`
+	RuleSource      string    `json:"ruleSource"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
 }
 
 // CertificationAbilityItem represents an ability item under a certification rule.
 type CertificationAbilityItem struct {
-	ID        string    `json:"id"`
-	RuleID    string    `json:"ruleId"`
-	Name      string    `json:"name"`
-	SortOrder int       `json:"sortOrder"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID        string `json:"id"`
+	RuleID    string `json:"ruleId"`
+	Name      string `json:"name"`
+	SortOrder int    `json:"sortOrder"`
 }
 
 // CertificationAbilityPoint represents an ability point under an ability item.
@@ -194,141 +182,117 @@ type CertificationAbilityPoint struct {
 	CustomLevelMapping JSONSlice `json:"customLevelMapping,omitempty"`
 	RequiredLevel      string    `json:"requiredLevel"`
 	Weight             float64   `json:"weight"`
-	CreatedAt          time.Time `json:"createdAt"`
 }
 
 // CertificationRelatedTask represents a related task for a certification ability point.
 type CertificationRelatedTask struct {
-	ID          string    `json:"id"`
-	CertPointID string    `json:"certPointId"`
-	TaskID      string    `json:"taskId"`
-	MaxScore    float64   `json:"maxScore"`
-	Weight      float64   `json:"weight"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID          string  `json:"id"`
+	CertPointID string  `json:"certPointId"`
+	TaskID      string  `json:"taskId"`
+	MaxScore    float64 `json:"maxScore"`
+	Weight      float64 `json:"weight"`
 }
 
 // StudentAbilityPortrait represents a student's ability portrait.
 type StudentAbilityPortrait struct {
 	ID                  string    `json:"id"`
-	StudentName         string    `json:"studentName"`
-	StudentID           string    `json:"studentId"`
-	ClassName           string    `json:"className"`
-	MajorName           string    `json:"majorName"`
-	PositionName        string    `json:"positionName"`
-	OverallGrade        string    `json:"overallGrade"`
+	UserID              string    `json:"userId"`
+	CareerPositionID    string    `json:"careerPositionId"`
+	OverallGrade        *string   `json:"overallGrade,omitempty"`
 	DomainScores        JSONSlice `json:"domainScores"`
-	ClassRank           int       `json:"classRank"`
-	ClassTotal          int       `json:"classTotal"`
-	MajorRank           int       `json:"majorRank"`
-	MajorTotal          int       `json:"majorTotal"`
-	RecommendPositions  JSONSlice `json:"recommendPositions"`
-	UpdatedAt           time.Time `json:"updatedAt"`
-	Gender              string    `json:"gender"`
-	GradeYear           string    `json:"gradeYear"`
-	AvatarURL           *string   `json:"avatarUrl,omitempty"`
-	Courses             []string  `json:"courses"`
-	Scenes              []string  `json:"scenes"`
+	ClassRank           *int      `json:"classRank,omitempty"`
+	ClassTotal          *int      `json:"classTotal,omitempty"`
+	MajorRank           *int      `json:"majorRank,omitempty"`
+	MajorTotal          *int      `json:"majorTotal,omitempty"`
 	CompletedCourses    int       `json:"completedCourses"`
 	CompletedScenes     int       `json:"completedScenes"`
 	TotalCredits        float64   `json:"totalCredits"`
-	ArchiveCount        int       `json:"archiveCount"`
 	CourseRecords       JSONSlice `json:"courseRecords"`
 	GraduationQualified bool      `json:"graduationQualified"`
-	AttendanceRate      float64   `json:"attendanceRate"`
-	DiplomaBadge        string    `json:"diplomaBadge"`
-	YearRank            int       `json:"yearRank"`
-	YearTotal           int       `json:"yearTotal"`
-	DualBadge           string    `json:"dualBadge"`
+	AttendanceRate      *float64  `json:"attendanceRate,omitempty"`
+	DiplomaBadge        *string   `json:"diplomaBadge,omitempty"`
+	DualBadge           *string   `json:"dualBadge,omitempty"`
+	ArchiveCount        int       `json:"archiveCount"`
+	RecommendPositions  JSONSlice `json:"recommendPositions"`
+	UpdatedAt           time.Time `json:"updatedAt"`
 }
 
 // StudentAbilityArchive represents a student's ability archive material.
 type StudentAbilityArchive struct {
 	ID              string    `json:"id"`
-	StudentName     string    `json:"studentName"`
-	StudentID       string    `json:"studentId"`
-	ClassName       string    `json:"className"`
+	UserID          string    `json:"userId"`
 	MaterialType    string    `json:"materialType"`
 	MaterialName    string    `json:"materialName"`
-	IssuingOrg      string    `json:"issuingOrg"`
-	ObtainDate      time.Time `json:"obtainDate"`
+	IssuingOrg      *string   `json:"issuingOrg,omitempty"`
+	ObtainDate      *string   `json:"obtainDate,omitempty"`
+	Level           *string   `json:"level,omitempty"`
 	AuditStatus     string    `json:"auditStatus"`
 	AuditRemark     *string   `json:"auditRemark,omitempty"`
 	ConvertedCredit float64   `json:"convertedCredit"`
 	Direction       string    `json:"direction"`
 	IsVisible       bool      `json:"isVisible"`
-	Level           *string   `json:"level,omitempty"`
 	CreatedAt       time.Time `json:"createdAt"`
 }
 
 // GraduationProjectTopic represents a graduation project topic.
 type GraduationProjectTopic struct {
-	ID                   string    `json:"id"`
-	Name                 string    `json:"name"`
-	PositionID           string    `json:"positionId"`
-	PositionName         string    `json:"positionName"`
-	College              string    `json:"college"`
-	Source               string    `json:"source"`
-	Status               string    `json:"status"`
-	Capacity             int       `json:"capacity"`
-	AppliedCount         int       `json:"appliedCount"`
-	AdvisorName          string    `json:"advisorName"`
-	EnterpriseMentorName *string   `json:"enterpriseMentorName,omitempty"`
-	StartDate            time.Time `json:"startDate"`
-	EndDate              time.Time `json:"endDate"`
-	Description          *string   `json:"description,omitempty"`
-	CreatedAt            time.Time `json:"createdAt"`
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	CareerPositionID  string    `json:"careerPositionId"`
+	College           *string   `json:"college,omitempty"`
+	Source            string    `json:"source"`
+	Status            string    `json:"status"`
+	Capacity          int       `json:"capacity"`
+	AppliedCount      int       `json:"appliedCount"`
+	AdvisorID         *string   `json:"advisorId,omitempty"`
+	EnterpriseMentorID *string  `json:"enterpriseMentorId,omitempty"`
+	StartDate         *string   `json:"startDate,omitempty"`
+	EndDate           *string   `json:"endDate,omitempty"`
+	Description       *string   `json:"description,omitempty"`
+	CreatedAt         time.Time `json:"createdAt"`
 }
 
 // GraduationProjectArchive represents a graduation project archive.
 type GraduationProjectArchive struct {
-	ID                   string    `json:"id"`
-	TopicID              string    `json:"topicId"`
-	TopicName            string    `json:"topicName"`
-	StudentName          string    `json:"studentName"`
-	StudentID            string    `json:"studentId"`
-	AdvisorName          string    `json:"advisorName"`
-	EnterpriseMentorName *string   `json:"enterpriseMentorName,omitempty"`
-	PositionName         string    `json:"positionName"`
-	Phase                string    `json:"phase"`
-	DocStatus            string    `json:"docStatus"`
-	DocCount             int       `json:"docCount"`
-	LastUpdated          time.Time `json:"lastUpdated"`
-	HasRectification     bool      `json:"hasRectification"`
-	CreatedAt            time.Time `json:"createdAt"`
+	ID               string    `json:"id"`
+	TopicID          string    `json:"topicId"`
+	UserID           string    `json:"userId"`
+	Phase            string    `json:"phase"`
+	DocStatus        string    `json:"docStatus"`
+	DocCount         int       `json:"docCount"`
+	HasRectification bool      `json:"hasRectification"`
+	LastUpdated      time.Time `json:"lastUpdated"`
 }
 
 // GraduationProjectEvaluation represents a graduation project evaluation.
 type GraduationProjectEvaluation struct {
 	ID                 string    `json:"id"`
 	TopicID            string    `json:"topicId"`
-	TopicName          string    `json:"topicName"`
-	StudentName        string    `json:"studentName"`
-	StudentID          string    `json:"studentId"`
-	AdvisorScore       float64   `json:"advisorScore"`
+	UserID             string    `json:"userId"`
+	AdvisorScore       *float64  `json:"advisorScore,omitempty"`
 	EnterpriseScore    *float64  `json:"enterpriseScore,omitempty"`
 	DefenseScore       *float64  `json:"defenseScore,omitempty"`
-	ComprehensiveGrade string    `json:"comprehensiveGrade"`
+	ComprehensiveGrade *string   `json:"comprehensiveGrade,omitempty"`
 	IsExcellent        bool      `json:"isExcellent"`
-	EvaluationTime     time.Time `json:"evaluationTime"`
 	Status             string    `json:"status"`
-	CreatedAt          time.Time `json:"createdAt"`
+	EvaluatedAt        time.Time `json:"evaluatedAt"`
 }
 
 // GraduationQueryResult represents a graduation query result.
 type GraduationQueryResult struct {
-	ID                 string  `json:"id"`
-	StudentName        string  `json:"studentName"`
-	StudentID          string  `json:"studentId"`
-	ClassName          string  `json:"className"`
-	MajorName          string  `json:"majorName"`
-	CreditCompleted    float64 `json:"creditCompleted"`
-	CreditRequired     float64 `json:"creditRequired"`
-	ScenePassed        int     `json:"scenePassed"`
-	SceneRequired      int     `json:"sceneRequired"`
-	ProjectGrade       *string `json:"projectGrade"`
-	GraduationStatus   string  `json:"graduationStatus"`
-	AbilityCertStatus  string  `json:"abilityCertStatus"`
-	RectificationCount int     `json:"rectificationCount"`
+	ID                 string    `json:"id"`
+	UserID             string    `json:"userId"`
+	ClassName          *string   `json:"className,omitempty"`
+	MajorName          *string   `json:"majorName,omitempty"`
+	CreditCompleted    float64   `json:"creditCompleted"`
+	CreditRequired     float64   `json:"creditRequired"`
+	ScenePassed        int       `json:"scenePassed"`
+	SceneRequired      int       `json:"sceneRequired"`
+	ProjectGrade       *string   `json:"projectGrade,omitempty"`
+	GraduationStatus   string    `json:"graduationStatus"`
+	AbilityCertStatus  string    `json:"abilityCertStatus"`
+	RectificationCount int       `json:"rectificationCount"`
+	UpdatedAt          time.Time `json:"updatedAt"`
 }
 
 // MicroCertTemplate represents a micro certificate template.
@@ -345,31 +309,25 @@ type MicroCertTemplate struct {
 
 // CertIssuanceRecord represents a certificate issuance record.
 type CertIssuanceRecord struct {
-	ID            string     `json:"id"`
-	TemplateID    string     `json:"templateId"`
-	TemplateTitle string     `json:"templateTitle"`
-	CertTypeName  string     `json:"certTypeName"`
-	StudentName   string     `json:"studentName"`
-	StudentID     string     `json:"studentId"`
-	ClassName     string     `json:"className"`
-	IssueDate     time.Time  `json:"issueDate"`
-	ExpireDate    *time.Time `json:"expireDate,omitempty"`
-	Status        string     `json:"status"`
-	CertNumber    string     `json:"certNumber"`
-	RevokedAt     *time.Time `json:"revokedAt,omitempty"`
-	RevokeReason  *string    `json:"revokeReason,omitempty"`
+	ID           string     `json:"id"`
+	TemplateID   string     `json:"templateId"`
+	UserID       string     `json:"userId"`
+	CertNumber   string     `json:"certNumber"`
+	IssueDate    time.Time  `json:"issueDate"`
+	ExpireDate   *time.Time `json:"expireDate,omitempty"`
+	Status       string     `json:"status"`
+	RevokedAt    *time.Time `json:"revokedAt,omitempty"`
+	RevokeReason *string    `json:"revokeReason,omitempty"`
 }
 
 // AppealRecord represents an appeal record.
 type AppealRecord struct {
-	ID          string    `json:"id"`
-	StudentID   string    `json:"studentId"`
-	StudentName string    `json:"studentName"`
-	Type        string    `json:"type"`
-	Reason      string    `json:"reason"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID        string    `json:"id"`
+	UserID    string    `json:"userId"`
+	Type      string    `json:"type"`
+	Reason    string    `json:"reason"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // EvaluationBatch represents a batch grouping for evaluations.

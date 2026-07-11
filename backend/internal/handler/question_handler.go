@@ -94,7 +94,7 @@ func (h *QuestionHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_points, creator_id, source, status, created_at
+		SELECT id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_point_ids, creator_id, source, status, created_at
 		FROM questions
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -155,10 +155,11 @@ func (h *QuestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Answer = domain.JSONSlice{}
 	}
 	answerJSON, _ := json.Marshal(req.Answer)
+	optionsJSON, _ := json.Marshal(coalesceStringSlice(req.Options))
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO questions (id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_points, creator_id, source, status)
+		INSERT INTO questions (id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_point_ids, creator_id, source, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft')
-	`, id, req.BankID, req.Type, req.Content, coalesceStringSlice(req.Options), string(answerJSON), req.Analysis, req.Score, req.Difficulty, coalesceStringSlice(req.KnowledgePoints), claims.UserID, req.Source)
+	`, id, req.BankID, req.Type, req.Content, string(optionsJSON), string(answerJSON), req.Analysis, req.Score, req.Difficulty, coalesceStringSlice(req.KnowledgePoints), claims.UserID, req.Source)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create question")
 		return
@@ -195,12 +196,13 @@ func (h *QuestionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		req.Answer = domain.JSONSlice{}
 	}
 	answerJSON, _ := json.Marshal(req.Answer)
+	optionsJSON, _ := json.Marshal(coalesceStringSlice(req.Options))
 
 	_, err := h.DB.Exec(r.Context(), `
 		UPDATE questions SET type = $1, content = $2, options = $3, answer = $4, analysis = $5,
-			score = $6, difficulty = $7, knowledge_points = $8, source = $9
+			score = $6, difficulty = $7, knowledge_point_ids = $8, source = $9
 		WHERE id = $10
-	`, req.Type, req.Content, coalesceStringSlice(req.Options), string(answerJSON), req.Analysis, req.Score, req.Difficulty, coalesceStringSlice(req.KnowledgePoints), req.Source, id)
+	`, req.Type, req.Content, string(optionsJSON), string(answerJSON), req.Analysis, req.Score, req.Difficulty, coalesceStringSlice(req.KnowledgePoints), req.Source, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update question")
 		return
@@ -264,11 +266,12 @@ func (h *QuestionHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 			item.Answer = domain.JSONSlice{}
 		}
 		answerJSON, _ := json.Marshal(item.Answer)
+		optionsJSON, _ := json.Marshal(coalesceStringSlice(item.Options))
 		id := uuid.NewString()
 		_, err := tx.Exec(r.Context(), `
-			INSERT INTO questions (id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_points, creator_id, source, status)
+			INSERT INTO questions (id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_point_ids, creator_id, source, status)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft')
-		`, id, req.BankID, item.Type, item.Content, coalesceStringSlice(item.Options), string(answerJSON), item.Analysis, item.Score, item.Difficulty, coalesceStringSlice(item.KnowledgePoints), claims.UserID, item.Source)
+		`, id, req.BankID, item.Type, item.Content, string(optionsJSON), string(answerJSON), item.Analysis, item.Score, item.Difficulty, coalesceStringSlice(item.KnowledgePoints), claims.UserID, item.Source)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to batch create questions")
 			return
@@ -286,12 +289,12 @@ func (h *QuestionHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 
 func (h *QuestionHandler) fetchQuestion(ctx context.Context, id string) (domain.Question, error) {
 	var q domain.Question
-	var analysis, difficulty, creatorID, source, answerStr *string
+	var analysis, difficulty, creatorID, source, answerStr, optionsStr *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_points, creator_id, source, status, created_at
+		SELECT id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_point_ids, creator_id, source, status, created_at
 		FROM questions WHERE id = $1
 	`, id).Scan(
-		&q.ID, &q.BankID, &q.Type, &q.Content, &q.Options, &answerStr, &analysis, &q.Score, &difficulty, &q.KnowledgePoints, &creatorID, &source, &q.Status, &q.CreatedAt,
+		&q.ID, &q.BankID, &q.Type, &q.Content, &optionsStr, &answerStr, &analysis, &q.Score, &difficulty, &q.KnowledgePoints, &creatorID, &source, &q.Status, &q.CreatedAt,
 	)
 	if err != nil {
 		return q, err
@@ -306,6 +309,9 @@ func (h *QuestionHandler) fetchQuestion(ctx context.Context, id string) (domain.
 	if q.Answer == nil {
 		q.Answer = domain.JSONSlice{}
 	}
+	if optionsStr != nil {
+		_ = json.Unmarshal([]byte(*optionsStr), &q.Options)
+	}
 	return q, nil
 }
 
@@ -313,9 +319,9 @@ func (h *QuestionHandler) scanQuestionRows(rows pgx.Rows) ([]domain.Question, er
 	items := make([]domain.Question, 0)
 	for rows.Next() {
 		var q domain.Question
-		var analysis, difficulty, creatorID, source, answerStr *string
+		var analysis, difficulty, creatorID, source, answerStr, optionsStr *string
 		if err := rows.Scan(
-			&q.ID, &q.BankID, &q.Type, &q.Content, &q.Options, &answerStr, &analysis, &q.Score, &difficulty, &q.KnowledgePoints, &creatorID, &source, &q.Status, &q.CreatedAt,
+			&q.ID, &q.BankID, &q.Type, &q.Content, &optionsStr, &answerStr, &analysis, &q.Score, &difficulty, &q.KnowledgePoints, &creatorID, &source, &q.Status, &q.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -328,6 +334,9 @@ func (h *QuestionHandler) scanQuestionRows(rows pgx.Rows) ([]domain.Question, er
 		}
 		if q.Answer == nil {
 			q.Answer = domain.JSONSlice{}
+		}
+		if optionsStr != nil {
+			_ = json.Unmarshal([]byte(*optionsStr), &q.Options)
 		}
 		items = append(items, q)
 	}
