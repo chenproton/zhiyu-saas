@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -30,11 +30,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { hybridCourses } from "@/lib/mock-data-lesson"
 import { MAJORS } from "@/lib/types/lesson-source"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { BookOpen, Users, Calendar, CheckCircle2, MapPin, Clock, Rocket, Settings, Search, Copy } from "lucide-react"
+import { courseApi } from "@/lib/api"
+import type { Course } from "@/lib/types/lesson"
+import { useToast } from "@/hooks/use-toast"
 
 const semesters = [
   "2025 年第一学期",
@@ -85,6 +87,9 @@ const initialSessions: ClassSession[] = [
 const weekdayOrder = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 
 export default function ClassClaimPage() {
+  const { toast } = useToast()
+  const [hybridCourses, setHybridCourses] = useState<Course[]>([])
+  const [coursesLoading, setCoursesLoading] = useState(false)
   const [classes, setClasses] = useState<ClassItem[]>(initialClasses)
   const [sessions] = useState<ClassSession[]>(initialSessions)
   const [selectedTerm, setSelectedTerm] = useState(semesters[0])
@@ -99,20 +104,28 @@ export default function ClassClaimPage() {
   const [cloneSelectedId, setCloneSelectedId] = useState<string | null>(null)
   const [cloneClassContext, setCloneClassContext] = useState<{ course: string; teacher: string; className: string; sessions: ClassSession[] } | null>(null)
 
+  useEffect(() => {
+    setCoursesLoading(true)
+    courseApi
+      .list({ type: "hybrid", status: "published", limit: 1000 })
+      .then((res) => setHybridCourses(res.items))
+      .catch((err: any) => toast({ variant: "destructive", title: "加载混合课失败", description: err.message }))
+      .finally(() => setCoursesLoading(false))
+  }, [])
+
   const uniqueCategories = useMemo(() => {
     const cats = new Set(hybridCourses.map((c) => c.category).filter(Boolean))
     return [...cats]
-  }, [])
+  }, [hybridCourses])
 
   const uniqueBatches = useMemo(() => {
     const batches = new Set(hybridCourses.map((c) => c.batchGroup).filter(Boolean) as string[])
     return [...batches]
-  }, [])
+  }, [hybridCourses])
 
-  const getCourseScope = (c: typeof hybridCourses[number]) => {
-    if (c.creator === "杭州知与未来科技有限公司") return "public" as const
-    if (c.creator === "张教授团队") return "mine" as const
-    return "shared" as const
+  const getCourseScope = (c: Course) => {
+    if (c.status === "published") return "public" as const
+    return "mine" as const
   }
 
   const filteredHybrid = useMemo(() =>
@@ -121,10 +134,10 @@ export default function ClassClaimPage() {
       if (cloneMajor !== "全部" && c.major !== cloneMajor) return false
       if (cloneCategory !== "全部" && c.category !== cloneCategory) return false
       if (cloneBatch !== "全部" && c.batchGroup !== cloneBatch) return false
-      if (cloneSearch && !c.name.includes(cloneSearch) && !c.teacher?.includes(cloneSearch) && !c.major?.includes(cloneSearch)) return false
+      if (cloneSearch && !c.name.includes(cloneSearch) && !(c.major || "").includes(cloneSearch)) return false
       return true
     }),
-    [cloneSearch, cloneScope, cloneMajor, cloneCategory, cloneBatch]
+    [hybridCourses, cloneSearch, cloneScope, cloneMajor, cloneCategory, cloneBatch]
   )
 
   const termClasses = classes.filter((c) => c.term === selectedTerm)
@@ -146,7 +159,7 @@ export default function ClassClaimPage() {
       })),
     }
     const encoded = btoa(encodeURIComponent(JSON.stringify(payload)))
-    const url = `/admin/hybrid/add?claimCourse=${encodeURIComponent(courseName)}&claimSessions=${encodeURIComponent(encoded)}`
+    const url = `/lesson/admin/hybrid/add?claimCourse=${encodeURIComponent(courseName)}&claimSessions=${encodeURIComponent(encoded)}`
     window.open(url, "_blank")
   }
 
@@ -376,7 +389,7 @@ export default function ClassClaimPage() {
                   setCloneSearch(e.target.value)
                   setCloneSelectedId(null)
                 }}
-                placeholder="搜索混合课名称、教师..."
+                placeholder="搜索混合课名称、专业..."
                 className="pl-9 text-sm h-9"
               />
             </div>
@@ -427,6 +440,7 @@ export default function ClassClaimPage() {
             <div className="border-t pt-3">
               <p className="text-xs text-gray-400 mb-2">
                 共 {filteredHybrid.length} 门课程
+                {coursesLoading && <span className="text-primary ml-2">加载中...</span>}
                 {cloneSelectedId && (
                   <span className="text-primary ml-2">已选择 1 门</span>
                 )}
@@ -465,7 +479,7 @@ export default function ClassClaimPage() {
                           {c.batchGroup && <span>{c.batchGroup}</span>}
                         </div>
                         <div className="flex items-center gap-2 mt-1 pl-7">
-                          {c.teacher && <span className="text-[10px] text-gray-400">{c.teacher}</span>}
+                          {c.teacherId && <span className="text-[10px] text-gray-400">{c.teacherId}</span>}
                           {c.onlineHours != null && c.offlineHours != null && (
                             <span className="text-[10px] text-gray-400">
                               线上{c.onlineHours}学时 + 线下{c.offlineHours}学时
@@ -499,7 +513,7 @@ export default function ClassClaimPage() {
                   })),
                 }
                 const encoded = btoa(encodeURIComponent(JSON.stringify(payload)))
-                const url = `/admin/hybrid/add?id=${cloneSelectedId}&claimCourse=${encodeURIComponent(cloneClassContext.course)}&claimSessions=${encodeURIComponent(encoded)}`
+                const url = `/lesson/admin/hybrid/add?id=${cloneSelectedId}&claimCourse=${encodeURIComponent(cloneClassContext.course)}&claimSessions=${encodeURIComponent(encoded)}`
                 setCloneOpen(false)
                 window.open(url, "_blank")
               }}
