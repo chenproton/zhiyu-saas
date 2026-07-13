@@ -296,9 +296,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const data = await res.json().catch(() => ({ error: "请求失败" }))
 
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
+    // 仅在确实携带了 token 时才把 401 视为会话过期：
+    // 未登录状态下的请求（如登录页上各数据 Provider 的预加载）返回 401
+    // 不应清 token 或跳转登录页，否则会在 /login 上形成无限重载循环。
+    if (res.status === 401 && typeof window !== "undefined" && token) {
       localStorage.removeItem("zhiyu-token")
-      window.location.href = "/login"
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login"
+      }
     }
     throw new Error(data.error || `HTTP ${res.status}`)
   }
