@@ -110,8 +110,6 @@ export default function LoginPage() {
               <ul className="mt-1 list-inside list-disc">
                 <li>运营方：operator / operator123</li>
                 <li>学校管理员：school / school123</li>
-                <li>教师：teacher / teacher123</li>
-                <li>学生：student / student123</li>
                 <li>企业：enterprise / enterprise123</li>
               </ul>
             </div>
