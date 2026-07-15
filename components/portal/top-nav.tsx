@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Briefcase, LayoutGrid, ChevronDown, User, Settings, LogOut, LogIn, RefreshCw, Link2, LayoutDashboard } from "lucide-react"
+import { Home, Briefcase, LayoutGrid, ChevronDown, User, Settings, LogOut, LogIn, Link2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/contexts/auth-context"
-import { cn } from "@/lib/utils"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 
 const navItems = [
   { href: "/portal", label: "门户首页", icon: Home },
@@ -24,7 +23,8 @@ const navItems = [
 
 export function TopNav() {
   const pathname = usePathname()
-  const { user, isLoggedIn, logout, switchRole } = useAuth()
+  const { user, identityType, institution, loading, logout } = usePortalAuth()
+  const isLoggedIn = !!user
   const [currentTime, setCurrentTime] = useState("")
   const [mounted, setMounted] = useState(false)
 
@@ -110,11 +110,11 @@ export function TopNav() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 px-2 h-auto py-1.5 hover:bg-muted">
                   <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
-                    {user.avatar}
+                    {user.name?.charAt(0).toUpperCase() || "U"}
                   </div>
                   <div className="text-left">
                     <div className="text-sm text-foreground">{user.name}</div>
-                    <div className="text-xs text-muted-foreground">{user.currentRole?.label || "用户"} · {user.tenant?.name || "组织"}</div>
+                    <div className="text-xs text-muted-foreground">{identityType?.name || "用户"} · {institution?.name || "组织"}</div>
                   </div>
                   <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 </Button>
@@ -134,32 +134,6 @@ export function TopNav() {
                     平台地址配置
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/admin" className="cursor-pointer">
-                    <LayoutDashboard className="w-4 h-4 mr-2" />
-                    SaaS 管理后台
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
-                  切换身份
-                </DropdownMenuLabel>
-                {user.roles?.map((role) => (
-                  <DropdownMenuItem
-                    key={role.id}
-                    onSelect={(e) => {
-                      e.preventDefault()
-                      switchRole(role.id)
-                    }}
-                    className={cn(user.currentRole?.id === role.id && "bg-primary/10 text-primary")}
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    {role.label}
-                    {user.currentRole?.id === role.id && (
-                      <span className="ml-auto text-xs text-primary">当前</span>
-                    )}
-                  </DropdownMenuItem>
-                ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />
