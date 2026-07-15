@@ -78,9 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     removeToken()
-    setState({ loading: false })
+    setState({ me: undefined, loading: false })
     router.push("/login")
   }, [router])
+
 
   const refresh = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true }))
