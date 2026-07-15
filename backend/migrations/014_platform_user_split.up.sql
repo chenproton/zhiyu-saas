@@ -5,7 +5,9 @@ ALTER TABLE users ADD COLUMN platform VARCHAR(16) NOT NULL DEFAULT 'saas';
 
 -- 2. 移除旧唯一约束，改为联合唯一
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_username_key;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_login_name_key;
 ALTER TABLE users ADD CONSTRAINT users_platform_username UNIQUE (platform, username);
+ALTER TABLE users ADD CONSTRAINT users_platform_login_name UNIQUE (platform, login_name);
 
 -- 3. 按既有角色/身份分配默认 platform
 -- portal 侧：教师、学生（role='school' 且 identity_type 为 teacher/student）

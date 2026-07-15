@@ -1,6 +1,7 @@
 -- 回滚：移除 platform 字段，恢复 username 全局唯一
 
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_platform_username;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_platform_login_name;
 ALTER TABLE users DROP INDEX IF EXISTS idx_users_platform;
 ALTER TABLE users DROP INDEX IF EXISTS idx_users_platform_username;
 ALTER TABLE users DROP COLUMN IF EXISTS platform;
