@@ -30,6 +30,7 @@ import {
   Compass,
   Award,
   FolderKanban,
+  History,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -74,7 +75,7 @@ export function useRole() {
   return useAuth()
 }
 
-const adminNavigation: NavGroup[] = [
+const platformAdminNavigation: NavGroup[] = [
   {
     name: "平台概览",
     icon: LayoutDashboard,
@@ -112,6 +113,43 @@ const adminNavigation: NavGroup[] = [
   },
 ]
 
+const schoolAdminNavigation: NavGroup[] = [
+  {
+    name: "学校管理",
+    icon: LayoutDashboard,
+    items: [{ name: "管理控制台", href: "/admin", icon: LayoutDashboard }],
+  },
+  {
+    name: "组织用户",
+    icon: Users,
+    items: [
+      { name: "组织架构", href: "/portal/apps/system/org-user/org-structure", icon: Building2 },
+      { name: "用户账户", href: "/portal/apps/system/org-user/accounts", icon: Users },
+      { name: "教师管理", href: "/portal/apps/system/org-user/teachers", icon: GraduationCap },
+      { name: "学生管理", href: "/portal/apps/system/org-user/students", icon: User },
+      { name: "毕业生管理", href: "/portal/apps/system/org-user/graduates", icon: Award },
+      { name: "职位管理", href: "/portal/apps/system/org-user/positions", icon: Briefcase },
+      { name: "角色权限", href: "/portal/apps/system/org-user/roles", icon: CheckCircle },
+    ],
+  },
+  {
+    name: "教务资源",
+    icon: BookOpen,
+    items: [
+      { name: "专业管理", href: "/portal/apps/system/resource/majors", icon: BookOpen },
+    ],
+  },
+  {
+    name: "流程审计",
+    icon: Settings,
+    items: [
+      { name: "审批流程", href: "/portal/apps/system/approval", icon: FileText },
+      { name: "登录日志", href: "/portal/apps/system/logs/login", icon: History },
+      { name: "操作日志", href: "/portal/apps/system/logs/operation", icon: FileText },
+    ],
+  },
+]
+
 const schoolNavigation: NavGroup[] = [
   {
     name: "机构概览",
@@ -140,11 +178,6 @@ const schoolNavigation: NavGroup[] = [
     name: "机构信息",
     icon: Building2,
     items: [{ name: "学校信息", href: "/institution", icon: Building2 }],
-  },
-  {
-    name: "平台服务",
-    icon: Store,
-    items: [{ name: "资源商城", href: "/", icon: Store }],
   },
 ]
 
@@ -213,12 +246,13 @@ const enterpriseNavigation: NavGroup[] = [
   },
 ]
 
-function getNavigationGroups(identityCode?: string): NavGroup[] {
+function getNavigationGroups(identityCode?: string, pathname?: string): NavGroup[] {
   switch (identityCode) {
     case "platform_admin":
-      return adminNavigation
+      return platformAdminNavigation
     case "school_admin":
-      return schoolNavigation
+      // school_admin 在 /admin 下进入学校管理后台，在 /dashboard 下进入 SaaS 采购后台
+      return pathname?.startsWith("/admin") ? schoolAdminNavigation : schoolNavigation
     case "teacher":
       return teacherNavigation
     case "student":
@@ -247,7 +281,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [loading, user, router])
 
-  const navigationGroups = getNavigationGroups(identityType?.code)
+  const navigationGroups = getNavigationGroups(identityType?.code, pathname)
 
   const [expandedGroups, setExpandedGroups] = useState<string[]>(
     navigationGroups.map((g) => g.name)

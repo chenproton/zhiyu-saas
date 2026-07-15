@@ -17,8 +17,16 @@ export default function AdminLayout({
     if (loading || !user) return
 
     const code = identityType?.code ?? ""
-    if (code !== "platform_admin") {
+    if (code === "platform_admin" || code === "school_admin") {
+      return
+    }
+
+    if (code.startsWith("enterprise")) {
       router.replace("/dashboard")
+    } else if (code === "teacher" || code === "student") {
+      router.replace("/portal/workspace")
+    } else {
+      router.replace("/login")
     }
   }, [loading, user, identityType, router])
 
@@ -35,7 +43,8 @@ export default function AdminLayout({
     return null
   }
 
-  if (identityType?.code !== "platform_admin") {
+  const code = identityType?.code ?? ""
+  if (code !== "platform_admin" && code !== "school_admin") {
     return null
   }
 

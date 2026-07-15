@@ -23,6 +23,9 @@ import {
   AlertCircle,
   ArrowRight,
   Loader2,
+  Users,
+  GraduationCap,
+  User,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -36,8 +39,9 @@ import {
 } from "recharts"
 import { statsApi, resourceApi, orderApi, institutionApi } from "@/lib/api"
 import type { DashboardStats, Resource, Order, Institution } from "@/lib/api"
+import { useAuth } from "@/components/auth-provider"
 
-export default function AdminDashboardPage() {
+function PlatformAdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [resources, setResources] = useState<Resource[]>([])
   const [orders, setOrders] = useState<Order[]>([])
@@ -380,4 +384,58 @@ function TopListCard({
       </CardContent>
     </Card>
   )
+}
+
+function SchoolAdminDashboard() {
+  const { user, institution } = useAuth()
+
+  const quickLinks = [
+    { name: "组织架构", href: "/portal/apps/system/org-user/org-structure", icon: Building2, desc: "维护本校组织架构树" },
+    { name: "用户账户", href: "/portal/apps/system/org-user/accounts", icon: Users, desc: "管理系统账号" },
+    { name: "教师管理", href: "/portal/apps/system/org-user/teachers", icon: GraduationCap, desc: "维护本校教师" },
+    { name: "学生管理", href: "/portal/apps/system/org-user/students", icon: User, desc: "维护本校学生" },
+    { name: "角色权限", href: "/portal/apps/system/org-user/roles", icon: CheckCircle, desc: "配置本校角色" },
+    { name: "审批流程", href: "/portal/apps/system/approval", icon: FileText, desc: "配置审批流程" },
+  ]
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">学校管理控制台</h1>
+          <p className="text-sm text-muted-foreground">
+            {institution?.name ?? user?.name} — 管理本校组织、用户与教务资源
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {quickLinks.map((link) => (
+            <Link key={link.name} href={link.href}>
+              <Card className="cursor-pointer transition-colors hover:bg-secondary h-full">
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent/20">
+                    <link.icon className="h-5 w-5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{link.name}</p>
+                    <p className="text-xs text-muted-foreground">{link.desc}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </DashboardLayout>
+  )
+}
+
+export default function AdminDashboardPage() {
+  const { identityType } = useAuth()
+
+  if (identityType?.code === "school_admin") {
+    return <SchoolAdminDashboard />
+  }
+
+  return <PlatformAdminDashboard />
 }

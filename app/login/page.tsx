@@ -13,8 +13,8 @@ import { useAuth } from "@/components/auth-provider"
 function getPostLoginPath(identityCode?: string): string {
   switch (identityCode) {
     case "platform_admin":
-      return "/admin"
     case "school_admin":
+      return "/admin"
     case "enterprise_hr":
     case "enterprise_mentor":
       return "/dashboard"
