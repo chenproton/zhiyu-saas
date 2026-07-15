@@ -289,14 +289,17 @@ export function getToken(platform: AuthPlatform = "saas"): string | null {
   return localStorage.getItem(TOKEN_KEYS[platform])
 }
 
+export function isPortalPath(path?: string): boolean {
+  if (typeof window === "undefined") return false
+  const p = path ?? window.location.pathname
+  return p.startsWith("/portal")
+}
+
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  // SaaS 页面使用 saas token；Portal 页面中的教师/学生只有 portal token，
-  // 但业务接口（job/scene/lesson/evaluation）同样允许 portal 身份访问。
-  const saasToken = getToken("saas")
-  if (saasToken) {
-    return requestWithPlatform<T>("saas", path, options)
-  }
-  return requestWithPlatform<T>("portal", path, options)
+  // SaaS 页面使用 saas token；Portal 页面（包括工作台和系统管理）使用 portal token。
+  // 这样即使浏览器同时存在两种 token，也不会因 token 污染导致 401。
+  const platform = isPortalPath() ? "portal" : "saas"
+  return requestWithPlatform<T>(platform, path, options)
 }
 
 export async function portalRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
