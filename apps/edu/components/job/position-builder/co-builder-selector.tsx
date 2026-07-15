@@ -59,8 +59,8 @@ export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorPr
       .then(([usersRes, orgsRes]) => {
         if (cancelled) return
         setUsers(usersRes.items || [])
-        setOrgs(orgsRes || [])
-        setExpandedDepts(new Set((orgsRes || []).map((o) => o.id)))
+        setOrgs(orgsRes.items || [])
+        setExpandedDepts(new Set((orgsRes.items || []).map((o) => o.id)))
       })
       .catch(() => {
         if (cancelled) return

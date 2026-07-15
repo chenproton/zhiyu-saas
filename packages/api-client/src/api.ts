@@ -487,7 +487,7 @@ export const tenantApi = {
 export const orgApi = {
   ...createCrudApi<Organization, Omit<Organization, "id" | "createdAt" | "updatedAt">, Partial<Omit<Organization, "id" | "createdAt" | "updatedAt">>>("/organizations"),
   tree: (params?: { tenantId?: string; typeId?: string }) =>
-    request<Organization[]>(`/organizations/tree${buildQuery(params || {})}`),
+    request<{ items: (Organization & { children?: (Organization & { children?: any[] })[] })[] }>(`/organizations/tree${buildQuery(params || {})}`),
 }
 
 export const orgTypeApi = createCrudApi<OrgType, Omit<OrgType, "id" | "createdAt">, Partial<Omit<OrgType, "id" | "createdAt">>>("/org-types")

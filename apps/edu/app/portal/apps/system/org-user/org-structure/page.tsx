@@ -251,7 +251,7 @@ export default function OrgStructurePage() {
       ])
       const map = buildTypeNameMap(typesRes.items)
       setTypeNames(map)
-      setOrgData(treeRes.map((node) => mapToOrgNode(node)))
+      setOrgData(treeRes.items.map((node) => mapToOrgNode(node)))
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载组织架构失败")
     } finally {
