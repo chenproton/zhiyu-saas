@@ -28,3 +28,10 @@ data/uploads/
 # Database backups
 backups/
 
+
+# Runtime artifacts
+logs/
+.rollback/
+backend/main
+tsconfig.tsbuildinfo
+*.log
