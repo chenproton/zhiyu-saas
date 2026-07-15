@@ -1,6 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
+import Link from "next/link"
 import { usePlatformLinks } from "@/hooks/use-platform-links"
 import { Footer } from "@/components/portal/footer"
 
@@ -250,6 +251,17 @@ function findByLabel(items: { id: string; icon: string; color: string; title: st
   return items.find((i) => i.id === id)
 }
 
+const INTERNAL_PLATFORM_IDS = new Set(["career", "scene", "ability", "course"])
+
+function resolveTileUrl(id: string, configuredUrl: string): string {
+  if (INTERNAL_PLATFORM_IDS.has(id)) {
+    if (!configuredUrl || /^https?:\/\//i.test(configuredUrl)) {
+      return `/portal/${id}`
+    }
+  }
+  return configuredUrl
+}
+
 /* ─── Components ─── */
 
 function GradientTile({
@@ -271,9 +283,23 @@ function GradientTile({
   const isBig = variant === "big"
   const isTall = variant === "tall"
   const isLocked = item.id === "opc" || item.id === "research" || item.id === "decision"
-  const Wrapper = isLocked ? "div" : url && enabled ? "a" : "div"
-  const wrapperProps =
-    isLocked ? {} : url && enabled ? { href: url, target: "_blank", rel: "noopener noreferrer" as const } : {}
+  const effectiveUrl = resolveTileUrl(item.id, url)
+  const isRelative = effectiveUrl.startsWith("/")
+  const isExternal = /^https?:\/\//i.test(effectiveUrl)
+
+  let Wrapper: React.ElementType = "div"
+  const wrapperProps: { href?: string; target?: string; rel?: string } = {}
+  if (!isLocked && effectiveUrl && enabled) {
+    if (isRelative) {
+      Wrapper = Link
+      wrapperProps.href = effectiveUrl
+    } else if (isExternal) {
+      Wrapper = "a"
+      wrapperProps.href = effectiveUrl
+      wrapperProps.target = "_blank"
+      wrapperProps.rel = "noopener noreferrer"
+    }
+  }
 
   const layoutClass = "flex-col"
   const color = style?.color || "#000"
