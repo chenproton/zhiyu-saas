@@ -29,6 +29,7 @@
   - 已将单 Next.js 应用拆分为 `apps/marketplace` 与 `apps/edu`，并建立 `@zhiyu/ui`、`@zhiyu/api-client`、`@zhiyu/shared-types` 共享包。
   - 两个应用均通过 `tsc --noEmit` 与 `next build`。
   - `./deploy.sh` 成功部署两个前端并通过健康检查。
+  - 通过 `NEXT_PUBLIC_DEFAULT_PLATFORM` 确保教育管理应用的所有路由使用 portal token，商城应用使用 saas token；edu 应用未登录时统一跳转 `/portal/login`，不会跳转到商城。
 
 ### 2026-07-15 部署与运维审查
 

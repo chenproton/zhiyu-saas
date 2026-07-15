@@ -13,6 +13,7 @@
 - 鉴权保持双 token：
   - 商城与运营后台使用 `saas` 平台 token，存储键 `zhiyu-token`，登录入口 `/login`。
   - 教育管理使用 `portal` 平台 token，存储键 `zhiyu-portal-token`，登录入口 `/portal/login`。
+- 通过 `NEXT_PUBLIC_DEFAULT_PLATFORM` 环境变量为每个应用指定默认平台，避免按路径判断导致 `/job/*`、`/scene/*` 等非 `/portal` 路径误用 saas token。
 
 ## 目录结构
 
