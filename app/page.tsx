@@ -17,16 +17,16 @@ export default function RootPage() {
     const code = identityType?.code ?? ""
     switch (code) {
       case "platform_admin":
-      case "school_admin":
         router.replace("/admin")
+        break
+      case "school_admin":
+      case "enterprise_hr":
+      case "enterprise_mentor":
+        router.replace("/dashboard")
         break
       case "teacher":
       case "student":
         router.replace("/portal/workspace")
-        break
-      case "enterprise_hr":
-      case "enterprise_mentor":
-        router.replace("/dashboard")
         break
       default:
         // Unknown identity: stay on marketplace home.

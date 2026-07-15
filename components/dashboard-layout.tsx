@@ -32,6 +32,8 @@ import {
   FolderKanban,
   FolderTree,
   Shield,
+  History,
+  Workflow,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -78,30 +80,84 @@ export function useRole() {
 
 const adminNavigation: NavGroup[] = [
   {
-    name: "平台管理",
-    icon: Shield,
+    name: "平台概览",
+    icon: LayoutDashboard,
+    items: [{ name: "运营仪表盘", href: "/admin", icon: LayoutDashboard }],
+  },
+  {
+    name: "租户管理",
+    icon: Building2,
     items: [
-      { name: "租户管理", href: "/portal/apps/system/tenant", icon: Building2 },
-      { name: "组织架构", href: "/portal/apps/system/org-user/org-structure", icon: FolderTree },
-      { name: "用户管理", href: "/portal/apps/system/org-user/accounts", icon: Users },
-      { name: "运营仪表盘", href: "/admin", icon: LayoutDashboard },
+      { name: "机构入驻审核", href: "/admin/institutions", icon: Building2 },
+      { name: "租户配置", href: "/portal/apps/system/tenant", icon: Settings },
     ],
+  },
+  {
+    name: "内容管理",
+    icon: BookOpen,
+    items: [{ name: "资源审核", href: "/admin/resources", icon: BookOpen }],
   },
   {
     name: "交易管理",
     icon: FileText,
     items: [
-      { name: "订单管理", href: "/admin/orders", icon: FileText },
+      { name: "全平台订单", href: "/admin/orders", icon: FileText },
       { name: "提现审核", href: "/admin/withdrawals", icon: Wallet },
       { name: "结算中心", href: "/admin/settlement", icon: BarChart3 },
     ],
   },
   {
-    name: "系统设置",
+    name: "系统配置",
     icon: Settings,
     items: [
       { name: "轮播图配置", href: "/admin/banners", icon: ImageIcon },
       { name: "标签字典", href: "/admin/dictionary", icon: BookOpen },
+    ],
+  },
+]
+
+const schoolNavigation: NavGroup[] = [
+  {
+    name: "机构概览",
+    icon: LayoutDashboard,
+    items: [{ name: "学校仪表盘", href: "/dashboard", icon: LayoutDashboard }],
+  },
+  {
+    name: "资源采购",
+    icon: Store,
+    items: [
+      { name: "资源商城", href: "/", icon: Store },
+      { name: "已购资源", href: "/purchased", icon: ShoppingBag },
+    ],
+  },
+  {
+    name: "交易管理",
+    icon: FileText,
+    items: [{ name: "本校订单", href: "/orders", icon: FileText }],
+  },
+  {
+    name: "财务管理",
+    icon: Wallet,
+    items: [{ name: "本校钱包", href: "/wallet", icon: Wallet }],
+  },
+  {
+    name: "机构信息",
+    icon: Building2,
+    items: [{ name: "学校信息", href: "/institution", icon: Building2 }],
+  },
+  {
+    name: "系统管理",
+    icon: Settings,
+    items: [
+      { name: "组织架构", href: "/portal/apps/system/org-user/org-structure", icon: FolderTree },
+      { name: "用户管理", href: "/portal/apps/system/org-user/accounts", icon: Users },
+      { name: "教师管理", href: "/portal/apps/system/org-user/teachers", icon: GraduationCap },
+      { name: "学生管理", href: "/portal/apps/system/org-user/students", icon: Users },
+      { name: "毕业生管理", href: "/portal/apps/system/org-user/graduates", icon: GraduationCap },
+      { name: "角色权限", href: "/portal/apps/system/org-user/roles", icon: Shield },
+      { name: "审批流程", href: "/portal/apps/system/approval", icon: Workflow },
+      { name: "登录日志", href: "/portal/apps/system/logs/login", icon: History },
+      { name: "操作日志", href: "/portal/apps/system/logs/operation", icon: History },
     ],
   },
 ]
@@ -123,11 +179,11 @@ const teacherNavigation: NavGroup[] = [
     icon: GraduationCap,
     items: [
       { name: "开课计划", href: "/lesson/teacher/claim", icon: LayoutDashboard },
-      { name: "学习跟踪", href: "/lesson/teacher/behavior", icon: Compass },
-      { name: "测评跟踪", href: "/lesson/teacher/progress", icon: BarChart3 },
-      { name: "期末总评", href: "/lesson/teacher/assessment", icon: Award },
+      { name: "学习跟踪", href: "/lesson/teacher/behavior-collection", icon: Compass },
+      { name: "测评跟踪", href: "/lesson/teacher/progress-tracking", icon: BarChart3 },
+      { name: "期末总评", href: "/lesson/teacher/final-assessment", icon: Award },
       { name: "成绩提交", href: "/lesson/teacher/grade-submit", icon: FileText },
-      { name: "学生画像", href: "/lesson/teacher/portrait", icon: Users },
+      { name: "学生画像", href: "/lesson/teacher/learning-portrait", icon: Users },
     ],
   },
 ]
@@ -148,35 +204,37 @@ const studentNavigation: NavGroup[] = [
 
 const enterpriseNavigation: NavGroup[] = [
   {
-    name: "资源商城",
-    icon: Store,
-    items: [{ name: "商城首页", href: "/", icon: Store }],
-  },
-  {
     name: "资源工坊",
     icon: Package,
     items: [
       { name: "仪表盘", href: "/dashboard", icon: LayoutDashboard },
       { name: "新建资源", href: "/my-resources/new", icon: Package },
       { name: "我的资源库", href: "/my-resources", icon: BookOpen },
-      { name: "订单管理", href: "/orders", icon: FileText },
     ],
+  },
+  {
+    name: "交易管理",
+    icon: FileText,
+    items: [{ name: "销售订单", href: "/orders", icon: FileText }],
+  },
+  {
+    name: "财务管理",
+    icon: Wallet,
+    items: [{ name: "钱包/提现", href: "/wallet", icon: Wallet }],
   },
   {
     name: "机构中心",
     icon: Building2,
-    items: [
-      { name: "机构信息", href: "/institution", icon: Building2 },
-      { name: "账户中心", href: "/wallet", icon: Wallet },
-    ],
+    items: [{ name: "企业信息", href: "/institution", icon: Building2 }],
   },
 ]
 
 function getNavigationGroups(identityCode?: string): NavGroup[] {
   switch (identityCode) {
     case "platform_admin":
-    case "school_admin":
       return adminNavigation
+    case "school_admin":
+      return schoolNavigation
     case "teacher":
       return teacherNavigation
     case "student":
