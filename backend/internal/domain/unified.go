@@ -140,6 +140,7 @@ type UserExtensionField struct {
 	IsEnabled                   bool      `json:"isEnabled"`
 	IsRequired                  bool      `json:"isRequired"`
 	ApplicableIdentityTypeIDs   []string  `json:"applicableIdentityTypeIds,omitempty"`
+	ApplicableIdentityCodes     []string  `json:"applicableIdentityCodes"`
 	SlotNumber                  int       `json:"slotNumber"`
 	CreatedAt                   time.Time `json:"createdAt"`
 }

@@ -1,112 +1,124 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pencil, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { portalIdentityTypeApi, portalUserExtensionFieldApi } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
+import { Pencil, AlertCircle, Loader2, RotateCcw } from "lucide-react"
+import type { IdentityType, UserExtensionField } from "@/lib/types/backend"
 
 interface ExtendField {
-  id: number
+  id: string
+  slotNumber: number
   name: string
   enabled: boolean
-  identityTypes: string[] // 适用的身份类型
+  identityTypeIds: string[]
 }
 
-const identityTypeOptions = [
-  { id: "teacher", label: "教职工" },
-  { id: "student", label: "学生" },
-  { id: "enterprise", label: "企业人员" },
-]
-
-const defaultFields: ExtendField[] = [
-  { id: 1, name: "籍贯", enabled: true, identityTypes: ["teacher", "student"] },
-  { id: 2, name: "民族", enabled: true, identityTypes: ["teacher", "student"] },
-  { id: 3, name: "政治面貌", enabled: true, identityTypes: ["teacher", "student"] },
-  { id: 4, name: "婚姻状况", enabled: true, identityTypes: ["teacher"] },
-  { id: 5, name: "紧急联系人", enabled: true, identityTypes: ["teacher", "student", "enterprise"] },
-  { id: 6, name: "紧急联系电话", enabled: true, identityTypes: ["teacher", "student", "enterprise"] },
-  { id: 7, name: "毕业院校", enabled: true, identityTypes: ["teacher"] },
-  { id: 8, name: "最高学历", enabled: true, identityTypes: ["teacher"] },
-  { id: 9, name: "所学专业", enabled: false, identityTypes: ["teacher"] },
-  { id: 10, name: "入职日期", enabled: true, identityTypes: ["teacher", "enterprise"] },
-  { id: 11, name: "家庭住址", enabled: false, identityTypes: ["student"] },
-  { id: 12, name: "监护人姓名", enabled: true, identityTypes: ["student"] },
-  { id: 13, name: "监护人电话", enabled: true, identityTypes: ["student"] },
-  { id: 14, name: "企业职务", enabled: true, identityTypes: ["enterprise"] },
-  { id: 15, name: "企业部门", enabled: true, identityTypes: ["enterprise"] },
-  { id: 16, name: "扩展字段16", enabled: false, identityTypes: [] },
-  { id: 17, name: "扩展字段17", enabled: false, identityTypes: [] },
-  { id: 18, name: "扩展字段18", enabled: false, identityTypes: [] },
-  { id: 19, name: "扩展字段19", enabled: false, identityTypes: [] },
-  { id: 20, name: "扩展字段20", enabled: false, identityTypes: [] },
-]
-
 export default function UserFieldsPage() {
-  const [fields, setFields] = useState<ExtendField[]>(defaultFields)
+  const { tenantId } = usePortalAuth()
+  const { toast } = useToast()
+  const [fields, setFields] = useState<ExtendField[]>([])
+  const [rawFields, setRawFields] = useState<UserExtensionField[]>([])
+  const [identityTypes, setIdentityTypes] = useState<IdentityType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>()
   const [showDialog, setShowDialog] = useState(false)
   const [editingField, setEditingField] = useState<ExtendField | null>(null)
   const [editName, setEditName] = useState("")
-  const [editIdentityTypes, setEditIdentityTypes] = useState<string[]>([])
+  const [editIdentityTypeIds, setEditIdentityTypeIds] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
 
-  const handleToggle = (id: number) => {
-    setFields(fields.map(f => 
-      f.id === id ? { ...f, enabled: !f.enabled } : f
-    ))
+  const identityTypeMap = useMemo(() => {
+    const map = new Map<string, IdentityType>()
+    identityTypes.forEach((it) => map.set(it.id, it))
+    return map
+  }, [identityTypes])
+
+  const fetchData = async () => {
+    if (!tenantId) return
+    setLoading(true)
+    setError(undefined)
+    try {
+      const [fieldsRes, idTypesRes] = await Promise.all([
+        portalUserExtensionFieldApi.list({ tenantId }),
+        portalIdentityTypeApi.list({ tenantId, limit: 1000 }),
+      ])
+      setIdentityTypes(idTypesRes.items)
+      setRawFields(fieldsRes.items)
+      setFields(
+        fieldsRes.items.map((f) => ({
+          id: f.id,
+          slotNumber: f.slotNumber,
+          name: f.fieldName,
+          enabled: f.isEnabled,
+          identityTypeIds: f.applicableIdentityTypeIds || [],
+        }))
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载失败")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [tenantId])
+
+  const handleToggle = async (field: ExtendField) => {
+    const original = rawFields.find((f) => f.id === field.id)
+    if (!original) return
+    try {
+      await portalUserExtensionFieldApi.update(field.id, { isEnabled: !field.enabled })
+      toast({ title: "状态已更新" })
+      await fetchData()
+    } catch (err) {
+      toast({ variant: "destructive", title: "操作失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
   }
 
   const handleEdit = (field: ExtendField) => {
     setEditingField(field)
     setEditName(field.name)
-    setEditIdentityTypes(field.identityTypes)
+    setEditIdentityTypeIds(field.identityTypeIds)
     setShowDialog(true)
   }
 
-  const handleSave = () => {
-    if (editingField) {
-      setFields(fields.map(f => 
-        f.id === editingField.id 
-          ? { ...f, name: editName, identityTypes: editIdentityTypes }
-          : f
-      ))
+  const handleSave = async () => {
+    if (!editingField) return
+    setSaving(true)
+    try {
+      await portalUserExtensionFieldApi.update(editingField.id, {
+        fieldName: editName.trim(),
+        applicableIdentityTypeIds: editIdentityTypeIds,
+      })
+      toast({ title: "保存成功" })
+      setShowDialog(false)
+      await fetchData()
+    } catch (err) {
+      toast({ variant: "destructive", title: "保存失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
     }
-    setShowDialog(false)
   }
 
   const toggleIdentityType = (typeId: string) => {
-    setEditIdentityTypes(prev =>
-      prev.includes(typeId) 
-        ? prev.filter(t => t !== typeId)
-        : [...prev, typeId]
+    setEditIdentityTypeIds((prev) =>
+      prev.includes(typeId) ? prev.filter((t) => t !== typeId) : [...prev, typeId]
     )
   }
 
-  const getIdentityTypeLabels = (types: string[]) => {
-    return types.map(t => identityTypeOptions.find(opt => opt.id === t)?.label).filter(Boolean)
+  const getIdentityTypeLabels = (typeIds: string[]) => {
+    return typeIds.map((id) => identityTypeMap.get(id)?.name).filter(Boolean)
   }
 
   return (
@@ -118,15 +130,18 @@ export default function UserFieldsPage() {
         </p>
       </div>
 
-      <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-4 text-amber-800 flex items-start gap-3">
-        <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-        <div className="text-sm">
-          <p className="font-medium">后端暂无用户扩展字段接口</p>
-          <p className="opacity-90">
-            当前页面展示的是静态示例数据，用于保留 UI 结构。待后端提供 /user-extension-fields 相关接口后再替换为真实数据。
-          </p>
-        </div>
-      </div>
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>加载失败</AlertTitle>
+          <AlertDescription className="flex items-center gap-4">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={fetchData}>
+              <RotateCcw className="h-4 w-4 mr-1" />重试
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="bg-white rounded-lg border border-gray-100 shadow-sm">
         <Table>
@@ -140,42 +155,54 @@ export default function UserFieldsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {fields.map((field) => (
-              <TableRow key={field.id}>
-                <TableCell className="text-muted-foreground">{field.id}</TableCell>
-                <TableCell className="font-medium">{field.name}</TableCell>
-                <TableCell>
-                  {field.identityTypes.length > 0 ? (
-                    <div className="flex gap-1 flex-wrap">
-                      {getIdentityTypeLabels(field.identityTypes).map((label, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {label}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">未指定</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  <Switch 
-                    checked={field.enabled} 
-                    onCheckedChange={() => handleToggle(field.id)}
-                  />
-                </TableCell>
-                <TableCell className="text-center">
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(field)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : fields.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  暂无扩展字段数据
+                </TableCell>
+              </TableRow>
+            ) : (
+              fields.map((field) => (
+                <TableRow key={field.id}>
+                  <TableCell className="text-muted-foreground">{field.slotNumber}</TableCell>
+                  <TableCell className="font-medium">{field.name}</TableCell>
+                  <TableCell>
+                    {field.identityTypeIds.length > 0 ? (
+                      <div className="flex gap-1 flex-wrap">
+                        {getIdentityTypeLabels(field.identityTypeIds).map((label, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">
+                            {label}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">未指定</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Switch checked={field.enabled} onCheckedChange={() => handleToggle(field)} />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(field)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
 
       <div className="mt-4 text-sm text-muted-foreground">
-        已启用 {fields.filter(f => f.enabled).length} / {fields.length} 个扩展字段
+        已启用 {fields.filter((f) => f.enabled).length} / {fields.length} 个扩展字段
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -186,27 +213,23 @@ export default function UserFieldsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>字段名称</Label>
-              <Input 
-                placeholder="请输入字段名称" 
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-              />
+              <Input placeholder="请输入字段名称" value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>适用身份类型（可多选）</Label>
               <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30">
-                {identityTypeOptions.map(type => (
+                {identityTypes.map((type) => (
                   <button
                     key={type.id}
                     type="button"
                     onClick={() => toggleIdentityType(type.id)}
                     className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                      editIdentityTypes.includes(type.id)
+                      editIdentityTypeIds.includes(type.id)
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-background hover:bg-muted border-border"
                     }`}
                   >
-                    {type.label}
+                    {type.name}
                   </button>
                 ))}
               </div>
@@ -216,8 +239,11 @@ export default function UserFieldsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>取消</Button>
-            <Button onClick={handleSave}>确定</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)} disabled={saving}>取消</Button>
+            <Button onClick={handleSave} disabled={saving || !editName.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              确定
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

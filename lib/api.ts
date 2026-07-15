@@ -453,6 +453,7 @@ export interface CreateUserRequest {
   orgNodeId?: string
   majorId?: string
   role: "school" | "enterprise" | "operator"
+  platform?: "saas" | "portal"
   loginName: string
   username?: string
   password: string
@@ -502,8 +503,41 @@ export const portalUserManagementApi = {
   delete: (id: string) => portalRequest<{ id: string }>(`/users/${id}`, { method: "DELETE" }),
   updateStatus: (id: string, status: string) =>
     portalRequest<User>(`/users/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+  resetPassword: (id: string, password: string) =>
+    portalRequest<User>(`/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ password }) }),
   batchCreate: (reqs: CreateUserRequest[]) =>
     portalRequest<{ count: number }>("/users/batch", { method: "POST", body: JSON.stringify({ items: reqs }) }),
+}
+
+export const portalStaffTitleApi = {
+  list: (params?: { tenantId?: string; search?: string; limit?: number; offset?: number }) =>
+    portalRequest<ListResponse<StaffTitle>>(`/staff-titles${buildQuery(params || {})}`),
+  get: (id: string) => portalRequest<StaffTitle>(`/staff-titles/${id}`),
+  create: (req: Omit<StaffTitle, "id" | "userCount" | "createdAt">) =>
+    portalRequest<StaffTitle>("/staff-titles", { method: "POST", body: JSON.stringify(req) }),
+  update: (id: string, req: Partial<Omit<StaffTitle, "id" | "userCount" | "createdAt">>) =>
+    portalRequest<StaffTitle>(`/staff-titles/${id}`, { method: "PUT", body: JSON.stringify(req) }),
+  delete: (id: string) => portalRequest<{ id: string }>(`/staff-titles/${id}`, { method: "DELETE" }),
+  toggleStatus: (id: string, status: string) =>
+    portalRequest<StaffTitle>(`/staff-titles/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+}
+
+export const portalGraduateApi = {
+  list: (params?: { tenantId?: string; search?: string; limit?: number; offset?: number }) =>
+    portalRequest<ListResponse<Graduate>>(`/graduates${buildQuery(params || {})}`),
+  get: (id: string) => portalRequest<Graduate>(`/graduates/${id}`),
+  create: (req: Omit<Graduate, "id" | "createdAt">) =>
+    portalRequest<Graduate>("/graduates", { method: "POST", body: JSON.stringify(req) }),
+  update: (id: string, req: Partial<Omit<Graduate, "id" | "createdAt">>) =>
+    portalRequest<Graduate>(`/graduates/${id}`, { method: "PUT", body: JSON.stringify(req) }),
+  delete: (id: string) => portalRequest<{ id: string }>(`/graduates/${id}`, { method: "DELETE" }),
+}
+
+export const portalUserExtensionFieldApi = {
+  list: (params?: { tenantId?: string }) =>
+    portalRequest<ListResponse<UserExtensionField>>(`/user-extension-fields${buildQuery(params || {})}`),
+  update: (id: string, req: Partial<Omit<UserExtensionField, "id" | "tenantId" | "slotNumber" | "fieldKey" | "fieldType" | "createdAt">>) =>
+    portalRequest<UserExtensionField>(`/user-extension-fields/${id}`, { method: "PUT", body: JSON.stringify(req) }),
 }
 
 export const roleApi = {

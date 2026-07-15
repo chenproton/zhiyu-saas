@@ -12,14 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { usePortalUsers } from "@/hooks/use-portal-users"
+import { portalUserManagementApi } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 import {
   Plus, MoreHorizontal, Pencil, Power, Trash2, Search, Filter, Upload, Download,
-  ChevronRight, ChevronDown, FolderTree, Award, Check, ChevronsUpDown, Loader2, AlertCircle, RotateCcw
+  ChevronRight, ChevronDown, FolderTree, Award, Key, Loader2, AlertCircle, RotateCcw
 } from "lucide-react"
 
 interface Student {
@@ -81,34 +81,18 @@ const orgTreeData: OrgDeptNode[] = [
       {
         id: "major-2-1",
         name: "会计系",
-        classes: [
-          { id: "class-2-1-1", name: "会计2401班", gradeLabel: "2024级" },
-        ],
+        classes: [{ id: "class-2-1-1", name: "会计2401班", gradeLabel: "2024级" }],
       },
       {
         id: "major-2-2",
         name: "金融系",
-        classes: [
-          { id: "class-2-1-2", name: "金融2401班", gradeLabel: "2024级" },
-        ],
+        classes: [{ id: "class-2-1-2", name: "金融2401班", gradeLabel: "2024级" }],
       },
     ],
   },
-  {
-    id: "dept-3",
-    name: "教务处",
-    majors: [],
-  },
-  {
-    id: "dept-4",
-    name: "学生处",
-    majors: [],
-  },
+  { id: "dept-3", name: "教务处", majors: [] },
+  { id: "dept-4", name: "学生处", majors: [] },
 ]
-
-const allClasses = orgTreeData.flatMap(d =>
-  d.majors.flatMap(m => m.classes)
-)
 
 const statusColor: Record<string, string> = {
   "在籍": "default",
@@ -125,6 +109,13 @@ function mapStudentStatus(status: string): Student["status"] {
   return "在籍"
 }
 
+function toBackendStatus(status: Student["status"]): string {
+  if (status === "在籍") return "active"
+  if (status === "休学") return "inactive"
+  if (status === "退学") return "disabled"
+  return "active"
+}
+
 function classBadge(variant: string) {
   if (variant === "destructive") return "destructive" as const
   if (variant === "secondary") return "secondary" as const
@@ -132,23 +123,25 @@ function classBadge(variant: string) {
 }
 
 export default function StudentsPage() {
-  const { institution } = usePortalAuth()
+  const { institution, institutionId, tenantId } = usePortalAuth()
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const { users, loading, error, refetch } = usePortalUsers({
+  const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
     identityTypeCode: "student",
     search: searchTerm || undefined,
   })
 
   const [students, setStudents] = useState<Student[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
-
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
-  const [classOpen, setClassOpen] = useState(false)
-  const [formClassId, setFormClassId] = useState("")
-  const [formClassName, setFormClassName] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const [formName, setFormName] = useState("")
+  const [formUsername, setFormUsername] = useState("")
+  const [formPassword, setFormPassword] = useState("")
+  const [formStudentNo, setFormStudentNo] = useState("")
 
   useEffect(() => {
     setStudents(
@@ -171,68 +164,97 @@ export default function StudentsPage() {
     }
     if (statusFilter !== "all" && student.status !== statusFilter) return false
     if (selectedClassId) {
-      const cls = allClasses.find(c => c.id === selectedClassId)
+      const cls = allClasses.find((c) => c.id === selectedClassId)
       if (cls && student.className !== cls.name) return false
     }
     return true
   })
 
-  const stats = {
-    total: students.length,
-    enrolled: students.filter(s => s.status === "在籍").length,
-    suspended: students.filter(s => s.status === "休学").length,
-    graduated: students.filter(s => s.status === "毕业").length,
-    dropped: students.filter(s => s.status === "退学").length,
-    completed: students.filter(s => s.status === "结业").length,
+  const toggleStatus = async (student: Student) => {
+    const backendStatus = toBackendStatus(student.status)
+    const nextBackendStatus = backendStatus === "active" ? "inactive" : "active"
+    try {
+      await portalUserManagementApi.updateStatus(student.id, nextBackendStatus)
+      toast({ title: "状态已更新" })
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "操作失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
   }
 
-  const toggleStatus = (id: string) => {
-    setStudents((prev) => prev.map((s) => {
-      if (s.id !== id) return s
-      const nextMap: Record<string, Student["status"]> = { "在籍": "休学", "休学": "在籍", "退学": "在籍", "毕业": "在籍", "结业": "在籍" }
-      return { ...s, status: nextMap[s.status] || "在籍" }
-    }))
+  const deleteStudent = async (id: string) => {
+    if (!window.confirm("确定要删除该学生吗？此操作不可恢复。")) return
+    try {
+      await portalUserManagementApi.delete(id)
+      toast({ title: "删除成功" })
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
   }
 
-  const deleteStudent = (id: string) => {
-    setStudents((prev) => prev.filter((s) => s.id !== id))
+  const resetPassword = async (student: Student) => {
+    const password = window.prompt(`请输入 ${student.name} 的新密码：`)
+    if (!password) return
+    try {
+      await portalUserManagementApi.resetPassword(student.id, password)
+      toast({ title: "密码重置成功" })
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "重置失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
   }
 
   const toggleSelectStudent = (id: string) => {
-    setSelectedStudents(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
+    setSelectedStudents((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
   }
 
   const toggleSelectAll = () => {
     if (selectedStudents.length === filteredStudents.length && filteredStudents.length > 0) {
       setSelectedStudents([])
     } else {
-      setSelectedStudents(filteredStudents.map(s => s.id))
+      setSelectedStudents(filteredStudents.map((s) => s.id))
     }
   }
 
   const openCreateDialog = () => {
-    setSelectedStudent(null)
-    setFormClassId("")
-    setFormClassName("")
+    setFormName("")
+    setFormUsername("")
+    setFormPassword("")
+    setFormStudentNo("")
     setIsDialogOpen(true)
   }
 
-  const openEditDialog = (student: Student) => {
-    setSelectedStudent(student)
-    const cls = allClasses.find(c => c.name === student.className)
-    setFormClassId(cls?.id || "")
-    setFormClassName(student.className)
-    setClassOpen(false)
-    setIsDialogOpen(true)
+  const handleCreate = async () => {
+    if (!tenantId || !institutionId || !formName.trim() || !formUsername.trim() || !formPassword.trim()) return
+    const studentType = Array.from(identityTypeMap.values()).find((it) => it.code === "student")
+    if (!studentType) {
+      toast({ variant: "destructive", title: "创建失败", description: "未找到学生身份类型" })
+      return
+    }
+    setSaving(true)
+    try {
+      await portalUserManagementApi.create({
+        tenantId,
+        institutionId,
+        identityTypeId: studentType.id,
+        role: "school",
+        platform: "portal",
+        loginName: formUsername.trim(),
+        username: formUsername.trim(),
+        password: formPassword.trim(),
+        name: formName.trim(),
+        studentNo: formStudentNo.trim() || undefined,
+      })
+      toast({ title: "创建成功" })
+      setIsDialogOpen(false)
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "创建失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
+    }
   }
-
-  const selectedOrgClass = allClasses.find(c => c.id === formClassId)
-  const selectedOrgMajor = selectedOrgClass
-    ? orgTreeData.flatMap(d => d.majors).find(m => m.classes.some(c => c.id === formClassId))
-    : null
-  const selectedOrgDept = selectedOrgMajor
-    ? orgTreeData.find(d => d.majors.some(m => m.id === selectedOrgMajor.id))
-    : null
 
   return (
     <div className="p-6 bg-[#f5f7fa] min-h-full">
@@ -248,7 +270,7 @@ export default function StudentsPage() {
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-1" />导出
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => toast({ title: "批量毕业", description: "请使用毕业学生管理页面进行单个或批量毕业操作" })}>
             <Award className="h-4 w-4 mr-1" />批量毕业
           </Button>
           <Button size="sm" onClick={openCreateDialog}>
@@ -286,13 +308,8 @@ export default function StudentsPage() {
               >
                 全部学生
               </button>
-              {orgTreeData.map(dept => (
-                <DeptTreeNode
-                  key={dept.id}
-                  dept={dept}
-                  selectedClassId={selectedClassId}
-                  onSelectClass={setSelectedClassId}
-                />
+              {orgTreeData.map((dept) => (
+                <DeptTreeNode key={dept.id} dept={dept} selectedClassId={selectedClassId} onSelectClass={setSelectedClassId} />
               ))}
             </div>
           </ScrollArea>
@@ -356,10 +373,7 @@ export default function StudentsPage() {
                     {filteredStudents.map((student) => (
                       <TableRow key={student.id} className="border-border">
                         <TableCell>
-                          <Checkbox
-                            checked={selectedStudents.includes(student.id)}
-                            onCheckedChange={() => toggleSelectStudent(student.id)}
-                          />
+                          <Checkbox checked={selectedStudents.includes(student.id)} onCheckedChange={() => toggleSelectStudent(student.id)} />
                         </TableCell>
                         <TableCell className="font-mono text-sm">{student.studentNo}</TableCell>
                         <TableCell className="font-medium">{student.name}</TableCell>
@@ -377,10 +391,10 @@ export default function StudentsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEditDialog(student)}>
-                                <Pencil className="mr-2 h-4 w-4" />编辑
+                              <DropdownMenuItem onClick={() => resetPassword(student)}>
+                                <Key className="mr-2 h-4 w-4" />重置密码
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toggleStatus(student.id)}>
+                              <DropdownMenuItem onClick={() => toggleStatus(student)}>
                                 <Power className="mr-2 h-4 w-4" />
                                 {student.status === "在籍" ? "设为休学" : "设为在籍"}
                               </DropdownMenuItem>
@@ -412,106 +426,43 @@ export default function StudentsPage() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <DialogTitle>{selectedStudent ? "编辑学生" : "新生录入"}</DialogTitle>
+            <DialogTitle>新生录入</DialogTitle>
             <DialogDescription>填写学生基本信息</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>学号 <span className="text-destructive">*</span></Label>
-                <Input placeholder="如：S2024001" defaultValue={selectedStudent?.studentNo} />
-              </div>
-              <div className="grid gap-2">
-                <Label>姓名 <span className="text-destructive">*</span></Label>
-                <Input placeholder="请输入姓名" defaultValue={selectedStudent?.name} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>密码 <span className="text-destructive">*</span></Label>
-                <Input type="password" placeholder="请输入密码" />
-              </div>
-              <div className="grid gap-2">
-                <Label>状态</Label>
-                <Select defaultValue={selectedStudent?.status || "在籍"}>
-                  <SelectTrigger><SelectValue placeholder="选择状态" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="在籍">在籍</SelectItem>
-                    <SelectItem value="休学">休学</SelectItem>
-                    <SelectItem value="退学">退学</SelectItem>
-                    <SelectItem value="毕业">毕业</SelectItem>
-                    <SelectItem value="结业">结业</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-2">
+              <Label>姓名 <span className="text-destructive">*</span></Label>
+              <Input placeholder="请输入姓名" value={formName} onChange={(e) => setFormName(e.target.value)} />
             </div>
             <div className="grid gap-2">
-              <Label>所属班级</Label>
-              <Popover open={classOpen} onOpenChange={setClassOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                    {formClassName || "搜索并选择班级..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0">
-                  <Command>
-                    <CommandInput placeholder="搜索班级名称..." />
-                    <CommandList>
-                      <CommandEmpty>未找到班级</CommandEmpty>
-                      <CommandGroup>
-                        {allClasses.map((c) => {
-                          const major = orgTreeData.flatMap(d => d.majors).find(m => m.classes.some(cl => cl.id === c.id))
-                          const dept = orgTreeData.find(d => d.majors.some(m => m.id === major?.id))
-                          return (
-                            <CommandItem
-                              key={c.id}
-                              value={c.name + " " + (major?.name || "") + " " + (dept?.name || "")}
-                              onSelect={() => {
-                                setFormClassId(c.id)
-                                setFormClassName(c.name)
-                                setClassOpen(false)
-                              }}
-                            >
-                              <Check className={cn("mr-2 h-4 w-4", formClassId === c.id ? "opacity-100" : "opacity-0")} />
-                              <div className="flex flex-col">
-                                <div className="flex items-center gap-1">
-                                  <span>{c.name}</span>
-                                  {c.gradeLabel && <span className="text-[10px] px-1 rounded bg-muted">{c.gradeLabel}</span>}
-                                </div>
-                                <span className="text-xs text-muted-foreground">{major?.name} · {dept?.name}</span>
-                              </div>
-                            </CommandItem>
-                          )
-                        })}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Label>登录账号 <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：zhangsan" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>所属院系</Label>
-                <Input value={selectedOrgDept?.name || "—"} readOnly className="bg-muted" />
-              </div>
-              <div className="grid gap-2">
-                <Label>所属专业</Label>
-                <Input value={selectedOrgMajor?.name || "—"} readOnly className="bg-muted" />
-              </div>
+            <div className="grid gap-2">
+              <Label>密码 <span className="text-destructive">*</span></Label>
+              <Input type="password" placeholder="请输入密码" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>学号</Label>
+              <Input placeholder="如：S2024001" value={formStudentNo} onChange={(e) => setFormStudentNo(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsDialogOpen(false)}>保存</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
+            <Button onClick={handleCreate} disabled={saving || !formName.trim() || !formUsername.trim() || !formPassword.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              保存
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
+
+const allClasses = orgTreeData.flatMap((d) => d.majors.flatMap((m) => m.classes))
 
 function DeptTreeNode({
   dept,
@@ -533,7 +484,7 @@ function DeptTreeNode({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="ml-4 space-y-1">
-          {dept.majors.map(major => (
+          {dept.majors.map((major) => (
             <MajorTreeNode key={major.id} major={major} selectedClassId={selectedClassId} onSelectClass={onSelectClass} />
           ))}
         </div>
@@ -562,7 +513,7 @@ function MajorTreeNode({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="ml-4 space-y-0.5">
-          {major.classes.map(cls => (
+          {major.classes.map((cls) => (
             <button
               key={cls.id}
               onClick={() => onSelectClass(cls.id)}

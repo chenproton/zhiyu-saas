@@ -69,6 +69,31 @@ type BatchCreateUserRequest struct {
 	Users []CreateUserRequest `json:"users"`
 }
 
+type ResetPasswordRequest struct {
+	Password string `json:"password"`
+}
+
+func (h *UserManagementHandler) currentIdentityCode(r *http.Request) string {
+	claims := middleware.CurrentUser(r)
+	if claims == nil || claims.IdentityTypeID == nil {
+		return ""
+	}
+	var code string
+	_ = h.DB.QueryRow(r.Context(), `SELECT code FROM identity_types WHERE id = $1`, *claims.IdentityTypeID).Scan(&code)
+	return code
+}
+
+func (h *UserManagementHandler) canManageUsers(r *http.Request) bool {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		return false
+	}
+	if claims.Role == domain.UserRoleOperator {
+		return true
+	}
+	return claims.Platform == domain.UserPlatformPortal && h.currentIdentityCode(r) == "school_admin"
+}
+
 func (h *UserManagementHandler) List(w http.ResponseWriter, r *http.Request) {
 	tenantID := r.URL.Query().Get("tenantId")
 	institutionID := r.URL.Query().Get("institutionId")
@@ -166,7 +191,7 @@ func (h *UserManagementHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserManagementHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !h.canManageUsers(r) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -175,6 +200,16 @@ func (h *UserManagementHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+
+	if req.Platform == "" && claims != nil {
+		req.Platform = claims.Platform
+	}
+	if req.TenantID == "" && claims != nil && claims.TenantID != nil {
+		req.TenantID = *claims.TenantID
+	}
+	if req.InstitutionID == nil && claims != nil && claims.InstitutionID != nil {
+		req.InstitutionID = claims.InstitutionID
 	}
 
 	if req.TenantID == "" || req.Username == "" || req.Password == "" || req.Name == "" {
@@ -192,8 +227,7 @@ func (h *UserManagementHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserManagementHandler) Update(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !h.canManageUsers(r) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -236,8 +270,7 @@ func (h *UserManagementHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserManagementHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !h.canManageUsers(r) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -257,8 +290,7 @@ func (h *UserManagementHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserManagementHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !h.canManageUsers(r) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -291,9 +323,47 @@ func (h *UserManagementHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 	respondJSON(w, http.StatusOK, user)
 }
 
+func (h *UserManagementHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	if !h.canManageUsers(r) {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := h.fetchUser(r.Context(), id); err != nil {
+		respondError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	var req ResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Password == "" {
+		respondError(w, http.StatusBadRequest, "password is required")
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to hash password")
+		return
+	}
+
+	_, err = h.DB.Exec(r.Context(), `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`, string(hash), id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to reset password")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
 func (h *UserManagementHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !h.canManageUsers(r) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -318,6 +388,15 @@ func (h *UserManagementHandler) BatchCreate(w http.ResponseWriter, r *http.Reque
 
 	created := make([]domain.User, 0, len(req.Users))
 	for _, u := range req.Users {
+		if u.Platform == "" && claims != nil {
+			u.Platform = claims.Platform
+		}
+		if u.TenantID == "" && claims != nil && claims.TenantID != nil {
+			u.TenantID = *claims.TenantID
+		}
+		if u.InstitutionID == nil && claims != nil && claims.InstitutionID != nil {
+			u.InstitutionID = claims.InstitutionID
+		}
 		if u.TenantID == "" || u.Username == "" || u.Password == "" || u.Name == "" {
 			continue
 		}
@@ -397,7 +476,7 @@ func (h *UserManagementHandler) resolveRole(ctx context.Context, identityTypeID 
 		var code string
 		_ = h.DB.QueryRow(ctx, `SELECT code FROM identity_types WHERE id = $1`, *identityTypeID).Scan(&code)
 		switch code {
-		case "student", "teacher":
+		case "student", "teacher", "school_admin":
 			return domain.UserRoleSchool
 		case "enterprise_admin", "enterprise_staff":
 			return domain.UserRoleEnterprise

@@ -57,6 +57,9 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	subscriptionHandler := &handler.SubscriptionHandler{DB: db}
 	platformLinkHandler := &handler.PlatformLinkHandler{DB: db}
 	appModuleHandler := &handler.AppModuleHandler{DB: db}
+	staffTitleHandler := &handler.StaffTitleHandler{DB: db}
+	graduateHandler := &handler.GraduateHandler{DB: db}
+	userExtensionFieldHandler := &handler.UserExtensionFieldHandler{DB: db}
 
 	// Shared workflow & approval handlers
 	workflowHandler := &handler.WorkflowHandler{DB: db}
@@ -203,7 +206,30 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 			r.Put("/users/{id}", userManagementHandler.Update)
 			r.Delete("/users/{id}", userManagementHandler.Delete)
 			r.Post("/users/{id}/status", userManagementHandler.UpdateStatus)
+			r.Post("/users/{id}/reset-password", userManagementHandler.ResetPassword)
 			r.Post("/users/batch", userManagementHandler.BatchCreate)
+
+			r.Route("/staff-titles", func(r chi.Router) {
+				r.Get("/", staffTitleHandler.List)
+				r.Post("/", staffTitleHandler.Create)
+				r.Get("/{id}", staffTitleHandler.Get)
+				r.Put("/{id}", staffTitleHandler.Update)
+				r.Delete("/{id}", staffTitleHandler.Delete)
+				r.Post("/{id}/status", staffTitleHandler.ToggleStatus)
+			})
+
+			r.Route("/graduates", func(r chi.Router) {
+				r.Get("/", graduateHandler.List)
+				r.Post("/", graduateHandler.Create)
+				r.Get("/{id}", graduateHandler.Get)
+				r.Put("/{id}", graduateHandler.Update)
+				r.Delete("/{id}", graduateHandler.Delete)
+			})
+
+			r.Route("/user-extension-fields", func(r chi.Router) {
+				r.Get("/", userExtensionFieldHandler.List)
+				r.Put("/{id}", userExtensionFieldHandler.Update)
+			})
 
 			r.Get("/roles", roleHandler.List)
 			r.Get("/roles/{id}", roleHandler.Get)

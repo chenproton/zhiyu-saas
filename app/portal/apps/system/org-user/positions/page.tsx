@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -9,46 +9,118 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Plus, MoreHorizontal, Pencil, Power, Trash2, Search, Upload, Download, Eye, AlertCircle } from "lucide-react"
-
-interface Position {
-  id: string
-  name: string
-  userCount: number
-  status: "active" | "inactive"
-  createdAt: string
-}
-
-const mockPositions: Position[] = []
+import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { portalStaffTitleApi, portalUserManagementApi, type User } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
+import { Plus, MoreHorizontal, Pencil, Power, Trash2, Search, Upload, Download, Eye, AlertCircle, Loader2, RotateCcw } from "lucide-react"
+import type { StaffTitle } from "@/lib/types/backend"
 
 export default function PositionsPage() {
-  const [positions, setPositions] = useState<Position[]>(mockPositions)
+  const { tenantId } = usePortalAuth()
+  const { toast } = useToast()
+  const [positions, setPositions] = useState<StaffTitle[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isUsersDialogOpen, setIsUsersDialogOpen] = useState(false)
-  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
+  const [selectedPosition, setSelectedPosition] = useState<StaffTitle | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [dialogName, setDialogName] = useState("")
+  const [dialogDescription, setDialogDescription] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [titleUsers, setTitleUsers] = useState<User[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
 
-  const filteredPositions = positions.filter((pos) => pos.name.includes(searchTerm))
-
-  const toggleStatus = (id: string) => {
-    setPositions((prev) => prev.map((p) => (p.id === id ? { ...p, status: p.status === "active" ? "inactive" : "active" } : p)))
+  const fetchPositions = async () => {
+    if (!tenantId) return
+    setLoading(true)
+    setError(undefined)
+    try {
+      const res = await portalStaffTitleApi.list({ tenantId, limit: 1000 })
+      setPositions(res.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载失败")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const deletePosition = (id: string) => {
-    setPositions((prev) => prev.filter((p) => p.id !== id))
+  useEffect(() => {
+    fetchPositions()
+  }, [tenantId])
+
+  const filteredPositions = useMemo(() =>
+    positions.filter((pos) => pos.name.includes(searchTerm) || (pos.description && pos.description.includes(searchTerm))),
+    [positions, searchTerm]
+  )
+
+  const openDialog = (position: StaffTitle | null) => {
+    setSelectedPosition(position)
+    setDialogName(position?.name || "")
+    setDialogDescription(position?.description || "")
+    setIsDialogOpen(true)
+  }
+
+  const handleSave = async () => {
+    if (!tenantId || !dialogName.trim()) return
+    setSaving(true)
+    try {
+      const payload = { tenantId, name: dialogName.trim(), description: dialogDescription.trim() || undefined }
+      if (selectedPosition) {
+        await portalStaffTitleApi.update(selectedPosition.id, payload)
+        toast({ title: "保存成功", description: "职位信息已更新" })
+      } else {
+        await portalStaffTitleApi.create(payload as Omit<StaffTitle, "id" | "userCount" | "createdAt">)
+        toast({ title: "创建成功", description: "新职位已添加" })
+      }
+      setIsDialogOpen(false)
+      await fetchPositions()
+    } catch (err) {
+      toast({ variant: "destructive", title: "保存失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggleStatus = async (position: StaffTitle) => {
+    const nextStatus = position.status === "active" ? "inactive" : "active"
+    try {
+      await portalStaffTitleApi.toggleStatus(position.id, nextStatus)
+      toast({ title: "状态已更新" })
+      await fetchPositions()
+    } catch (err) {
+      toast({ variant: "destructive", title: "操作失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
+
+  const deletePosition = async (id: string) => {
+    try {
+      await portalStaffTitleApi.delete(id)
+      toast({ title: "删除成功" })
+      await fetchPositions()
+    } catch (err) {
+      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
+
+  const openUsersDialog = async (position: StaffTitle) => {
+    setSelectedPosition(position)
+    setIsUsersDialogOpen(true)
+    setLoadingUsers(true)
+    setTitleUsers([])
+    try {
+      const res = await portalUserManagementApi.list({ tenantId, limit: 1000 })
+      const filtered = res.items.filter((u) => u.titleIds?.includes(position.id))
+      setTitleUsers(filtered)
+    } catch (err) {
+      toast({ variant: "destructive", title: "加载用户失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setLoadingUsers(false)
+    }
   }
 
   return (
     <div className="p-6">
-      <Alert variant="destructive" className="mb-6">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>后端接口缺失</AlertTitle>
-        <AlertDescription>
-          职位管理（教职工职称 / staff_titles）暂无对应 REST 端点。现有 /job/positions 为产业岗位，
-          数据字段不匹配，因此本页暂未接入实时数据。
-        </AlertDescription>
-      </Alert>
-
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">职位管理</h1>
@@ -63,12 +135,25 @@ export default function PositionsPage() {
             <Download className="h-4 w-4 mr-1" />
             导出
           </Button>
-          <Button size="sm" onClick={() => { setSelectedPosition(null); setIsDialogOpen(true) }}>
+          <Button size="sm" onClick={() => openDialog(null)}>
             <Plus className="h-4 w-4 mr-1" />
             新增职位
           </Button>
         </div>
       </div>
+
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>加载失败</AlertTitle>
+          <AlertDescription className="flex items-center gap-4">
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={fetchPositions}>
+              <RotateCcw className="h-4 w-4 mr-1" />重试
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="mb-4">
         <div className="relative max-w-md">
@@ -89,47 +174,62 @@ export default function PositionsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPositions.map((position) => (
-              <TableRow key={position.id} className="border-border">
-                <TableCell className="font-medium">{position.name}</TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{position.userCount} 人</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={position.status === "active" ? "default" : "secondary"}>
-                    {position.status === "active" ? "启用" : "停用"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{position.createdAt}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setSelectedPosition(position); setIsDialogOpen(true) }}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        编辑
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSelectedPosition(position); setIsUsersDialogOpen(true) }}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        查看用户
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toggleStatus(position.id)}>
-                        <Power className="mr-2 h-4 w-4" />
-                        {position.status === "active" ? "停用" : "启用"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => deletePosition(position.id)} className="text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        删除
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : filteredPositions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  {searchTerm ? "未找到匹配的职位" : "暂无职位数据"}
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredPositions.map((position) => (
+                <TableRow key={position.id} className="border-border">
+                  <TableCell className="font-medium">{position.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{position.userCount} 人</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={position.status === "active" ? "default" : "secondary"}>
+                      {position.status === "active" ? "启用" : "停用"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{new Date(position.createdAt).toLocaleString("zh-CN")}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openDialog(position)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          编辑
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openUsersDialog(position)}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          查看用户
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => toggleStatus(position)}>
+                          <Power className="mr-2 h-4 w-4" />
+                          {position.status === "active" ? "停用" : "启用"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => deletePosition(position.id)} className="text-destructive">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          删除
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -145,13 +245,20 @@ export default function PositionsPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>职位名称</Label>
-              <Input placeholder="如：教授" defaultValue={selectedPosition?.name} />
+              <Label>职位名称 <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：教授" value={dialogName} onChange={(e) => setDialogName(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>描述</Label>
+              <Input placeholder="可选描述" value={dialogDescription} onChange={(e) => setDialogDescription(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsDialogOpen(false)}>保存</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
+            <Button onClick={handleSave} disabled={saving || !dialogName.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              保存
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -161,25 +268,34 @@ export default function PositionsPage() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>关联用户 - {selectedPosition?.name}</DialogTitle>
-            <DialogDescription>共 {selectedPosition?.userCount} 名用户关联此职位</DialogDescription>
+            <DialogDescription>共 {titleUsers.length} 名用户关联此职位</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="space-y-2">
-              {["张三", "李四", "王五", "赵六", "钱七"].slice(0, Math.min(5, selectedPosition?.userCount || 0)).map((name, i) => (
-                <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                      {name[0]}
+            {loadingUsers ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
+              </div>
+            ) : titleUsers.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-4">暂无关联用户</p>
+            ) : (
+              <div className="space-y-2">
+                {titleUsers.slice(0, 5).map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                        {user.name[0]}
+                      </div>
+                      <span className="text-sm">{user.name}</span>
                     </div>
-                    <span className="text-sm">{name}</span>
+                    <Badge variant="outline">{user.loginName || user.username}</Badge>
                   </div>
-                  <Badge variant="outline">T00{i + 1}</Badge>
-                </div>
-              ))}
-              {(selectedPosition?.userCount || 0) > 5 && (
-                <p className="text-center text-sm text-muted-foreground">... 还有 {(selectedPosition?.userCount || 0) - 5} 名用户</p>
-              )}
-            </div>
+                ))}
+                {titleUsers.length > 5 && (
+                  <p className="text-center text-sm text-muted-foreground">... 还有 {titleUsers.length - 5} 名用户</p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUsersDialogOpen(false)}>关闭</Button>

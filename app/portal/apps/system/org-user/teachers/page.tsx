@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -11,14 +11,14 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { usePortalUsers } from "@/hooks/use-portal-users"
+import { portalUserManagementApi } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 import {
   Plus, MoreHorizontal, Power, Trash2, Search, Filter, Upload, Download,
-  X, Check, FolderTree, ChevronRight, ChevronDown, ChevronsUpDown, Loader2, AlertCircle, RotateCcw
+  ChevronRight, ChevronDown, FolderTree, Key, Loader2, AlertCircle, RotateCcw
 } from "lucide-react"
 
 interface Teacher {
@@ -42,9 +42,6 @@ interface OrgDeptNode {
   majors: OrgMajorNode[]
 }
 
-const allRoles = ["超级管理员", "系统管理员", "教师", "教研室主任", "班主任", "辅导员"]
-const allPositions = ["院长", "副院长", "系主任", "副系主任", "教研室主任", "专业负责人", "教授", "副教授", "讲师", "助教", "实验员", "行政人员", "企业导师"]
-
 const orgTreeData: OrgDeptNode[] = [
   { id: "dept-1", name: "信息学院", majors: [{ id: "major-1-1", name: "计算机系" }, { id: "major-1-2", name: "软件工程系" }] },
   { id: "dept-2", name: "经济管理学院", majors: [{ id: "major-2-1", name: "会计系" }, { id: "major-2-2", name: "金融系" }] },
@@ -59,8 +56,16 @@ function mapTeacherStatus(status: string): Teacher["status"] {
   return "外聘"
 }
 
+function toBackendStatus(status: Teacher["status"]): string {
+  if (status === "在职") return "active"
+  if (status === "离职") return "inactive"
+  if (status === "禁用") return "disabled"
+  return "active"
+}
+
 export default function TeachersPage() {
-  const { institution } = usePortalAuth()
+  const { institution, institutionId, tenantId } = usePortalAuth()
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
     identityTypeCode: "teacher",
@@ -72,16 +77,12 @@ export default function TeachersPage() {
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  const [editRoles, setEditRoles] = useState<string[]>([])
-  const [editPositions, setEditPositions] = useState<string[]>([])
-  const [editStatus, setEditStatus] = useState<string>("在职")
-  const [editDepartment, setEditDepartment] = useState<string>("")
-
-  const [positionSearchTerm, setPositionSearchTerm] = useState("")
-  const [showPositionDropdown, setShowPositionDropdown] = useState(false)
-  const positionInputRef = useRef<HTMLInputElement>(null)
-  const [deptPopoverOpen, setDeptPopoverOpen] = useState(false)
+  const [formName, setFormName] = useState("")
+  const [formUsername, setFormUsername] = useState("")
+  const [formPassword, setFormPassword] = useState("")
+  const [formWorkId, setFormWorkId] = useState("")
 
   useEffect(() => {
     setTeachers(
@@ -107,61 +108,91 @@ export default function TeachersPage() {
     }
     if (statusFilter !== "all" && teacher.status !== statusFilter) return false
     if (selectedDeptId) {
-      const dept = orgTreeData.find(d => d.id === selectedDeptId)
+      const dept = orgTreeData.find((d) => d.id === selectedDeptId)
       if (dept && teacher.department !== dept.name) return false
     }
     return true
   })
 
-  const toggleStatus = (id: string) => {
-    setTeachers((prev) => prev.map((t) => (t.id === id ? { ...t, status: t.status === "在职" ? "离职" : "在职" } : t)))
+  const resetForm = () => {
+    setFormName("")
+    setFormUsername("")
+    setFormPassword("")
+    setFormWorkId("")
   }
 
-  const deleteTeacher = (id: string) => {
-    setTeachers((prev) => prev.filter((t) => t.id !== id))
-  }
-
-  const resetPassword = (id: string) => {
-    setTeachers((prev) => prev.map((item) => item.id === id ? { ...item } : item))
-  }
-
-  const openEditDialog = (teacher: Teacher | null) => {
-    setSelectedTeacher(teacher)
-    setEditRoles(teacher?.roles || [])
-    setEditPositions(teacher?.positions || [])
-    setEditStatus(teacher?.status || "在职")
-    setEditDepartment(teacher?.department || "")
-    setPositionSearchTerm("")
+  const openCreateDialog = () => {
+    setSelectedTeacher(null)
+    resetForm()
     setIsDialogOpen(true)
   }
 
-  const toggleRole = (role: string) => {
-    setEditRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role])
-  }
-
-  const addPosition = (position: string) => {
-    if (!editPositions.includes(position)) {
-      setEditPositions([...editPositions, position])
+  const handleCreate = async () => {
+    if (!tenantId || !institutionId || !formName.trim() || !formUsername.trim() || !formPassword.trim()) return
+    const teacherType = Array.from(identityTypeMap.values()).find((it) => it.code === "teacher")
+    if (!teacherType) {
+      toast({ variant: "destructive", title: "创建失败", description: "未找到教职工身份类型" })
+      return
     }
-    setPositionSearchTerm("")
-    setShowPositionDropdown(false)
-  }
-
-  const removePosition = (position: string) => {
-    setEditPositions(editPositions.filter(p => p !== position))
-  }
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (positionInputRef.current && !positionInputRef.current.contains(e.target as Node)) {
-        setShowPositionDropdown(false)
-      }
+    setSaving(true)
+    try {
+      await portalUserManagementApi.create({
+        tenantId,
+        institutionId,
+        identityTypeId: teacherType.id,
+        role: "school",
+        platform: "portal",
+        loginName: formUsername.trim(),
+        username: formUsername.trim(),
+        password: formPassword.trim(),
+        name: formName.trim(),
+        workId: formWorkId.trim() || undefined,
+      })
+      toast({ title: "创建成功" })
+      setIsDialogOpen(false)
+      resetForm()
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "创建失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
     }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [])
+  }
 
-  const filteredPositions = allPositions.filter(p => p.includes(positionSearchTerm) && !editPositions.includes(p))
+  const toggleStatus = async (teacher: Teacher) => {
+    const backendStatus = toBackendStatus(teacher.status)
+    const nextBackendStatus = backendStatus === "active" ? "inactive" : "active"
+    try {
+      await portalUserManagementApi.updateStatus(teacher.id, nextBackendStatus)
+      toast({ title: "状态已更新" })
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "操作失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
+
+  const deleteTeacher = async (id: string) => {
+    if (!window.confirm("确定要删除该教职工吗？此操作不可恢复。")) return
+    try {
+      await portalUserManagementApi.delete(id)
+      toast({ title: "删除成功" })
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
+
+  const resetPassword = async (teacher: Teacher) => {
+    const password = window.prompt(`请输入 ${teacher.name} 的新密码：`)
+    if (!password) return
+    try {
+      await portalUserManagementApi.resetPassword(teacher.id, password)
+      toast({ title: "密码重置成功" })
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "重置失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
 
   return (
     <div className="p-6 bg-[#f5f7fa] min-h-full">
@@ -177,7 +208,7 @@ export default function TeachersPage() {
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-1" />导出
           </Button>
-          <Button size="sm" onClick={() => openEditDialog(null)}>
+          <Button size="sm" onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-1" />新建教师
           </Button>
         </div>
@@ -212,13 +243,8 @@ export default function TeachersPage() {
               >
                 全部教职工
               </button>
-              {orgTreeData.map(dept => (
-                <DeptTreeNode
-                  key={dept.id}
-                  dept={dept}
-                  selectedDeptId={selectedDeptId}
-                  onSelectDept={setSelectedDeptId}
-                />
+              {orgTreeData.map((dept) => (
+                <DeptTreeNode key={dept.id} dept={dept} selectedDeptId={selectedDeptId} onSelectDept={setSelectedDeptId} />
               ))}
             </div>
           </ScrollArea>
@@ -300,8 +326,7 @@ export default function TeachersPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => openEditDialog(teacher)}>编辑</Button>
-                            <Button variant="ghost" size="sm" onClick={() => resetPassword(teacher.id)}>
+                            <Button variant="ghost" size="sm" onClick={() => resetPassword(teacher)}>
                               重置密码
                             </Button>
                             <DropdownMenu>
@@ -311,9 +336,13 @@ export default function TeachersPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => toggleStatus(teacher.id)}>
+                                <DropdownMenuItem onClick={() => toggleStatus(teacher)}>
                                   <Power className="mr-2 h-4 w-4" />
                                   {teacher.status === "在职" ? "设为离职" : "设为在职"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => resetPassword(teacher)}>
+                                  <Key className="mr-2 h-4 w-4" />
+                                  重置密码
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => deleteTeacher(teacher.id)} className="text-destructive">
                                   <Trash2 className="mr-2 h-4 w-4" />删除
@@ -342,139 +371,35 @@ export default function TeachersPage() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <DialogTitle>{selectedTeacher ? "编辑教职工" : "新建教师"}</DialogTitle>
+            <DialogTitle>新建教师</DialogTitle>
             <DialogDescription>填写教职工基本信息</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2">
-                <Label>姓名 <span className="text-destructive">*</span></Label>
-                <Input placeholder="请输入姓名" defaultValue={selectedTeacher?.name} />
-              </div>
-              <div className="grid gap-2">
-                <Label>工号 <span className="text-destructive">*</span></Label>
-                <Input placeholder="如：T001" defaultValue={selectedTeacher?.workNo} />
-              </div>
-              <div className="grid gap-2">
-                <Label>密码 <span className="text-destructive">*</span></Label>
-                <Input type="password" placeholder="请输入密码" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>所属机构</Label>
-                <Popover open={deptPopoverOpen} onOpenChange={setDeptPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                      {editDepartment || '选择组织节点...'}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[350px] p-0">
-                    <Command>
-                      <CommandInput placeholder="搜索组织节点..." />
-                      <CommandList>
-                        <CommandEmpty>未找到</CommandEmpty>
-                        {orgTreeData.map(dept => (
-                          <CommandGroup key={dept.id} heading={dept.name}>
-                            <CommandItem onSelect={() => { setEditDepartment(dept.name); setDeptPopoverOpen(false) }}>
-                              <Check className={cn("mr-2 h-4 w-4", editDepartment === dept.name ? "opacity-100" : "opacity-0")} />
-                              {dept.name}（院系）
-                            </CommandItem>
-                            {dept.majors.map(major => (
-                              <CommandItem key={major.id} onSelect={() => { setEditDepartment(dept.name + ' / ' + major.name); setDeptPopoverOpen(false) }} className="pl-6">
-                                <Check className={cn("mr-2 h-4 w-4", editDepartment === (dept.name + ' / ' + major.name) ? "opacity-100" : "opacity-0")} />
-                                <span className="text-muted-foreground">{major.name}</span>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        ))}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="grid gap-2">
-                <Label>状态</Label>
-                <Select value={editStatus} onValueChange={setEditStatus}>
-                  <SelectTrigger><SelectValue placeholder="选择状态" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="在职">在职</SelectItem>
-                    <SelectItem value="离职">离职</SelectItem>
-                    <SelectItem value="外聘">外聘</SelectItem>
-                    <SelectItem value="禁用">禁用</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
             <div className="grid gap-2">
-              <Label>关联角色（可多选）</Label>
-              <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30">
-                {allRoles.map(role => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => toggleRole(role)}
-                    className={cn(
-                      "inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm border transition-colors",
-                      editRoles.includes(role)
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background hover:bg-muted border-border"
-                    )}
-                  >
-                    {editRoles.includes(role) && <Check className="w-3 h-3" />}
-                    {role}
-                  </button>
-                ))}
-              </div>
+              <Label>姓名 <span className="text-destructive">*</span></Label>
+              <Input placeholder="请输入姓名" value={formName} onChange={(e) => setFormName(e.target.value)} />
             </div>
-
             <div className="grid gap-2">
-              <Label>职位（可多选）</Label>
-              <div className="border rounded-md p-2 min-h-[60px]">
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {editPositions.map(pos => (
-                    <Badge key={pos} variant="secondary" className="gap-1 pr-1">
-                      {pos}
-                      <button type="button" onClick={() => removePosition(pos)} className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-                <div className="relative" ref={positionInputRef}>
-                  <Input
-                    placeholder="搜索职位..."
-                    value={positionSearchTerm}
-                    onChange={(e) => { setPositionSearchTerm(e.target.value); setShowPositionDropdown(true) }}
-                    onFocus={() => setShowPositionDropdown(true)}
-                    className="h-8 text-sm"
-                  />
-                  {showPositionDropdown && filteredPositions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg z-10 max-h-40 overflow-y-auto">
-                      {filteredPositions.map(pos => (
-                        <button
-                          key={pos}
-                          type="button"
-                          onClick={() => addPosition(pos)}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
-                        >
-                          {pos}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <Label>登录账号 <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：zhangsan" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>密码 <span className="text-destructive">*</span></Label>
+              <Input type="password" placeholder="请输入密码" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>工号</Label>
+              <Input placeholder="如：T001" value={formWorkId} onChange={(e) => setFormWorkId(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsDialogOpen(false)}>保存</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
+            <Button onClick={handleCreate} disabled={saving || !formName.trim() || !formUsername.trim() || !formPassword.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              保存
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -510,7 +435,7 @@ function DeptTreeNode({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="ml-4 space-y-1">
-          {dept.majors.map(major => (
+          {dept.majors.map((major) => (
             <div key={major.id} className="px-2 py-1 text-sm text-muted-foreground truncate">
               {major.name}
             </div>

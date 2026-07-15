@@ -3,21 +3,11 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { usePortalUsers } from "@/hooks/use-portal-users"
+import { portalUserManagementApi } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 import { Search, MoreHorizontal, Key, Ban, CheckCircle, Loader2, AlertCircle, RotateCcw } from "lucide-react"
 
 function mapAccountStatus(status: string): { label: string; className: string } {
@@ -28,10 +18,34 @@ function mapAccountStatus(status: string): { label: string; className: string } 
 }
 
 export default function AccountsPage() {
+  const { toast } = useToast()
   const [searchText, setSearchText] = useState("")
   const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
     search: searchText || undefined,
   })
+
+  const handleResetPassword = async (id: string, name: string) => {
+    const password = window.prompt(`请输入 ${name} 的新密码：`)
+    if (!password) return
+    try {
+      await portalUserManagementApi.resetPassword(id, password)
+      toast({ title: "密码重置成功" })
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "重置失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
+
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    const nextStatus = currentStatus === "active" ? "disabled" : "active"
+    try {
+      await portalUserManagementApi.updateStatus(id, nextStatus)
+      toast({ title: nextStatus === "active" ? "账户已启用" : "账户已禁用" })
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "操作失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
 
   const accounts = users.map((user) => {
     const idType = user.identityTypeId ? identityTypeMap.get(user.identityTypeId) : undefined
@@ -41,11 +55,10 @@ export default function AccountsPage() {
       name: user.name,
       identityType: idType?.name || "—",
       loginName: user.loginName || user.username,
+      status: user.status,
       statusLabel: statusStyle.label,
       statusClassName: statusStyle.className,
-      lastLogin: user.lastLoginAt
-        ? new Date(user.lastLoginAt).toLocaleString("zh-CN")
-        : "—",
+      lastLogin: user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("zh-CN") : "—",
     }
   })
 
@@ -111,15 +124,11 @@ export default function AccountsPage() {
                   <TableCell>{index + 1}</TableCell>
                   <TableCell className="font-medium">{account.name}</TableCell>
                   <TableCell>
-                    <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary">
-                      {account.identityType}
-                    </span>
+                    <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary">{account.identityType}</span>
                   </TableCell>
                   <TableCell>{account.loginName}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs ${account.statusClassName}`}>
-                      {account.statusLabel}
-                    </span>
+                    <span className={`px-2 py-1 rounded text-xs ${account.statusClassName}`}>{account.statusLabel}</span>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{account.lastLogin}</TableCell>
                   <TableCell>
@@ -130,17 +139,17 @@ export default function AccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleResetPassword(account.id, account.name)}>
                           <Key className="h-4 w-4 mr-2" />
                           重置密码
                         </DropdownMenuItem>
                         {account.statusLabel === "正常" ? (
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleToggleStatus(account.id, account.status)}>
                             <Ban className="h-4 w-4 mr-2" />
                             禁用账户
                           </DropdownMenuItem>
                         ) : (
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleToggleStatus(account.id, account.status)}>
                             <CheckCircle className="h-4 w-4 mr-2" />
                             启用账户
                           </DropdownMenuItem>
