@@ -82,7 +82,15 @@ const schoolAdminNavigation: NavGroup[] = [
   {
     name: "学校管理",
     icon: LayoutDashboard,
-    items: [{ name: "管理控制台", href: "/admin", icon: LayoutDashboard }],
+    items: [{ name: "管理控制台", href: "/portal/apps", icon: LayoutDashboard }],
+  },
+  {
+    name: "资源服务",
+    icon: Store,
+    items: [
+      { name: "资源商城", href: "/dashboard/marketplace", icon: Store },
+      { name: "已购资源", href: "http://localhost:3010/purchased", icon: ShoppingBag },
+    ],
   },
   {
     name: "组织用户",
@@ -124,6 +132,14 @@ const teacherNavigation: NavGroup[] = [
       { name: "场景管理", href: "/scene/", icon: Layers },
       { name: "课程管理", href: "/lesson/admin/system", icon: FolderKanban },
       { name: "测评管理", href: "/evaluation/question-banks", icon: CheckCircle },
+    ],
+  },
+  {
+    name: "资源服务",
+    icon: Store,
+    items: [
+      { name: "资源商城", href: "/dashboard/marketplace", icon: Store },
+      { name: "已购资源", href: "http://localhost:3010/purchased", icon: ShoppingBag },
     ],
   },
   {

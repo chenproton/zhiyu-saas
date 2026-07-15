@@ -31,7 +31,7 @@ export function Footer() {
               岗位标准、实践场景、企业导师
             </p>
             <a
-              href="#"
+              href="/dashboard/marketplace"
               className="inline-flex items-center gap-1 text-[13px] text-cyan-400 hover:text-cyan-300 transition-colors"
             >
               进入资源商城 →

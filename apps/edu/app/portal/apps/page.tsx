@@ -103,7 +103,7 @@ const fallbackModules: Record<string, ModuleItem[]> = {
     { id: "ai-entry", title: "AI 服务", desc: "暂未开放", href: "#" },
   ],
   resource: [
-    { id: "resource-mall", title: "资源商城", desc: "教学资源交易", href: "/" },
+    { id: "resource-mall", title: "资源商城", desc: "教学资源交易", href: "/dashboard/marketplace" },
   ],
   opc: [
     { id: "opc-entry", title: "OPC 专区", desc: "暂未开放", href: "#" },
