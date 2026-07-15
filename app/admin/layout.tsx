@@ -22,11 +22,11 @@ export default function AdminLayout({
     }
 
     const code = identityType?.code ?? ""
-    if (code === "platform_admin" || code === "school_admin") {
+    if (code === "platform_admin") {
       return
     }
 
-    if (code.startsWith("enterprise")) {
+    if (code === "school_admin" || code.startsWith("enterprise")) {
       router.replace("/dashboard")
     } else {
       router.replace("/login")
@@ -51,7 +51,7 @@ export default function AdminLayout({
   }
 
   const code = identityType?.code ?? ""
-  if (code !== "platform_admin" && code !== "school_admin") {
+  if (code !== "platform_admin") {
     return null
   }
 
