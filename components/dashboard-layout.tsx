@@ -84,10 +84,7 @@ const platformAdminNavigation: NavGroup[] = [
   {
     name: "租户管理",
     icon: Building2,
-    items: [
-      { name: "机构入驻审核", href: "/admin/institutions", icon: Building2 },
-      { name: "租户配置", href: "/portal/apps/system/tenant", icon: Settings },
-    ],
+    items: [{ name: "租户列表", href: "/admin/institutions", icon: Building2 }],
   },
   {
     name: "内容管理",
