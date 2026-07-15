@@ -117,6 +117,11 @@ const platformAdminNavigation: NavGroup[] = [
 // 教育管理后台路由，避免在 marketplace 应用中出现 404。
 const schoolNavigation: NavGroup[] = [
   {
+    name: "机构概览",
+    icon: LayoutDashboard,
+    items: [{ name: "学校仪表盘", href: "/dashboard", icon: LayoutDashboard }],
+  },
+  {
     name: "资源采购",
     icon: Store,
     items: [
@@ -142,7 +147,7 @@ const enterpriseNavigation: NavGroup[] = [
     name: "资源工坊",
     icon: Package,
     items: [
-      { name: "资源仪表盘", href: "/", icon: LayoutDashboard },
+      { name: "资源仪表盘", href: "/dashboard", icon: LayoutDashboard },
       { name: "新建资源", href: "/my-resources/new", icon: Package },
       { name: "我的资源库", href: "/my-resources", icon: BookOpen },
     ],

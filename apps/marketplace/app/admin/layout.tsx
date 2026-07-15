@@ -25,11 +25,9 @@ export default function AdminLayout({
       return
     }
 
-    // 非平台管理员访问 /admin 时，按角色回到商城对应的功能入口
-    if (identityTypeCode === "school_admin") {
-      router.replace("/purchased")
-    } else if (identityTypeCode?.startsWith("enterprise")) {
-      router.replace("/my-resources")
+    // 非平台管理员访问 /admin 时回到工作台仪表盘
+    if (identityTypeCode === "school_admin" || identityTypeCode?.startsWith("enterprise")) {
+      router.replace("/dashboard")
     } else {
       router.replace("/login")
     }

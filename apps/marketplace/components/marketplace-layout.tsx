@@ -24,11 +24,11 @@ export function MarketplaceLayout({ children }: MarketplaceLayoutProps) {
   const dashboardHref =
     identityType?.code === "platform_admin"
       ? "/admin"
-      : identityType?.code === "school_admin"
-        ? "/purchased"
-        : identityType?.code === "enterprise_hr" || identityType?.code === "enterprise_mentor"
-          ? "/my-resources"
-          : "/"
+      : identityType?.code === "school_admin" ||
+          identityType?.code === "enterprise_hr" ||
+          identityType?.code === "enterprise_mentor"
+        ? "/dashboard"
+        : "/"
 
   return (
     <div className="min-h-screen bg-background">

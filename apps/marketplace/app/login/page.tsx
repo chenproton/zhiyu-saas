@@ -15,12 +15,9 @@ function getPostLoginPath(identityCode?: string): string | null {
     case "platform_admin":
       return "/admin"
     case "school_admin":
-      // 学校在商城侧是采购方
-      return "/purchased"
     case "enterprise_hr":
     case "enterprise_mentor":
-      // 企业在商城侧是资源提供方
-      return "/my-resources"
+      return "/dashboard"
     case "teacher":
     case "student":
       // 教师/学生属于教育管理平台，不允许在商城登录
