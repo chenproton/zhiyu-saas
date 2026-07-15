@@ -29,7 +29,7 @@ export default function LessonAdminLayout({
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace("/login")
+      router.replace("/portal/login")
     }
   }, [loading, user, router])
 

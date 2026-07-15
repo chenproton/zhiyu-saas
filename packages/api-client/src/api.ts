@@ -284,9 +284,17 @@ const TOKEN_KEYS: Record<AuthPlatform, string> = {
   portal: "zhiyu-portal-token",
 }
 
-export function getToken(platform: AuthPlatform = "saas"): string | null {
+function getDefaultPlatform(): AuthPlatform {
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_DEFAULT_PLATFORM) {
+    return process.env.NEXT_PUBLIC_DEFAULT_PLATFORM as AuthPlatform
+  }
+  return "saas"
+}
+
+export function getToken(platform?: AuthPlatform): string | null {
   if (typeof window === "undefined") return null
-  return localStorage.getItem(TOKEN_KEYS[platform])
+  const p = platform ?? getDefaultPlatform()
+  return localStorage.getItem(TOKEN_KEYS[p])
 }
 
 export function isPortalPath(path?: string): boolean {
@@ -298,7 +306,9 @@ export function isPortalPath(path?: string): boolean {
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   // SaaS 页面使用 saas token；Portal 页面（包括工作台和系统管理）使用 portal token。
   // 这样即使浏览器同时存在两种 token，也不会因 token 污染导致 401。
-  const platform = isPortalPath() ? "portal" : "saas"
+  // 在 monorepo 多应用场景下，可通过 NEXT_PUBLIC_DEFAULT_PLATFORM 为整个应用指定默认平台。
+  const defaultPlatform = getDefaultPlatform()
+  const platform = defaultPlatform === "portal" || isPortalPath() ? "portal" : "saas"
   return requestWithPlatform<T>(platform, path, options)
 }
 
@@ -424,15 +434,17 @@ export const configApi = {
   update: (req: PlatformConfig) => request<PlatformConfig>("/config", { method: "PUT", body: JSON.stringify(req) }),
 }
 
-export function setToken(token: string, platform: AuthPlatform = "saas") {
+export function setToken(token: string, platform?: AuthPlatform) {
   if (typeof window !== "undefined") {
-    localStorage.setItem(TOKEN_KEYS[platform], token)
+    const p = platform ?? getDefaultPlatform()
+    localStorage.setItem(TOKEN_KEYS[p], token)
   }
 }
 
-export function removeToken(platform: AuthPlatform = "saas") {
+export function removeToken(platform?: AuthPlatform) {
   if (typeof window !== "undefined") {
-    localStorage.removeItem(TOKEN_KEYS[platform])
+    const p = platform ?? getDefaultPlatform()
+    localStorage.removeItem(TOKEN_KEYS[p])
   }
 }
 

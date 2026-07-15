@@ -79,13 +79,13 @@ export function MarketplaceLayout({ children }: MarketplaceLayoutProps) {
             ) : (
               <>
                 <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
-                  <Link href="/login" className="gap-2">
+                  <Link href="/portal/login" className="gap-2">
                     <User className="h-4 w-4" />
                     登录
                   </Link>
                 </Button>
                 <Button size="sm" asChild className="hidden sm:flex">
-                  <Link href="/login" className="gap-2">
+                  <Link href="/portal/login" className="gap-2">
                     <ShoppingCart className="h-4 w-4" />
                     商家后台
                   </Link>

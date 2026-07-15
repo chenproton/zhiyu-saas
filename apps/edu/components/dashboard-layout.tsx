@@ -277,7 +277,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/login")
+      router.push("/portal/login")
     }
   }, [loading, user, router])
 

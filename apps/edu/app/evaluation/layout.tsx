@@ -21,7 +21,7 @@ export default function EvaluationLayout({
 
   useEffect(() => {
     if (!loading && !user && !isLanding) {
-      router.replace("/login")
+      router.replace("/portal/login")
     }
   }, [loading, user, isLanding, router])
 

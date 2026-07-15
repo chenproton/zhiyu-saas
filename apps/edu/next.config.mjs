@@ -9,6 +9,9 @@ const nextConfig = {
     unoptimized: true,
   },
   transpilePackages: ['@zhiyu/ui', '@zhiyu/api-client', '@zhiyu/shared-types'],
+  env: {
+    NEXT_PUBLIC_DEFAULT_PLATFORM: 'portal',
+  },
   async rewrites() {
     const apiProxy = process.env.API_PROXY_URL || 'http://127.0.0.1:8080'
     return [

@@ -23,7 +23,7 @@ export default function DashboardLayoutWrapper({
     if (loading || !user) return
 
     if (user.platform !== "saas") {
-      router.replace("/login")
+      router.replace("/portal/login")
       return
     }
 
@@ -32,7 +32,7 @@ export default function DashboardLayoutWrapper({
       if (code === "platform_admin") {
         router.replace("/admin")
       } else {
-        router.replace("/login")
+        router.replace("/portal/login")
       }
     }
   }, [loading, user, identityType, router])
@@ -46,7 +46,7 @@ export default function DashboardLayoutWrapper({
   }
 
   if (!user) {
-    router.replace("/login")
+    router.replace("/portal/login")
     return null
   }
 

@@ -19,7 +19,7 @@ export default function SceneLayout({
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace("/login")
+      router.replace("/portal/login")
     }
   }, [loading, user, router])
 

@@ -19,7 +19,7 @@ export default function JobLayout({
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace("/login")
+      router.replace("/portal/login")
     }
   }, [loading, user, router])
 

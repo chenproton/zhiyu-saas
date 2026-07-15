@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     removeToken()
     setState({ me: undefined, loading: false })
-    router.push("/login")
+    router.push("/portal/login")
   }, [router])
 
 
