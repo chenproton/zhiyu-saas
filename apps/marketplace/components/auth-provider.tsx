@@ -1,7 +1,6 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
-import { useRouter } from "next/navigation"
 import { authApi, getToken, removeToken, type MeResponse } from "@/lib/api"
 import type { IdentityType, Organization, Major, Role } from "@/lib/types/backend"
 
@@ -43,7 +42,6 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
   const [state, setState] = useState<{
     me?: MeResponse
     loading: boolean
@@ -80,8 +78,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     removeToken()
     setState({ me: undefined, loading: false })
-    router.push("/login")
-  }, [router])
+    // 使用硬跳转避免组件卸载/返回 null 导致 Next.js 软导航不生效
+    if (typeof window !== "undefined") {
+      window.location.href = "/login"
+    }
+  }, [])
 
 
   const refresh = useCallback(async () => {

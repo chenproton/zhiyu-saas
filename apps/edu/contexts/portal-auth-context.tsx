@@ -1,7 +1,6 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
-import { useRouter } from "next/navigation"
 import { authApi, removeToken, getToken, type MeResponse } from "@/lib/api"
 import type { IdentityType, Organization, Major, Role } from "@/lib/types/backend"
 
@@ -43,7 +42,6 @@ export function usePortalAuth() {
 }
 
 export function PortalAuthProvider({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
   const [state, setState] = useState<{
     me?: MeResponse
     loading: boolean
@@ -80,8 +78,10 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
   const logout = useCallback(() => {
     removeToken("portal")
     setState({ loading: false })
-    router.push("/portal/login")
-  }, [router])
+    if (typeof window !== "undefined") {
+      window.location.href = "/portal/login"
+    }
+  }, [])
 
   const refresh = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true }))
