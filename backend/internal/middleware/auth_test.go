@@ -20,7 +20,7 @@ func TestGenerateToken(t *testing.T) {
 		TenantID:  strPtr("tenant-001"),
 	}
 
-	token, err := middleware.GenerateToken(testSecret, user)
+	token, err := middleware.GenerateToken(testSecret, middleware.TokenInput{User: user})
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestJWT_ValidToken(t *testing.T) {
 		TenantID:  strPtr("tenant-002"),
 	}
 
-	tokenStr, err := middleware.GenerateToken(testSecret, user)
+	tokenStr, err := middleware.GenerateToken(testSecret, middleware.TokenInput{User: user})
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}

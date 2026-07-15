@@ -15,14 +15,16 @@ type contextKey string
 const ContextKeyUser contextKey = "user"
 
 type Claims struct {
-	UserID         string             `json:"userId"`
-	TenantID       *string            `json:"tenantId,omitempty"`
-	InstitutionID  *string            `json:"institutionId,omitempty"`
-	IdentityTypeID *string            `json:"identityTypeId,omitempty"`
-	OrgNodeID      *string            `json:"orgNodeId,omitempty"`
-	Role           domain.UserRole    `json:"role"`
-	Platform       domain.UserPlatform `json:"platform"`
-	Username       string             `json:"username"`
+	UserID           string              `json:"userId"`
+	TenantID         *string             `json:"tenantId,omitempty"`
+	InstitutionID    *string             `json:"institutionId,omitempty"`
+	IdentityTypeID   *string             `json:"identityTypeId,omitempty"`
+	IdentityTypeCode string              `json:"identityTypeCode"`
+	OrgNodeID        *string             `json:"orgNodeId,omitempty"`
+	Role             domain.UserRole     `json:"role"`
+	Platform         domain.UserPlatform `json:"platform"`
+	Username         string              `json:"username"`
+	Permissions      domain.JSONMap      `json:"permissions,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -66,16 +68,25 @@ func CurrentUser(r *http.Request) *Claims {
 	return u
 }
 
-func GenerateToken(secret string, user *domain.User) (string, error) {
+type TokenInput struct {
+	User             *domain.User
+	IdentityTypeCode string
+	Permissions      domain.JSONMap
+}
+
+func GenerateToken(secret string, input TokenInput) (string, error) {
+	user := input.User
 	claims := Claims{
-		UserID:         user.ID,
-		TenantID:       user.TenantID,
-		InstitutionID:  user.InstitutionID,
-		IdentityTypeID: user.IdentityTypeID,
-		OrgNodeID:      user.OrgNodeID,
-		Role:           user.Role,
-		Platform:       user.Platform,
-		Username:       user.Username,
+		UserID:           user.ID,
+		TenantID:         user.TenantID,
+		InstitutionID:    user.InstitutionID,
+		IdentityTypeID:   user.IdentityTypeID,
+		IdentityTypeCode: input.IdentityTypeCode,
+		OrgNodeID:        user.OrgNodeID,
+		Role:             user.Role,
+		Platform:         user.Platform,
+		Username:         user.Username,
+		Permissions:      input.Permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

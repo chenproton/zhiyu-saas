@@ -96,7 +96,14 @@ func (h *AuthHandler) loginWithPlatform(w http.ResponseWriter, r *http.Request, 
 
 	_, _ = h.DB.Exec(r.Context(), `UPDATE users SET last_login_at = $1 WHERE id = $2`, time.Now(), user.ID)
 
-	token, err := middleware.GenerateToken(h.JWTSecret, &user)
+	identityTypeCode := h.fetchIdentityTypeCode(r.Context(), user.IdentityTypeID)
+	perms := h.fetchMergedPermissions(r.Context(), user.ID)
+
+	token, err := middleware.GenerateToken(h.JWTSecret, middleware.TokenInput{
+		User:             &user,
+		IdentityTypeCode: identityTypeCode,
+		Permissions:      perms,
+	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to generate token")
 		return
@@ -334,4 +341,27 @@ func (h *AuthHandler) fetchUserRoles(ctx context.Context, userID string) []domai
 		roles = append(roles, r)
 	}
 	return roles
+}
+
+func (h *AuthHandler) fetchIdentityTypeCode(ctx context.Context, identityTypeID *string) string {
+	if identityTypeID == nil {
+		return ""
+	}
+	var code string
+	_ = h.DB.QueryRow(ctx, `SELECT code FROM identity_types WHERE id = $1`, *identityTypeID).Scan(&code)
+	return code
+}
+
+func (h *AuthHandler) fetchMergedPermissions(ctx context.Context, userID string) domain.JSONMap {
+	roles := h.fetchUserRoles(ctx, userID)
+	merged := domain.JSONMap{}
+	for _, r := range roles {
+		if r.Permissions == nil {
+			continue
+		}
+		for k, v := range r.Permissions {
+			merged[k] = v
+		}
+	}
+	return merged
 }

@@ -28,10 +28,10 @@ const (
 )
 
 type TestEnv struct {
-	DB        *pgxpool.Pool
-	Router    chi.Router
+	DB            *pgxpool.Pool
+	Router        chi.Router
 	OperatorToken string
-	Cleanup   func()
+	Cleanup       func()
 }
 
 func SetupTestEnv(t *testing.T) *TestEnv {
@@ -460,7 +460,7 @@ func SetupTestEnv(t *testing.T) *TestEnv {
 
 	generateTestToken := func(userID, tenantID string, role domain.UserRole) string {
 		u := &domain.User{ID: userID, TenantID: &tenantID, Role: role, Username: "test-user"}
-		token, _ := middleware.GenerateToken(TestJWTSecret, u)
+		token, _ := middleware.GenerateToken(TestJWTSecret, middleware.TokenInput{User: u, IdentityTypeCode: "platform_admin"})
 		return token
 	}
 
@@ -469,8 +469,8 @@ func SetupTestEnv(t *testing.T) *TestEnv {
 	ensureSeedData(t, pool, operatorToken)
 
 	return &TestEnv{
-		DB:        pool,
-		Router:    r,
+		DB:            pool,
+		Router:        r,
 		OperatorToken: operatorToken,
 		Cleanup: func() {
 			pool.Close()
@@ -564,8 +564,12 @@ func (e *TestEnv) DoNoAuth(method, path string, body interface{}) *httptest.Resp
 }
 
 func (e *TestEnv) NewUserToken(userID, tenantID string, role domain.UserRole, institutionID *string) string {
+	return e.NewTokenWithIdentity(userID, tenantID, role, institutionID, "platform_admin")
+}
+
+func (e *TestEnv) NewTokenWithIdentity(userID, tenantID string, role domain.UserRole, institutionID *string, identityTypeCode string) string {
 	u := &domain.User{ID: userID, TenantID: &tenantID, Role: role, Username: "aux-user", InstitutionID: institutionID}
-	token, _ := middleware.GenerateToken(TestJWTSecret, u)
+	token, _ := middleware.GenerateToken(TestJWTSecret, middleware.TokenInput{User: u, IdentityTypeCode: identityTypeCode})
 	return token
 }
 
