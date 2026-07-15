@@ -38,6 +38,18 @@ type MeResponse struct {
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	h.loginWithPlatform(w, r, domain.UserPlatformSaas)
+}
+
+func (h *AuthHandler) SaasLogin(w http.ResponseWriter, r *http.Request) {
+	h.loginWithPlatform(w, r, domain.UserPlatformSaas)
+}
+
+func (h *AuthHandler) PortalLogin(w http.ResponseWriter, r *http.Request) {
+	h.loginWithPlatform(w, r, domain.UserPlatformPortal)
+}
+
+func (h *AuthHandler) loginWithPlatform(w http.ResponseWriter, r *http.Request, platform domain.UserPlatform) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body")
@@ -51,12 +63,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	err := h.DB.QueryRow(r.Context(), `
 		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
-		       role, login_name, username, password_hash, name, email, phone, avatar_url,
+		       role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 		       student_no, work_id, id_card, title_ids, oauth, status, created_at, updated_at
-		FROM users WHERE login_name = $1 OR username = $1
-	`, req.Username).Scan(
+		FROM users WHERE (login_name = $1 OR username = $1) AND platform = $2
+	`, req.Username, platform).Scan(
 		&user.ID, &tenantID, &user.InstitutionID, &identityTypeID, &orgNodeID, &majorID,
-		&user.Role, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
+		&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
 		&user.CreatedAt, &user.UpdatedAt,
 	)
@@ -132,6 +144,29 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, resp)
 }
 
+func (h *AuthHandler) SaasMe(w http.ResponseWriter, r *http.Request) {
+	h.meWithPlatform(w, r, domain.UserPlatformSaas)
+}
+
+func (h *AuthHandler) PortalMe(w http.ResponseWriter, r *http.Request) {
+	h.meWithPlatform(w, r, domain.UserPlatformPortal)
+}
+
+func (h *AuthHandler) meWithPlatform(w http.ResponseWriter, r *http.Request, platform domain.UserPlatform) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if claims.Platform != platform {
+		respondError(w, http.StatusForbidden, "invalid platform")
+		return
+	}
+
+	h.Me(w, r)
+}
+
 func (h *AuthHandler) fetchUserByID(ctx context.Context, id string) (domain.User, error) {
 	var user domain.User
 	var tenantID, identityTypeID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
@@ -140,12 +175,12 @@ func (h *AuthHandler) fetchUserByID(ctx context.Context, id string) (domain.User
 
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
-		       role, login_name, username, password_hash, name, email, phone, avatar_url,
+		       role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 		       student_no, work_id, id_card, title_ids, oauth, status, last_login_at, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID, &tenantID, &user.InstitutionID, &identityTypeID, &orgNodeID, &majorID,
-		&user.Role, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
+		&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
 		&user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)

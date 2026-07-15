@@ -25,22 +25,23 @@ type UserListResponse struct {
 }
 
 type CreateUserRequest struct {
-	TenantID       string   `json:"tenantId"`
-	InstitutionID  *string  `json:"institutionId"`
-	IdentityTypeID *string  `json:"identityTypeId"`
-	OrgNodeID      *string  `json:"orgNodeId"`
-	MajorID        *string  `json:"majorId"`
-	Username       string   `json:"username"`
-	Password       string   `json:"password"`
-	Name           string   `json:"name"`
-	Email          string   `json:"email"`
-	Phone          *string  `json:"phone"`
-	AvatarURL      *string  `json:"avatarUrl"`
-	StudentNo      *string  `json:"studentNo"`
-	WorkID         *string  `json:"workId"`
-	IDCard         *string  `json:"idCard"`
-	TitleIDs       []string `json:"titleIds"`
-	Role           *string  `json:"role"`
+	TenantID       string             `json:"tenantId"`
+	InstitutionID  *string            `json:"institutionId"`
+	IdentityTypeID *string            `json:"identityTypeId"`
+	OrgNodeID      *string            `json:"orgNodeId"`
+	MajorID        *string            `json:"majorId"`
+	Username       string             `json:"username"`
+	Password       string             `json:"password"`
+	Name           string             `json:"name"`
+	Email          string             `json:"email"`
+	Phone          *string            `json:"phone"`
+	AvatarURL      *string            `json:"avatarUrl"`
+	StudentNo      *string            `json:"studentNo"`
+	WorkID         *string            `json:"workId"`
+	IDCard         *string            `json:"idCard"`
+	TitleIDs       []string           `json:"titleIds"`
+	Role           *string            `json:"role"`
+	Platform       domain.UserPlatform `json:"platform"`
 }
 
 type UpdateUserRequest struct {
@@ -128,7 +129,7 @@ func (h *UserManagementHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
-			role, login_name, username, password_hash, name, email, phone, avatar_url,
+			role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 			student_no, work_id, id_card, title_ids, oauth, status, last_login_at, created_at, updated_at
 		FROM users
 		WHERE ` + strings.Join(where, " AND ") + `
@@ -364,14 +365,18 @@ func (h *UserManagementHandler) createSingleUserInTx(ctx context.Context, tx pgx
 	}
 
 	role := h.resolveRole(ctx, req.IdentityTypeID, req.Role)
+	platform := req.Platform
+	if platform == "" {
+		platform = domain.UserPlatformSaas
+	}
 
 	_, err = tx.Exec(ctx, `
 		INSERT INTO users (id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
-			role, username, password_hash, name, email, phone, avatar_url,
+			role, platform, username, password_hash, name, email, phone, avatar_url,
 			student_no, work_id, id_card, title_ids, oauth, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'active')
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'active')
 	`, id, req.TenantID, req.InstitutionID, req.IdentityTypeID, req.OrgNodeID, req.MajorID,
-		role, req.Username, string(hash), req.Name, req.Email, req.Phone, req.AvatarURL,
+		role, platform, req.Username, string(hash), req.Name, req.Email, req.Phone, req.AvatarURL,
 		req.StudentNo, req.WorkID, req.IDCard, coalesceStringSlice(req.TitleIDs), domain.JSONMap{})
 	if err != nil {
 		return domain.User{}, err
@@ -446,12 +451,12 @@ func (h *UserManagementHandler) fetchUserInTx(ctx context.Context, tx pgx.Tx, id
 
 	err := tx.QueryRow(ctx, `
 		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
-			role, login_name, username, password_hash, name, email, phone, avatar_url,
+			role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 			student_no, work_id, id_card, title_ids, oauth, status, last_login_at, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID, &tenantID, &institutionID, &identityTypeID, &orgNodeID, &majorID,
-		&user.Role, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
+		&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
 		&user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
@@ -483,7 +488,7 @@ func (h *UserManagementHandler) scanUserRows(rows pgx.Rows) ([]domain.User, erro
 		var oauth domain.JSONMap
 		if err := rows.Scan(
 			&user.ID, &tenantID, &institutionID, &identityTypeID, &orgNodeID, &majorID,
-			&user.Role, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
+			&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 			&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
 			&user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 		); err != nil {

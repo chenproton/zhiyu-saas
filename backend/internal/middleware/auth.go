@@ -15,13 +15,14 @@ type contextKey string
 const ContextKeyUser contextKey = "user"
 
 type Claims struct {
-	UserID         string          `json:"userId"`
-	TenantID       *string         `json:"tenantId,omitempty"`
-	InstitutionID  *string         `json:"institutionId,omitempty"`
-	IdentityTypeID *string         `json:"identityTypeId,omitempty"`
-	OrgNodeID      *string         `json:"orgNodeId,omitempty"`
-	Role           domain.UserRole `json:"role"`
-	Username       string          `json:"username"`
+	UserID         string             `json:"userId"`
+	TenantID       *string            `json:"tenantId,omitempty"`
+	InstitutionID  *string            `json:"institutionId,omitempty"`
+	IdentityTypeID *string            `json:"identityTypeId,omitempty"`
+	OrgNodeID      *string            `json:"orgNodeId,omitempty"`
+	Role           domain.UserRole    `json:"role"`
+	Platform       domain.UserPlatform `json:"platform"`
+	Username       string             `json:"username"`
 	jwt.RegisteredClaims
 }
 
@@ -73,6 +74,7 @@ func GenerateToken(secret string, user *domain.User) (string, error) {
 		IdentityTypeID: user.IdentityTypeID,
 		OrgNodeID:      user.OrgNodeID,
 		Role:           user.Role,
+		Platform:       user.Platform,
 		Username:       user.Username,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),

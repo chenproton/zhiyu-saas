@@ -8,27 +8,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, GraduationCap } from "lucide-react"
 import { authApi, setToken } from "@/lib/api"
-import { useAuth } from "@/components/auth-provider"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 
 function getPostLoginPath(identityCode?: string): string {
   switch (identityCode) {
-    case "platform_admin":
     case "school_admin":
-      return "/admin"
-    case "enterprise_hr":
-    case "enterprise_mentor":
-      return "/dashboard"
+      return "/portal/apps"
     case "teacher":
     case "student":
       return "/portal/workspace"
     default:
-      return "/"
+      return "/portal"
   }
 }
 
-export default function LoginPage() {
+export default function PortalLoginPage() {
   const router = useRouter()
-  const { refresh } = useAuth()
+  const { refresh } = usePortalAuth()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -40,10 +36,10 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const res = await authApi.saasLogin({ username, password })
-      setToken(res.token, "saas")
+      const res = await authApi.portalLogin({ username, password })
+      setToken(res.token, "portal")
       await refresh()
-      const me = await authApi.saasMe()
+      const me = await authApi.portalMe()
       const identityCode = me.identityType?.code
       router.replace(getPostLoginPath(identityCode))
     } catch (err: any) {
@@ -60,7 +56,7 @@ export default function LoginPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent">
             <GraduationCap className="h-6 w-6 text-accent-foreground" />
           </div>
-          <h1 className="text-2xl font-bold">教学资源商城</h1>
+          <h1 className="text-2xl font-bold">学校管理后台</h1>
           <p className="text-sm text-muted-foreground">账号密码登录</p>
         </div>
 
@@ -108,11 +104,9 @@ export default function LoginPage() {
             <div className="mt-4 text-xs text-muted-foreground">
               <p>测试账号：</p>
               <ul className="mt-1 list-inside list-disc">
-                <li>运营方：operator / operator123</li>
                 <li>学校管理员：school / school123</li>
                 <li>教师：teacher / teacher123</li>
                 <li>学生：student / student123</li>
-                <li>企业：enterprise / enterprise123</li>
               </ul>
             </div>
           </CardContent>

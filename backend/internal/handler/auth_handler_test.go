@@ -93,8 +93,8 @@ func TestMe_WithValidToken(t *testing.T) {
 	if !ok {
 		t.Fatal("expected user in response")
 	}
-	if user["username"] != "testuser" {
-		t.Fatalf("expected username testuser, got %v", user["username"])
+	if user["username"] != "seedtestuser" {
+		t.Fatalf("expected username seedtestuser, got %v", user["username"])
 	}
 }
 

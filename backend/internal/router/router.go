@@ -115,6 +115,8 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/login", authHandler.Login)
+		r.Post("/auth/saas/login", authHandler.SaasLogin)
+		r.Post("/auth/portal/login", authHandler.PortalLogin)
 		r.Get("/banners", bannerHandler.List)
 		r.Get("/resources", resourceHandler.List)
 		r.Get("/resources/{id}", resourceHandler.Get)
@@ -125,7 +127,9 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(auth)
 
-			r.Get("/auth/me", authHandler.Me)
+			r.Get("/auth/me", authHandler.SaasMe)
+			r.Get("/auth/saas/me", authHandler.SaasMe)
+			r.Get("/auth/portal/me", authHandler.PortalMe)
 			r.Get("/stats/dashboard", statsHandler.Dashboard)
 			r.Get("/stats/me", statsHandler.MyStats)
 			r.Get("/config", statsHandler.GetConfig)

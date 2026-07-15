@@ -121,6 +121,7 @@ export interface User {
   orgNodeId?: string
   majorId?: string
   role: "school" | "enterprise" | "operator"
+  platform: "saas" | "portal"
   loginName?: string
   username: string
   name: string
@@ -276,14 +277,29 @@ export interface ListResponse<T> {
   total: number
 }
 
-function getToken(): string | null {
+export type AuthPlatform = "saas" | "portal"
+
+const TOKEN_KEYS: Record<AuthPlatform, string> = {
+  saas: "zhiyu-token",
+  portal: "zhiyu-portal-token",
+}
+
+export function getToken(platform: AuthPlatform = "saas"): string | null {
   if (typeof window === "undefined") return null
-  return localStorage.getItem("zhiyu-token")
+  return localStorage.getItem(TOKEN_KEYS[platform])
 }
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  return requestWithPlatform<T>("saas", path, options)
+}
+
+export async function portalRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  return requestWithPlatform<T>("portal", path, options)
+}
+
+async function requestWithPlatform<T>(platform: AuthPlatform, path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${path}`
-  const token = getToken()
+  const token = getToken(platform)
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
@@ -300,9 +316,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     // 未登录状态下的请求（如登录页上各数据 Provider 的预加载）返回 401
     // 不应清 token 或跳转登录页，否则会在 /login 上形成无限重载循环。
     if (res.status === 401 && typeof window !== "undefined" && token) {
-      localStorage.removeItem("zhiyu-token")
-      if (!window.location.pathname.startsWith("/login")) {
-        window.location.href = "/login"
+      localStorage.removeItem(TOKEN_KEYS[platform])
+      const loginPath = platform === "portal" ? "/portal/login" : "/login"
+      if (!window.location.pathname.startsWith(loginPath)) {
+        window.location.href = loginPath
       }
     }
     throw new Error(data.error || `HTTP ${res.status}`)
@@ -328,7 +345,11 @@ import { createCrudApi, createContentApi } from "./api-factory"
 
 export const authApi = {
   login: (req: LoginRequest) => request<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify(req) }),
+  saasLogin: (req: LoginRequest) => request<LoginResponse>("/auth/saas/login", { method: "POST", body: JSON.stringify(req) }),
+  portalLogin: (req: LoginRequest) => portalRequest<LoginResponse>("/auth/portal/login", { method: "POST", body: JSON.stringify(req) }),
   me: () => request<MeResponse>("/auth/me"),
+  saasMe: () => request<MeResponse>("/auth/saas/me"),
+  portalMe: () => portalRequest<MeResponse>("/auth/portal/me"),
 }
 
 export const institutionApi = {
@@ -394,15 +415,15 @@ export const configApi = {
   update: (req: PlatformConfig) => request<PlatformConfig>("/config", { method: "PUT", body: JSON.stringify(req) }),
 }
 
-export function setToken(token: string) {
+export function setToken(token: string, platform: AuthPlatform = "saas") {
   if (typeof window !== "undefined") {
-    localStorage.setItem("zhiyu-token", token)
+    localStorage.setItem(TOKEN_KEYS[platform], token)
   }
 }
 
-export function removeToken() {
+export function removeToken(platform: AuthPlatform = "saas") {
   if (typeof window !== "undefined") {
-    localStorage.removeItem("zhiyu-token")
+    localStorage.removeItem(TOKEN_KEYS[platform])
   }
 }
 

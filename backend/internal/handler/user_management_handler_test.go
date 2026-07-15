@@ -37,7 +37,7 @@ func TestUser_Create(t *testing.T) {
 
 	w := env.Do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
-		"username":       "testuser",
+		"username":       "newtestuser",
 		"password":       "testpass",
 		"name":           "Test User",
 		"identityTypeId": itID,
@@ -49,8 +49,8 @@ func TestUser_Create(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if user.Username != "testuser" {
-		t.Fatalf("expected username 'testuser', got %s", user.Username)
+	if user.Username != "newtestuser" {
+		t.Fatalf("expected username 'newtestuser', got %s", user.Username)
 	}
 	defer env.DB.Exec(ctx, "DELETE FROM users WHERE id = $1", user.ID)
 }

@@ -719,6 +719,7 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 		OrgNodeID      *uuid.UUID
 		MajorID        *uuid.UUID
 		Role           string
+		Platform       string
 		Username       string
 		Password       string
 		Name           string
@@ -729,7 +730,7 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 		{
 			ID:             uuid.MustParse("71111111-1111-1111-1111-111111111111"),
 			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111111"),
-			Role:           "operator", Username: "operator", Password: "operator123",
+			Role:           "operator", Platform: "saas", Username: "operator", Password: "operator123",
 			Name: "平台管理员", Email: "admin@zhiyu.com", Phone: "13800000001",
 		},
 		{
@@ -737,7 +738,7 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 			InstitutionID:  str("inst-002"),
 			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111112"),
 			OrgNodeID:      uuidPtr("31111111-1111-1111-1111-111111111111"),
-			Role:           "school", Username: "school", Password: "school123",
+			Role:           "school", Platform: "saas", Username: "school", Password: "school123",
 			Name: "李华", Email: "lihua@bitc.edu.cn", Phone: "13900000002",
 		},
 		{
@@ -745,7 +746,7 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 			InstitutionID:  str("inst-001"),
 			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111115"),
 			OrgNodeID:      nil,
-			Role:           "enterprise", Username: "enterprise", Password: "enterprise123",
+			Role:           "enterprise", Platform: "saas", Username: "enterprise", Password: "enterprise123",
 			Name: "张明", Email: "zhangming@cybersec.com", Phone: "13800000003",
 		},
 		{
@@ -754,7 +755,7 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111113"),
 			OrgNodeID:      uuidPtr("31111111-1111-1111-1111-111111111112"),
 			MajorID:        uuidPtr("51111111-1111-1111-1111-111111111111"),
-			Role:           "school", Username: "teacher", Password: "teacher123",
+			Role:           "school", Platform: "portal", Username: "teacher", Password: "teacher123",
 			Name: "王老师", Email: "teacher@bitc.edu.cn", Phone: "13900000004",
 		},
 		{
@@ -763,8 +764,16 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111114"),
 			OrgNodeID:      uuidPtr("31111111-1111-1111-1111-111111111114"),
 			MajorID:        uuidPtr("51111111-1111-1111-1111-111111111111"),
-			Role:           "school", Username: "student", Password: "student123",
+			Role:           "school", Platform: "portal", Username: "student", Password: "student123",
 			Name: "张学生", Email: "student@bitc.edu.cn", Phone: "13900000005", StudentNo: str("20230101"),
+		},
+		{
+			ID:             uuid.MustParse("71111111-1111-1111-1111-111111111116"),
+			InstitutionID:  str("inst-002"),
+			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111112"),
+			OrgNodeID:      uuidPtr("31111111-1111-1111-1111-111111111111"),
+			Role:           "school", Platform: "portal", Username: "school", Password: "school123",
+			Name: "李华", Email: "lihua@bitc.edu.cn", Phone: "13900000002",
 		},
 	}
 
@@ -784,18 +793,19 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 
 		_, err = tx.Exec(ctx, `
 			INSERT INTO users (id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
-				role, login_name, username, password_hash, name, email, phone, avatar_url, student_no,
+				role, platform, login_name, username, password_hash, name, email, phone, avatar_url, student_no,
 				status, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'active', NOW(), NOW())
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'active', NOW(), NOW())
 			ON CONFLICT (id) DO UPDATE SET
 				tenant_id = EXCLUDED.tenant_id, institution_id = EXCLUDED.institution_id,
 				identity_type_id = EXCLUDED.identity_type_id, org_node_id = EXCLUDED.org_node_id,
-				major_id = EXCLUDED.major_id, role = EXCLUDED.role, login_name = EXCLUDED.login_name,
-				username = EXCLUDED.username, password_hash = EXCLUDED.password_hash, name = EXCLUDED.name,
+				major_id = EXCLUDED.major_id, role = EXCLUDED.role, platform = EXCLUDED.platform,
+				login_name = EXCLUDED.login_name, username = EXCLUDED.username,
+				password_hash = EXCLUDED.password_hash, name = EXCLUDED.name,
 				email = EXCLUDED.email, phone = EXCLUDED.phone, avatar_url = EXCLUDED.avatar_url,
 				student_no = EXCLUDED.student_no, status = EXCLUDED.status, updated_at = NOW()
 		`, u.ID, tenantID, u.InstitutionID, u.IdentityTypeID, orgNodeID, majorID,
-			u.Role, u.Username, u.Username, string(hash), u.Name, u.Email, u.Phone, nil, u.StudentNo)
+			u.Role, u.Platform, u.Username, u.Username, string(hash), u.Name, u.Email, u.Phone, nil, u.StudentNo)
 		if err != nil {
 			return fmt.Errorf("insert user %s: %w", u.Username, err)
 		}

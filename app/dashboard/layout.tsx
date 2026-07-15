@@ -22,12 +22,17 @@ export default function DashboardLayoutWrapper({
   useEffect(() => {
     if (loading || !user) return
 
+    if (user.platform !== "saas") {
+      router.replace("/login")
+      return
+    }
+
     const code = identityType?.code ?? ""
     if (!ALLOWED_DASHBOARD_IDENTITIES.includes(code)) {
       if (code === "platform_admin") {
         router.replace("/admin")
       } else {
-        router.replace("/portal/workspace")
+        router.replace("/login")
       }
     }
   }, [loading, user, identityType, router])
@@ -42,6 +47,10 @@ export default function DashboardLayoutWrapper({
 
   if (!user) {
     router.replace("/login")
+    return null
+  }
+
+  if (user.platform !== "saas") {
     return null
   }
 

@@ -485,8 +485,16 @@ func ensureSeedData(t *testing.T, db *pgxpool.Pool, token string) {
 	db.Exec(ctx, `INSERT INTO tenants (id, name, code, status) VALUES ($1, 'Test Tenant', 'test', 'active') ON CONFLICT (id) DO NOTHING`, TestTenantID)
 
 	pw, _ := bcrypt.GenerateFromPassword([]byte("test123"), bcrypt.DefaultCost)
-	db.Exec(ctx, `INSERT INTO users (id, tenant_id, role, username, login_name, password_hash, name, status, title_ids) VALUES ($1, $2, 'operator', 'testuser', 'testuser', $3, 'Test Operator', 'active', '{}') ON CONFLICT (id) DO NOTHING`,
-		TestOperatorID, TestTenantID, string(pw))
+	db.Exec(ctx, `
+		INSERT INTO users (id, tenant_id, role, platform, username, login_name, password_hash, name, status, title_ids)
+		VALUES ($1, $2, 'operator', 'saas', 'seedtestuser', 'seedtestuser', $3, 'Test Operator', 'active', '{}')
+		ON CONFLICT (id) DO UPDATE SET
+			username = EXCLUDED.username,
+			login_name = EXCLUDED.login_name,
+			platform = EXCLUDED.platform,
+			password_hash = EXCLUDED.password_hash,
+			updated_at = NOW()
+	`, TestOperatorID, TestTenantID, string(pw))
 
 	db.Exec(ctx, `INSERT INTO platform_configs (key, value) VALUES ('platform_fee_rate', '0.15') ON CONFLICT (key) DO NOTHING`)
 	db.Exec(ctx, `INSERT INTO platform_configs (key, value) VALUES ('min_withdrawal_amount', '100') ON CONFLICT (key) DO NOTHING`)

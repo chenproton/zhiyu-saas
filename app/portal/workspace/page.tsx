@@ -31,7 +31,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Bar, BarChart, Pie, PieChart as RePieChart, Cell, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAuth } from "@/contexts/auth-context"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 
 import { DashboardTab } from "./_components/dashboard-tab"
 import { LearningTab } from "./_components/learning-tab"
@@ -296,7 +296,7 @@ function TeacherWorkspace() {
 }
 
 export default function WorkspacePage() {
-  const { user, isLoading } = useAuth()
+  const { user, identityType, loading: isLoading } = usePortalAuth()
 
   if (isLoading) {
     return (
@@ -310,12 +310,12 @@ export default function WorkspacePage() {
     return (
       <div className="flex h-[calc(100vh-3.5rem)] flex-col items-center justify-center gap-4 text-sm text-muted-foreground">
         <p>请先登录后查看服务台</p>
-        <a href="/login" className="text-primary hover:underline">去登录</a>
+        <a href="/portal/login" className="text-primary hover:underline">去登录</a>
       </div>
     )
   }
 
-  const currentRole = user?.currentRole?.name || "teacher"
+  const currentRole = identityType?.code || "teacher"
 
   // 学生角色展示全新的学生工作台
   if (currentRole === "student") {
@@ -330,7 +330,7 @@ export default function WorkspacePage() {
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
             <BookOpen className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-gray-700">当前身份：{user?.currentRole?.label || "学生"}</span>
+            <span className="text-sm font-medium text-gray-700">当前身份：{identityType?.name || "学生"}</span>
           </div>
         </div>
         <StudentWorkspace />
@@ -351,7 +351,7 @@ export default function WorkspacePage() {
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
             <GraduationCap className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-gray-700">当前身份：{user?.currentRole?.label || "教职工"}</span>
+            <span className="text-sm font-medium text-gray-700">当前身份：{identityType?.name || "教职工"}</span>
           </div>
         </div>
         <TeacherWorkspace />
@@ -359,8 +359,10 @@ export default function WorkspacePage() {
     )
   }
 
-  // 非学生角色保持原有通用工作台
-  const config = roleConfigs[currentRole as keyof typeof roleConfigs] || roleConfigs.teacher
+  // 非学生角色保持原有通用工作台（教师/学校管理员共用 teacher/admin 配置）
+  const roleConfigKey: keyof typeof roleConfigs =
+    currentRole === "student" ? "teacher" : currentRole === "teacher" ? "teacher" : "admin"
+  const config = roleConfigs[roleConfigKey] || roleConfigs.teacher
   const calendarDays = generateCalendarDays(2026, 3)
   const weekDays = ["日", "一", "二", "三", "四", "五", "六"]
   const todoPieData = config.todoItems.map((item) => ({
@@ -369,7 +371,7 @@ export default function WorkspacePage() {
     color: item.color,
   }))
   const totalTodo = config.todoItems.reduce((acc, item) => acc + item.count, 0)
-  const RoleIcon = roleIcons[currentRole as keyof typeof roleIcons] || GraduationCap
+  const RoleIcon = roleIcons[roleConfigKey] || GraduationCap
 
   return (
       <div className="px-4 pt-6 pb-2 bg-gray-50 min-h-[calc(100vh-3.5rem)]">
@@ -380,7 +382,7 @@ export default function WorkspacePage() {
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
           <RoleIcon className="w-5 h-5 text-blue-600" />
-          <span className="text-sm font-medium text-gray-700">当前身份：{user?.currentRole?.label || "教职工"}</span>
+          <span className="text-sm font-medium text-gray-700">当前身份：{identityType?.name || "教职工"}</span>
         </div>
       </div>
 

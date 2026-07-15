@@ -56,14 +56,22 @@ const (
 	UserRoleOperator   UserRole = "operator"
 )
 
+type UserPlatform string
+
+const (
+	UserPlatformPortal UserPlatform = "portal"
+	UserPlatformSaas   UserPlatform = "saas"
+)
+
 type User struct {
-	ID             string     `json:"id"`
-	TenantID       *string    `json:"tenantId,omitempty"`
-	InstitutionID  *string    `json:"institutionId,omitempty"`
-	IdentityTypeID *string    `json:"identityTypeId,omitempty"`
-	OrgNodeID      *string    `json:"orgNodeId,omitempty"`
-	MajorID        *string    `json:"majorId,omitempty"`
-	Role           UserRole   `json:"role"`
+	ID             string       `json:"id"`
+	TenantID       *string      `json:"tenantId,omitempty"`
+	InstitutionID  *string      `json:"institutionId,omitempty"`
+	IdentityTypeID *string      `json:"identityTypeId,omitempty"`
+	OrgNodeID      *string      `json:"orgNodeId,omitempty"`
+	MajorID        *string      `json:"majorId,omitempty"`
+	Role           UserRole     `json:"role"`
+	Platform       UserPlatform `json:"platform"`
 	LoginName      *string    `json:"loginName,omitempty"`
 	Username       string     `json:"username"`
 	PasswordHash   string     `json:"-"`

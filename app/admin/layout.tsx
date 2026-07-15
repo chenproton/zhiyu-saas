@@ -16,6 +16,11 @@ export default function AdminLayout({
   useEffect(() => {
     if (loading || !user) return
 
+    if (user.platform !== "saas") {
+      router.replace("/login")
+      return
+    }
+
     const code = identityType?.code ?? ""
     if (code === "platform_admin" || code === "school_admin") {
       return
@@ -23,8 +28,6 @@ export default function AdminLayout({
 
     if (code.startsWith("enterprise")) {
       router.replace("/dashboard")
-    } else if (code === "teacher" || code === "student") {
-      router.replace("/portal/workspace")
     } else {
       router.replace("/login")
     }
@@ -40,6 +43,10 @@ export default function AdminLayout({
 
   if (!user) {
     router.replace("/login")
+    return null
+  }
+
+  if (user.platform !== "saas") {
     return null
   }
 
