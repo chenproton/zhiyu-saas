@@ -1,15 +1,28 @@
 "use client"
 
 import Link from "next/link"
-import { GraduationCap, Search, ShoppingCart, User } from "lucide-react"
+import { GraduationCap, Search, ShoppingCart, User, LogOut, LayoutDashboard, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/components/auth-provider"
 
 interface MarketplaceLayoutProps {
   children: React.ReactNode
 }
 
 export function MarketplaceLayout({ children }: MarketplaceLayoutProps) {
+  const { user, identityType, loading, logout } = useAuth()
+  const isLoggedIn = !!user
+
+  const dashboardHref = identityType?.code === "platform_admin" ? "/admin" : "/dashboard"
+
   return (
     <div className="min-h-screen bg-background">
       {/* Public marketplace header */}
@@ -37,18 +50,48 @@ export function MarketplaceLayout({ children }: MarketplaceLayoutProps) {
                 className="h-9 w-56 bg-muted pl-9 text-sm"
               />
             </div>
-            <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
-              <Link href="/login" className="gap-2">
-                <User className="h-4 w-4" />
-                登录
-              </Link>
-            </Button>
-            <Button size="sm" asChild className="hidden sm:flex">
-              <Link href="/login" className="gap-2">
-                <ShoppingCart className="h-4 w-4" />
-                商家后台
-              </Link>
-            </Button>
+
+            {loading ? null : isLoggedIn ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                      {user.name?.charAt(0).toUpperCase() || "U"}
+                    </div>
+                    <span className="hidden sm:inline">{user.name}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link href={dashboardHref} className="cursor-pointer">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      进入后台
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    退出登录
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
+                  <Link href="/login" className="gap-2">
+                    <User className="h-4 w-4" />
+                    登录
+                  </Link>
+                </Button>
+                <Button size="sm" asChild className="hidden sm:flex">
+                  <Link href="/login" className="gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    商家后台
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
