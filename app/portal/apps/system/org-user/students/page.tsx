@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,9 +15,11 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { usePortalUsers } from "@/hooks/use-portal-users"
 import {
   Plus, MoreHorizontal, Pencil, Power, Trash2, Search, Filter, Upload, Download,
-  ChevronRight, ChevronDown, FolderTree, Users, GraduationCap, UserMinus, UserCheck, BookOpen, Award, Check, ChevronsUpDown
+  ChevronRight, ChevronDown, FolderTree, Award, Check, ChevronsUpDown, Loader2, AlertCircle, RotateCcw
 } from "lucide-react"
 
 interface Student {
@@ -116,7 +118,12 @@ const statusColor: Record<string, string> = {
   "结业": "secondary",
 }
 
-const mockStudents: Student[] = []
+function mapStudentStatus(status: string): Student["status"] {
+  if (status === "active") return "在籍"
+  if (status === "inactive") return "休学"
+  if (status === "disabled") return "退学"
+  return "在籍"
+}
 
 function classBadge(variant: string) {
   if (variant === "destructive") return "destructive" as const
@@ -125,10 +132,16 @@ function classBadge(variant: string) {
 }
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState<Student[]>(mockStudents)
+  const { institution } = usePortalAuth()
+  const [searchTerm, setSearchTerm] = useState("")
+  const { users, loading, error, refetch } = usePortalUsers({
+    identityTypeCode: "student",
+    search: searchTerm || undefined,
+  })
+
+  const [students, setStudents] = useState<Student[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
 
@@ -136,6 +149,20 @@ export default function StudentsPage() {
   const [classOpen, setClassOpen] = useState(false)
   const [formClassId, setFormClassId] = useState("")
   const [formClassName, setFormClassName] = useState("")
+
+  useEffect(() => {
+    setStudents(
+      users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        studentNo: u.studentNo || u.username,
+        className: "—",
+        major: "—",
+        department: institution?.name || "—",
+        status: mapStudentStatus(u.status),
+      }))
+    )
+  }, [users, institution])
 
   const filteredStudents = students.filter((student) => {
     if (searchTerm) {
@@ -230,6 +257,19 @@ export default function StudentsPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="mb-4 rounded border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium">加载失败</p>
+            <p className="text-sm opacity-90">{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={refetch}>
+            <RotateCcw className="h-4 w-4 mr-1" />重试
+          </Button>
+        </div>
+      )}
+
       <div className="flex gap-4 items-start">
         <div className="w-64 shrink-0 rounded-lg border border-gray-100 bg-white shadow-sm p-4">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
@@ -304,49 +344,62 @@ export default function StudentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStudents.map((student) => (
-                  <TableRow key={student.id} className="border-border">
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedStudents.includes(student.id)}
-                        onCheckedChange={() => toggleSelectStudent(student.id)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{student.studentNo}</TableCell>
-                    <TableCell className="font-medium">{student.name}</TableCell>
-                    <TableCell>{student.department}</TableCell>
-                    <TableCell className="text-muted-foreground">{student.major}</TableCell>
-                    <TableCell>{student.className}</TableCell>
-                    <TableCell>
-                      <Badge variant={classBadge(statusColor[student.status])}>{student.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDialog(student)}>
-                            <Pencil className="mr-2 h-4 w-4" />编辑
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleStatus(student.id)}>
-                            <Power className="mr-2 h-4 w-4" />
-                            {student.status === "在籍" ? "设为休学" : "设为在籍"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => deleteStudent(student.id)} className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />删除
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredStudents.length === 0 && (
+                {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">暂无数据</TableCell>
+                    <TableCell colSpan={8} className="text-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
+                    </TableCell>
                   </TableRow>
+                ) : (
+                  <>
+                    {filteredStudents.map((student) => (
+                      <TableRow key={student.id} className="border-border">
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedStudents.includes(student.id)}
+                            onCheckedChange={() => toggleSelectStudent(student.id)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{student.studentNo}</TableCell>
+                        <TableCell className="font-medium">{student.name}</TableCell>
+                        <TableCell>{student.department}</TableCell>
+                        <TableCell className="text-muted-foreground">{student.major}</TableCell>
+                        <TableCell>{student.className}</TableCell>
+                        <TableCell>
+                          <Badge variant={classBadge(statusColor[student.status])}>{student.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(student)}>
+                                <Pencil className="mr-2 h-4 w-4" />编辑
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => toggleStatus(student.id)}>
+                                <Power className="mr-2 h-4 w-4" />
+                                {student.status === "在籍" ? "设为休学" : "设为在籍"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => deleteStudent(student.id)} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />删除
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredStudents.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          {searchTerm ? "未找到匹配的学生" : "暂无学生数据"}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 )}
               </TableBody>
             </Table>

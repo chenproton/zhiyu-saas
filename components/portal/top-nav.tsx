@@ -15,16 +15,21 @@ import {
 import { Button } from "@/components/ui/button"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 
-const navItems = [
+const baseNavItems = [
   { href: "/portal", label: "门户首页", icon: Home },
-  { href: "/portal/workspace", label: "我的服务台", icon: Briefcase },
-  { href: "/portal/apps", label: "应用服务中心", icon: LayoutGrid },
+  { href: "/portal/workspace", label: "我的服务台", icon: Briefcase, identityCodes: ["teacher", "student"] },
+  { href: "/portal/apps", label: "应用服务中心", icon: LayoutGrid, identityCodes: ["school_admin"] },
 ]
 
 export function TopNav() {
   const pathname = usePathname()
   const { user, identityType, institution, loading, logout } = usePortalAuth()
+  const identityCode = identityType?.code
   const isLoggedIn = !!user
+
+  const navItems = baseNavItems.filter((item) =>
+    !item.identityCodes || (identityCode && item.identityCodes.includes(identityCode))
+  )
   const [currentTime, setCurrentTime] = useState("")
   const [mounted, setMounted] = useState(false)
 
@@ -147,7 +152,7 @@ export function TopNav() {
               className="flex items-center gap-2 text-muted-foreground hover:text-primary hover:bg-primary/5"
               asChild
             >
-              <Link href="/login">
+              <Link href="/portal/login">
                 <LogIn className="w-4 h-4" />
                 登录
               </Link>

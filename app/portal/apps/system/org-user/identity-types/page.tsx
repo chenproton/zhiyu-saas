@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -18,29 +18,62 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Pencil, Trash2, Search } from "lucide-react"
-
-const identityTypes = [
-  { id: 1, name: "教职工", code: "STAFF", description: "学校教职工人员", userCount: 256 },
-  { id: 2, name: "学生", code: "STUDENT", description: "在校学生", userCount: 3500 },
-  { id: 3, name: "企业人员", code: "ENTERPRISE", description: "合作企业人员", userCount: 128 },
-  { id: 4, name: "系统管理员", code: "ADMIN", description: "系统管理人员", userCount: 5 },
-]
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Spinner } from "@/components/ui/spinner"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Plus, Pencil, Trash2, Search, AlertCircle } from "lucide-react"
+import { identityTypeApi } from "@/lib/api"
+import type { IdentityType } from "@/lib/types/backend"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 
 export default function IdentityTypesPage() {
+  const { tenantId } = usePortalAuth()
+  const [items, setItems] = useState<IdentityType[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showDialog, setShowDialog] = useState(false)
-  const [editingType, setEditingType] = useState<typeof identityTypes[0] | null>(null)
+  const [editingType, setEditingType] = useState<IdentityType | null>(null)
   const [searchText, setSearchText] = useState("")
+
+  const fetchData = async () => {
+    if (!tenantId) {
+      setIsLoading(false)
+      setError("未获取到租户信息，请重新登录")
+      return
+    }
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await identityTypeApi.list({ tenantId, search: searchText || undefined, limit: 1000 })
+      setItems(res.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载身份类型失败")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, searchText])
 
   const handleAdd = () => {
     setEditingType(null)
     setShowDialog(true)
   }
 
-  const handleEdit = (type: typeof identityTypes[0]) => {
+  const handleEdit = (type: IdentityType) => {
     setEditingType(type)
     setShowDialog(true)
   }
+
+  const filteredItems = items.filter(
+    (type) =>
+      type.name.includes(searchText) ||
+      type.code.includes(searchText) ||
+      (type.description && type.description.includes(searchText))
+  )
 
   return (
     <div className="p-6">
@@ -62,43 +95,73 @@ export default function IdentityTypesPage() {
         </Button>
       </div>
 
-      <div className="bg-card rounded border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">序号</TableHead>
-              <TableHead>类型名称</TableHead>
-              <TableHead>类型编码</TableHead>
-              <TableHead>描述</TableHead>
-              <TableHead>关联用户数</TableHead>
-              <TableHead className="w-32 text-center">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {identityTypes.map((type, index) => (
-              <TableRow key={type.id}>
-                <TableCell>{index + 1}</TableCell>
-                <TableCell className="font-medium">{type.name}</TableCell>
-                <TableCell className="text-muted-foreground">{type.code}</TableCell>
-                <TableCell className="text-muted-foreground">{type.description}</TableCell>
-                <TableCell>
-                  <span className="text-primary">{type.userCount}</span> 人
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(type)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>加载失败</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <div className="flex h-64 items-center justify-center gap-2 text-muted-foreground">
+          <Spinner className="h-5 w-5" />
+          加载中...
+        </div>
+      ) : (
+        <div className="bg-card rounded border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">序号</TableHead>
+                <TableHead>类型名称</TableHead>
+                <TableHead>类型编码</TableHead>
+                <TableHead>描述</TableHead>
+                <TableHead>关联用户数</TableHead>
+                <TableHead className="w-32 text-center">操作</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {filteredItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-48 text-center">
+                    <Empty className="h-full">
+                      <EmptyHeader>
+                        <EmptyTitle>暂无身份类型</EmptyTitle>
+                        <EmptyDescription>
+                          {searchText ? "未找到匹配的身份类型" : "当前租户下尚未创建身份类型"}
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredItems.map((type, index) => (
+                  <TableRow key={type.id}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell className="font-medium">{type.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{type.code}</TableCell>
+                    <TableCell className="text-muted-foreground">{type.description || "-"}</TableCell>
+                    <TableCell>
+                      <span className="text-primary">{type.userCount}</span> 人
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(type)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>

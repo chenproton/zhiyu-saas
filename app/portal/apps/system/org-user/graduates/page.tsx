@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -33,8 +33,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, Download, Eye, MoreHorizontal, RotateCcw } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { usePortalUsers } from "@/hooks/use-portal-users"
+import { Search, Download, Eye, MoreHorizontal, RotateCcw, Loader2, AlertCircle, Info } from "lucide-react"
 
 interface Graduate {
   id: string
@@ -47,15 +48,33 @@ interface Graduate {
   className: string
 }
 
-const mockGraduates: Graduate[] = []
-
 export default function GraduatesPage() {
-  const [graduates, setGraduates] = useState<Graduate[]>(mockGraduates)
   const [searchText, setSearchText] = useState("")
+  const { users, loading, error, refetch } = usePortalUsers({
+    identityTypeCode: "student",
+    search: searchText || undefined,
+  })
+
+  const [graduates, setGraduates] = useState<Graduate[]>([])
   const [yearFilter, setYearFilter] = useState("all")
   const [selectedGraduates, setSelectedGraduates] = useState<string[]>([])
   const [isReEnrollDialogOpen, setIsReEnrollDialogOpen] = useState(false)
   const [graduateToReEnroll, setGraduateToReEnroll] = useState<Graduate | null>(null)
+
+  useEffect(() => {
+    setGraduates(
+      users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        studentId: u.studentNo || u.username,
+        idCard: u.idCard || "—",
+        graduateYear: "—",
+        enrollYear: "—",
+        major: "—",
+        className: "—",
+      }))
+    )
+  }, [users])
 
   const filteredGraduates = graduates.filter(g => {
     const matchSearch = g.name.includes(searchText) || g.studentId.includes(searchText)
@@ -64,7 +83,7 @@ export default function GraduatesPage() {
   })
 
   const toggleSelectGraduate = (id: string) => {
-    setSelectedGraduates(prev => 
+    setSelectedGraduates(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     )
   }
@@ -90,7 +109,7 @@ export default function GraduatesPage() {
     }
   }
 
-  const graduateYears = [...new Set(graduates.map(g => g.graduateYear))].sort((a, b) => Number(b) - Number(a))
+  const graduateYears = [...new Set(graduates.map(g => g.graduateYear).filter((y): y is string => y !== "—"))].sort((a, b) => Number(b) - Number(a))
 
   return (
     <div className="p-6 bg-[#f5f7fa] min-h-full">
@@ -104,6 +123,29 @@ export default function GraduatesPage() {
           导出
         </Button>
       </div>
+
+      <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-4 text-amber-800 flex items-start gap-3">
+        <Info className="h-5 w-5 shrink-0 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-medium">后端暂无毕业状态接口</p>
+          <p className="opacity-90">
+            当前复用学生列表展示。毕业年份、入学年份、专业、班级等字段后端未在用户表中维护，因此显示为“—”。
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium">加载失败</p>
+            <p className="text-sm opacity-90">{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={refetch}>
+            <RotateCcw className="h-4 w-4 mr-1" />重试
+          </Button>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mb-4">
         <div className="relative flex-1 max-w-md">
@@ -133,7 +175,7 @@ export default function GraduatesPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
-                <Checkbox 
+                <Checkbox
                   checked={selectedGraduates.length === filteredGraduates.length && filteredGraduates.length > 0}
                   onCheckedChange={toggleSelectAll}
                 />
@@ -149,46 +191,64 @@ export default function GraduatesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredGraduates.map((graduate) => (
-              <TableRow key={graduate.id}>
-                <TableCell>
-                  <Checkbox 
-                    checked={selectedGraduates.includes(graduate.id)}
-                    onCheckedChange={() => toggleSelectGraduate(graduate.id)}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">{graduate.name}</TableCell>
-                <TableCell className="font-mono text-sm">{graduate.studentId}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">{graduate.idCard}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{graduate.enrollYear}级</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{graduate.graduateYear}届</Badge>
-                </TableCell>
-                <TableCell>{graduate.major}</TableCell>
-                <TableCell className="text-muted-foreground">{graduate.className}</TableCell>
-                <TableCell className="text-center">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Eye className="mr-2 h-4 w-4" />
-                        查看详情
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleReEnroll(graduate)}>
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        重新入学
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              <>
+                {filteredGraduates.map((graduate) => (
+                  <TableRow key={graduate.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedGraduates.includes(graduate.id)}
+                        onCheckedChange={() => toggleSelectGraduate(graduate.id)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{graduate.name}</TableCell>
+                    <TableCell className="font-mono text-sm">{graduate.studentId}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{graduate.idCard}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{graduate.enrollYear}级</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{graduate.graduateYear}届</Badge>
+                    </TableCell>
+                    <TableCell>{graduate.major}</TableCell>
+                    <TableCell className="text-muted-foreground">{graduate.className}</TableCell>
+                    <TableCell className="text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Eye className="mr-2 h-4 w-4" />
+                            查看详情
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleReEnroll(graduate)}>
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            重新入学
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredGraduates.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                      {searchText ? "未找到匹配的学生" : "暂无数据"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </>
+            )}
           </TableBody>
         </Table>
       </div>

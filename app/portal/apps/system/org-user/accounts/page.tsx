@@ -17,18 +17,37 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, MoreHorizontal, Key, Ban, CheckCircle } from "lucide-react"
+import { usePortalUsers } from "@/hooks/use-portal-users"
+import { Search, MoreHorizontal, Key, Ban, CheckCircle, Loader2, AlertCircle, RotateCcw } from "lucide-react"
 
-const accounts = [
-  { id: 1, name: "张三", identityType: "教职工", loginName: "zhangsan", status: "正常", lastLogin: "2024-03-15 10:30:00" },
-  { id: 2, name: "李四", identityType: "教职工", loginName: "lisi", status: "正常", lastLogin: "2024-03-14 14:20:00" },
-  { id: 3, name: "王五", identityType: "学生", loginName: "2021010001", status: "正常", lastLogin: "2024-03-15 09:15:00" },
-  { id: 4, name: "赵六", identityType: "学生", loginName: "2021010002", status: "禁用", lastLogin: "2024-02-20 16:45:00" },
-  { id: 5, name: "钱七", identityType: "企业人员", loginName: "qianqi@company.com", status: "正常", lastLogin: "2024-03-13 11:00:00" },
-]
+function mapAccountStatus(status: string): { label: string; className: string } {
+  if (status === "active") {
+    return { label: "正常", className: "bg-green-100 text-green-700" }
+  }
+  return { label: "禁用", className: "bg-red-100 text-red-700" }
+}
 
 export default function AccountsPage() {
   const [searchText, setSearchText] = useState("")
+  const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
+    search: searchText || undefined,
+  })
+
+  const accounts = users.map((user) => {
+    const idType = user.identityTypeId ? identityTypeMap.get(user.identityTypeId) : undefined
+    const statusStyle = mapAccountStatus(user.status)
+    return {
+      id: user.id,
+      name: user.name,
+      identityType: idType?.name || "—",
+      loginName: user.loginName || user.username,
+      statusLabel: statusStyle.label,
+      statusClassName: statusStyle.className,
+      lastLogin: user.lastLoginAt
+        ? new Date(user.lastLoginAt).toLocaleString("zh-CN")
+        : "—",
+    }
+  })
 
   return (
     <div className="p-6">
@@ -46,6 +65,19 @@ export default function AccountsPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="mb-4 rounded border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium">加载失败</p>
+            <p className="text-sm opacity-90">{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={refetch}>
+            <RotateCcw className="h-4 w-4 mr-1" />重试
+          </Button>
+        </div>
+      )}
+
       <div className="bg-card rounded border">
         <Table>
           <TableHeader>
@@ -60,54 +92,65 @@ export default function AccountsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {accounts.map((account, index) => (
-              <TableRow key={account.id}>
-                <TableCell>{index + 1}</TableCell>
-                <TableCell className="font-medium">{account.name}</TableCell>
-                <TableCell>
-                  <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary">
-                    {account.identityType}
-                  </span>
-                </TableCell>
-                <TableCell>{account.loginName}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    account.status === "正常" 
-                      ? "bg-green-100 text-green-700" 
-                      : "bg-red-100 text-red-700"
-                  }`}>
-                    {account.status}
-                  </span>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{account.lastLogin}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Key className="h-4 w-4 mr-2" />
-                        重置密码
-                      </DropdownMenuItem>
-                      {account.status === "正常" ? (
-                        <DropdownMenuItem className="text-destructive">
-                          <Ban className="h-4 w-4 mr-2" />
-                          禁用账户
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem>
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          启用账户
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : accounts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                  {searchText ? "未找到匹配的账户" : "暂无账户数据"}
+                </TableCell>
+              </TableRow>
+            ) : (
+              accounts.map((account, index) => (
+                <TableRow key={account.id}>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell className="font-medium">{account.name}</TableCell>
+                  <TableCell>
+                    <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary">
+                      {account.identityType}
+                    </span>
+                  </TableCell>
+                  <TableCell>{account.loginName}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded text-xs ${account.statusClassName}`}>
+                      {account.statusLabel}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{account.lastLogin}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Key className="h-4 w-4 mr-2" />
+                          重置密码
+                        </DropdownMenuItem>
+                        {account.statusLabel === "正常" ? (
+                          <DropdownMenuItem className="text-destructive">
+                            <Ban className="h-4 w-4 mr-2" />
+                            禁用账户
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            启用账户
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

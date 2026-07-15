@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -11,21 +11,16 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, MoreHorizontal, Pencil, Power, Trash2, Search, Upload, Download, Eye, Settings, ChevronRight, ChevronDown, FolderTree } from "lucide-react"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Spinner } from "@/components/ui/spinner"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Plus, MoreHorizontal, Pencil, Trash2, Search, Upload, Download, Eye, Settings, ChevronRight, ChevronDown, FolderTree, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface Role {
-  id: string
-  code: string
-  name: string
-  userCount: number
-  status: "active" | "inactive"
-  createdAt: string
-}
+import { roleApi } from "@/lib/api"
+import type { Role } from "@/lib/types/backend"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 
 let roleCounter = 5
-
-const mockRoles: Role[] = []
 
 const permissionTree = [
   {
@@ -144,7 +139,10 @@ function OrgNode({ node, level = 0, checked, onCheck }: { node: any; level?: num
 }
 
 export default function RolesPage() {
-  const [roles, setRoles] = useState<Role[]>(mockRoles)
+  const { tenantId } = usePortalAuth()
+  const [roles, setRoles] = useState<Role[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isPermDialogOpen, setIsPermDialogOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
@@ -152,7 +150,33 @@ export default function RolesPage() {
   const [checkedPerms, setCheckedPerms] = useState<Set<string>>(new Set())
   const [checkedOrgs, setCheckedOrgs] = useState<Set<string>>(new Set())
 
-  const filteredRoles = roles.filter((role) => role.name.includes(searchTerm) || role.code.includes(searchTerm))
+  const fetchData = async () => {
+    if (!tenantId) {
+      setIsLoading(false)
+      setError("未获取到租户信息，请重新登录")
+      return
+    }
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await roleApi.list({ tenantId, search: searchTerm || undefined, limit: 1000 })
+      setRoles(res.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载角色失败")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, searchTerm])
+
+  const filteredRoles = useMemo(
+    () => roles.filter((role) => role.name.includes(searchTerm) || role.code.includes(searchTerm)),
+    [roles, searchTerm]
+  )
 
   const generateRoleCode = () => {
     roleCounter++
@@ -175,6 +199,11 @@ export default function RolesPage() {
       else next.add(id)
       return next
     })
+  }
+
+  const roleStatus = (role: Role): "active" | "inactive" => {
+    if (role.status === "active" || role.status === "inactive") return role.status as "active" | "inactive"
+    return role.status ? "active" : "inactive"
   }
 
   return (
@@ -207,66 +236,101 @@ export default function RolesPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-100 bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border">
-              <TableHead>角色编码</TableHead>
-              <TableHead>角色名称</TableHead>
-              <TableHead>关联用户</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>创建时间</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredRoles.map((role) => (
-              <TableRow key={role.id} className="border-border">
-                <TableCell className="font-mono text-sm text-muted-foreground">{role.code}</TableCell>
-                <TableCell className="font-medium">{role.name}</TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{role.userCount} 人</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={role.status === "active" ? "default" : "secondary"}>
-                    {role.status === "active" ? "启用" : "停用"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{role.createdAt}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setSelectedRole(role); setIsDialogOpen(true) }}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        编辑
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSelectedRole(role); setIsPermDialogOpen(true) }}>
-                        <Settings className="mr-2 h-4 w-4" />
-                        权限配置
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Eye className="mr-2 h-4 w-4" />
-                        查看用户
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        删除
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>加载失败</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      <div className="mt-4 text-sm text-muted-foreground">共 {filteredRoles.length} 条记录</div>
+      {isLoading ? (
+        <div className="flex h-64 items-center justify-center gap-2 text-muted-foreground">
+          <Spinner className="h-5 w-5" />
+          加载中...
+        </div>
+      ) : (
+        <>
+          <div className="rounded-lg border border-gray-100 bg-white shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border">
+                  <TableHead>角色编码</TableHead>
+                  <TableHead>角色名称</TableHead>
+                  <TableHead>关联用户</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>创建时间</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRoles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center">
+                      <Empty className="h-full">
+                        <EmptyHeader>
+                          <EmptyTitle>暂无角色</EmptyTitle>
+                          <EmptyDescription>
+                            {searchTerm ? "未找到匹配的角色" : "当前租户下尚未创建角色"}
+                          </EmptyDescription>
+                        </EmptyHeader>
+                      </Empty>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredRoles.map((role) => {
+                    const status = roleStatus(role)
+                    return (
+                      <TableRow key={role.id} className="border-border">
+                        <TableCell className="font-mono text-sm text-muted-foreground">{role.code}</TableCell>
+                        <TableCell className="font-medium">{role.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{role.userCount} 人</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={status === "active" ? "default" : "secondary"}>
+                            {status === "active" ? "启用" : "停用"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{role.createdAt}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setSelectedRole(role); setIsDialogOpen(true) }}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                编辑
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setSelectedRole(role); setIsPermDialogOpen(true) }}>
+                                <Settings className="mr-2 h-4 w-4" />
+                                权限配置
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Eye className="mr-2 h-4 w-4" />
+                                查看用户
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                删除
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="mt-4 text-sm text-muted-foreground">共 {filteredRoles.length} 条记录</div>
+        </>
+      )}
 
       {/* 新增/编辑角色 */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

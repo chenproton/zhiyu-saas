@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -8,25 +8,48 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Pencil, Trash2, Search, Upload, Download } from "lucide-react"
-
-interface OrgType {
-  id: string
-  name: string
-  category: "internal" | "business" | "external"
-  createdAt: string
-}
-
-const mockOrgTypes: OrgType[] = []
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Spinner } from "@/components/ui/spinner"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Plus, Pencil, Trash2, Search, Upload, Download, AlertCircle } from "lucide-react"
+import { orgTypeApi } from "@/lib/api"
+import type { OrgType } from "@/lib/types/backend"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 
 const categoryLabels = { internal: "内部组织", business: "业务组织", external: "外部协作组织" }
 const categoryColors = { internal: "bg-blue-100 text-blue-700", business: "bg-green-100 text-green-700", external: "bg-orange-100 text-orange-700" }
 
 export default function OrgTypesPage() {
-  const [orgTypes, setOrgTypes] = useState<OrgType[]>(mockOrgTypes)
+  const { tenantId } = usePortalAuth()
+  const [orgTypes, setOrgTypes] = useState<OrgType[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedType, setSelectedType] = useState<OrgType | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+
+  const fetchData = async () => {
+    if (!tenantId) {
+      setIsLoading(false)
+      setError("未获取到租户信息，请重新登录")
+      return
+    }
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await orgTypeApi.list({ tenantId, search: searchTerm || undefined, limit: 1000 })
+      setOrgTypes(res.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载组织类型失败")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, searchTerm])
 
   const filteredTypes = orgTypes.filter((type) => type.name.includes(searchTerm))
 
@@ -64,41 +87,73 @@ export default function OrgTypesPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border">
-              <TableHead>类型名称</TableHead>
-              <TableHead>类型分类</TableHead>
-              <TableHead>创建时间</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredTypes.map((type) => (
-              <TableRow key={type.id} className="border-border">
-                <TableCell className="font-medium">{type.name}</TableCell>
-                <TableCell>
-                  <Badge className={categoryColors[type.category]}>{categoryLabels[type.category]}</Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{type.createdAt}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => { setSelectedType(type); setIsDialogOpen(true) }}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteType(type.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>加载失败</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      <div className="mt-4 text-sm text-muted-foreground">共 {filteredTypes.length} 条记录</div>
+      {isLoading ? (
+        <div className="flex h-64 items-center justify-center gap-2 text-muted-foreground">
+          <Spinner className="h-5 w-5" />
+          加载中...
+        </div>
+      ) : (
+        <>
+          <div className="rounded-lg border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border">
+                  <TableHead>类型名称</TableHead>
+                  <TableHead>类型分类</TableHead>
+                  <TableHead>创建时间</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTypes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-48 text-center">
+                      <Empty className="h-full">
+                        <EmptyHeader>
+                          <EmptyTitle>暂无组织类型</EmptyTitle>
+                          <EmptyDescription>
+                            {searchTerm ? "未找到匹配的组织类型" : "当前租户下尚未创建组织类型"}
+                          </EmptyDescription>
+                        </EmptyHeader>
+                      </Empty>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredTypes.map((type) => (
+                    <TableRow key={type.id} className="border-border">
+                      <TableCell className="font-medium">{type.name}</TableCell>
+                      <TableCell>
+                        <Badge className={categoryColors[type.category]}>{categoryLabels[type.category]}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{type.createdAt}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => { setSelectedType(type); setIsDialogOpen(true) }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteType(type.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="mt-4 text-sm text-muted-foreground">共 {filteredTypes.length} 条记录</div>
+        </>
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>

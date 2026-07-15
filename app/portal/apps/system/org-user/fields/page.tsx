@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Pencil } from "lucide-react"
+import { Pencil, AlertCircle } from "lucide-react"
 
 interface ExtendField {
   id: number
@@ -116,6 +116,16 @@ export default function UserFieldsPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           系统预留20个用户扩展字段，您可以根据需要启用、命名这些字段，并指定适用的身份类型
         </p>
+      </div>
+
+      <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-4 text-amber-800 flex items-start gap-3">
+        <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-medium">后端暂无用户扩展字段接口</p>
+          <p className="opacity-90">
+            当前页面展示的是静态示例数据，用于保留 UI 结构。待后端提供 /user-extension-fields 相关接口后再替换为真实数据。
+          </p>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-100 shadow-sm">

@@ -14,9 +14,11 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { usePortalUsers } from "@/hooks/use-portal-users"
 import {
   Plus, MoreHorizontal, Power, Trash2, Search, Filter, Upload, Download,
-  X, Check, FolderTree, ChevronRight, ChevronDown, ChevronsUpDown
+  X, Check, FolderTree, ChevronRight, ChevronDown, ChevronsUpDown, Loader2, AlertCircle, RotateCcw
 } from "lucide-react"
 
 interface Teacher {
@@ -26,7 +28,7 @@ interface Teacher {
   department: string
   roles: string[]
   positions: string[]
-  status: "在职" | "离职" | "外聘"
+  status: "在职" | "离职" | "外聘" | "禁用"
 }
 
 interface OrgMajorNode {
@@ -50,14 +52,24 @@ const orgTreeData: OrgDeptNode[] = [
   { id: "dept-4", name: "学生处", majors: [] },
 ]
 
-// 教师数据应由 userManagementApi 加载，当前默认空状态
-const mockTeachers: Teacher[] = []
+function mapTeacherStatus(status: string): Teacher["status"] {
+  if (status === "active") return "在职"
+  if (status === "inactive") return "离职"
+  if (status === "disabled") return "禁用"
+  return "外聘"
+}
 
 export default function TeachersPage() {
-  const [teachers, setTeachers] = useState<Teacher[]>(mockTeachers)
+  const { institution } = usePortalAuth()
+  const [searchTerm, setSearchTerm] = useState("")
+  const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
+    identityTypeCode: "teacher",
+    search: searchTerm || undefined,
+  })
+
+  const [teachers, setTeachers] = useState<Teacher[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null)
 
@@ -70,6 +82,23 @@ export default function TeachersPage() {
   const [showPositionDropdown, setShowPositionDropdown] = useState(false)
   const positionInputRef = useRef<HTMLInputElement>(null)
   const [deptPopoverOpen, setDeptPopoverOpen] = useState(false)
+
+  useEffect(() => {
+    setTeachers(
+      users.map((u) => {
+        const idType = u.identityTypeId ? identityTypeMap.get(u.identityTypeId) : undefined
+        return {
+          id: u.id,
+          name: u.name,
+          workNo: u.workId || u.username,
+          department: institution?.name || "—",
+          roles: idType ? [idType.name] : [],
+          positions: u.titleIds ?? [],
+          status: mapTeacherStatus(u.status),
+        }
+      })
+    )
+  }, [users, identityTypeMap, institution])
 
   const filteredTeachers = teachers.filter((teacher) => {
     if (searchTerm) {
@@ -154,6 +183,19 @@ export default function TeachersPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="mb-4 rounded border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium">加载失败</p>
+            <p className="text-sm opacity-90">{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={refetch}>
+            <RotateCcw className="h-4 w-4 mr-1" />重试
+          </Button>
+        </div>
+      )}
+
       <div className="flex gap-4 items-start">
         <div className="w-64 shrink-0 rounded-lg border border-gray-100 bg-white shadow-sm p-4">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
@@ -198,6 +240,7 @@ export default function TeachersPage() {
                   <SelectItem value="在职">在职</SelectItem>
                   <SelectItem value="离职">离职</SelectItem>
                   <SelectItem value="外聘">外聘</SelectItem>
+                  <SelectItem value="禁用">禁用</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" size="sm">
@@ -220,62 +263,75 @@ export default function TeachersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTeachers.map((teacher) => (
-                  <TableRow key={teacher.id} className="border-border">
-                    <TableCell className="font-mono text-sm">{teacher.workNo}</TableCell>
-                    <TableCell className="font-medium">{teacher.name}</TableCell>
-                    <TableCell>{teacher.department}</TableCell>
-                    <TableCell>
-                      {teacher.roles.length > 0 ? (
-                        <div className="flex gap-1 flex-wrap">
-                          {teacher.roles.map((role, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">{role}</Badge>
-                          ))}
-                        </div>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell>
-                      {teacher.positions.length > 0 ? (
-                        <div className="flex gap-1 flex-wrap">
-                          {teacher.positions.map((pos, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs">{pos}</Badge>
-                          ))}
-                        </div>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={teacher.status === "在职" ? "default" : "secondary"}>{teacher.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(teacher)}>编辑</Button>
-                        <Button variant="ghost" size="sm" onClick={() => resetPassword(teacher.id)}>
-                          重置密码
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => toggleStatus(teacher.id)}>
-                              <Power className="mr-2 h-4 w-4" />
-                              {teacher.status === "在职" ? "设为离职" : "设为在职"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => deleteTeacher(teacher.id)} className="text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" />删除
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredTeachers.length === 0 && (
+                {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">暂无数据</TableCell>
+                    <TableCell colSpan={7} className="text-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
+                    </TableCell>
                   </TableRow>
+                ) : (
+                  <>
+                    {filteredTeachers.map((teacher) => (
+                      <TableRow key={teacher.id} className="border-border">
+                        <TableCell className="font-mono text-sm">{teacher.workNo}</TableCell>
+                        <TableCell className="font-medium">{teacher.name}</TableCell>
+                        <TableCell>{teacher.department}</TableCell>
+                        <TableCell>
+                          {teacher.roles.length > 0 ? (
+                            <div className="flex gap-1 flex-wrap">
+                              {teacher.roles.map((role, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">{role}</Badge>
+                              ))}
+                            </div>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          {teacher.positions.length > 0 ? (
+                            <div className="flex gap-1 flex-wrap">
+                              {teacher.positions.map((pos, i) => (
+                                <Badge key={i} variant="secondary" className="text-xs">{pos}</Badge>
+                              ))}
+                            </div>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={teacher.status === "在职" ? "default" : teacher.status === "禁用" ? "destructive" : "secondary"}>{teacher.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => openEditDialog(teacher)}>编辑</Button>
+                            <Button variant="ghost" size="sm" onClick={() => resetPassword(teacher.id)}>
+                              重置密码
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => toggleStatus(teacher.id)}>
+                                  <Power className="mr-2 h-4 w-4" />
+                                  {teacher.status === "在职" ? "设为离职" : "设为在职"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => deleteTeacher(teacher.id)} className="text-destructive">
+                                  <Trash2 className="mr-2 h-4 w-4" />删除
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredTeachers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          {searchTerm ? "未找到匹配的教职工" : "暂无教职工数据"}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 )}
               </TableBody>
             </Table>
@@ -349,6 +405,7 @@ export default function TeachersPage() {
                     <SelectItem value="在职">在职</SelectItem>
                     <SelectItem value="离职">离职</SelectItem>
                     <SelectItem value="外聘">外聘</SelectItem>
+                    <SelectItem value="禁用">禁用</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

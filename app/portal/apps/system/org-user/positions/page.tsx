@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, MoreHorizontal, Pencil, Power, Trash2, Search, Upload, Download, Eye } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Plus, MoreHorizontal, Pencil, Power, Trash2, Search, Upload, Download, Eye, AlertCircle } from "lucide-react"
 
 interface Position {
   id: string
@@ -39,6 +40,15 @@ export default function PositionsPage() {
 
   return (
     <div className="p-6">
+      <Alert variant="destructive" className="mb-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>后端接口缺失</AlertTitle>
+        <AlertDescription>
+          职位管理（教职工职称 / staff_titles）暂无对应 REST 端点。现有 /job/positions 为产业岗位，
+          数据字段不匹配，因此本页暂未接入实时数据。
+        </AlertDescription>
+      </Alert>
+
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">职位管理</h1>

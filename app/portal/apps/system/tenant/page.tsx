@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -48,7 +48,11 @@ import {
   FileKey,
   Users,
   X,
+  Loader2,
 } from "lucide-react"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { portalRequest } from "@/lib/api"
+import type { Tenant as BackendTenant } from "@/lib/types/backend"
 
 interface Admin {
   id: string
@@ -73,10 +77,29 @@ interface Tenant {
   createdAt: string
 }
 
-const mockTenants: Tenant[] = []
+function mapBackendTenant(t: BackendTenant): Tenant {
+  return {
+    id: t.id,
+    code: t.code,
+    enterpriseName: t.name,
+    contact: t.contact || "-",
+    phone: t.phone || "-",
+    admins: (t.adminIds || []).map((id) => ({ id, name: "", account: "", phone: "" })),
+    userCount: (t.adminIds || []).length,
+    domain: t.domain || "-",
+    address: t.address || "-",
+    enterpriseCode: t.enterpriseCode || "-",
+    description: t.description || "-",
+    status: t.status,
+    createdAt: t.createdAt,
+  }
+}
 
 export default function TenantPage() {
-  const [tenants, setTenants] = useState<Tenant[]>(mockTenants)
+  const { tenantId, loading: authLoading } = usePortalAuth()
+  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false)
   const [isLicenseDialogOpen, setIsLicenseDialogOpen] = useState(false)
@@ -86,11 +109,42 @@ export default function TenantPage() {
   const [editingAdmins, setEditingAdmins] = useState<Admin[]>([])
   const [newAdmin, setNewAdmin] = useState({ name: "", account: "", phone: "" })
 
-  const filteredTenants = tenants.filter(
-    (tenant) =>
-      tenant.enterpriseName.includes(searchTerm) ||
-      tenant.code.includes(searchTerm) ||
-      tenant.contact.includes(searchTerm)
+  useEffect(() => {
+    if (authLoading || !tenantId) return
+
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+
+    portalRequest<BackendTenant>(`/tenants/${tenantId}`)
+      .then((res) => {
+        if (!cancelled) {
+          setTenants([mapBackendTenant(res)])
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "加载租户信息失败")
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tenantId, authLoading])
+
+  const filteredTenants = useMemo(
+    () =>
+      tenants.filter(
+        (tenant) =>
+          tenant.enterpriseName.includes(searchTerm) ||
+          tenant.code.includes(searchTerm) ||
+          tenant.contact.includes(searchTerm)
+      ),
+    [tenants, searchTerm]
   )
 
   const toggleStatus = (id: string) => {
@@ -120,14 +174,16 @@ export default function TenantPage() {
   }
 
   const removeAdmin = (adminId: string) => {
-    setEditingAdmins(editingAdmins.filter(a => a.id !== adminId))
+    setEditingAdmins(editingAdmins.filter((a) => a.id !== adminId))
   }
 
   const saveAdmins = () => {
     if (selectedTenant) {
-      setTenants(prev => prev.map(t => 
-        t.id === selectedTenant.id ? { ...t, admins: editingAdmins } : t
-      ))
+      setTenants((prev) =>
+        prev.map((t) =>
+          t.id === selectedTenant.id ? { ...t, admins: editingAdmins, userCount: editingAdmins.length } : t
+        )
+      )
       setIsAdminDialogOpen(false)
     }
   }
@@ -162,91 +218,114 @@ export default function TenantPage() {
         </Button>
       </div>
 
-      <div className="rounded-lg border border-gray-100 bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border hover:bg-transparent">
-              <TableHead className="text-muted-foreground">租户标识</TableHead>
-              <TableHead className="text-muted-foreground">企业名称</TableHead>
-              <TableHead className="text-muted-foreground">联系人</TableHead>
-              <TableHead className="text-muted-foreground">联系电话</TableHead>
-              <TableHead className="text-muted-foreground">管理员</TableHead>
-              <TableHead className="text-muted-foreground">用户数量</TableHead>
-              <TableHead className="text-muted-foreground">状态</TableHead>
-              <TableHead className="text-muted-foreground">创建时间</TableHead>
-              <TableHead className="text-muted-foreground text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredTenants.map((tenant) => (
-              <TableRow key={tenant.id} className="border-border">
-                <TableCell className="font-mono text-sm text-muted-foreground">{tenant.code}</TableCell>
-                <TableCell className="font-medium">{tenant.enterpriseName}</TableCell>
-                <TableCell>{tenant.contact}</TableCell>
-                <TableCell className="text-muted-foreground">{tenant.phone}</TableCell>
-                <TableCell>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-auto py-1 px-2 text-primary"
-                    onClick={() => openAdminDialog(tenant)}
-                  >
-                    <Users className="h-3 w-3 mr-1" />
-                    {tenant.admins.length}人
-                  </Button>
-                </TableCell>
-                <TableCell>{tenant.userCount}</TableCell>
-                <TableCell>
-                  <Badge variant={tenant.status === "active" ? "default" : "secondary"}>
-                    {tenant.status === "active" ? "启用" : "停用"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{tenant.createdAt}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setSelectedTenant(tenant); setIsCreateDialogOpen(true) }}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        编辑
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openAdminDialog(tenant)}>
-                        <Users className="mr-2 h-4 w-4" />
-                        管理员管理
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setSelectedTenant(tenant); setIsPermissionDialogOpen(true) }}>
-                        <Shield className="mr-2 h-4 w-4" />
-                        权限资源管理
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toggleStatus(tenant.id)}>
-                        <Power className="mr-2 h-4 w-4" />
-                        {tenant.status === "active" ? "停用" : "启用"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => deleteTenant(tenant.id)} className="text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        删除
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-        <span>共 {filteredTenants.length} 条记录</span>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled>上一页</Button>
-          <span className="px-2">1 / 1</span>
-          <Button variant="outline" size="sm" disabled>下一页</Button>
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </div>
+      )}
+
+      {error && !loading && (
+        <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {!loading && (
+        <>
+          <div className="rounded-lg border border-gray-100 bg-white shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">租户标识</TableHead>
+                  <TableHead className="text-muted-foreground">企业名称</TableHead>
+                  <TableHead className="text-muted-foreground">联系人</TableHead>
+                  <TableHead className="text-muted-foreground">联系电话</TableHead>
+                  <TableHead className="text-muted-foreground">管理员</TableHead>
+                  <TableHead className="text-muted-foreground">用户数量</TableHead>
+                  <TableHead className="text-muted-foreground">状态</TableHead>
+                  <TableHead className="text-muted-foreground">创建时间</TableHead>
+                  <TableHead className="text-muted-foreground text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTenants.map((tenant) => (
+                  <TableRow key={tenant.id} className="border-border">
+                    <TableCell className="font-mono text-sm text-muted-foreground">{tenant.code}</TableCell>
+                    <TableCell className="font-medium">{tenant.enterpriseName}</TableCell>
+                    <TableCell>{tenant.contact}</TableCell>
+                    <TableCell className="text-muted-foreground">{tenant.phone}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto py-1 px-2 text-primary"
+                        onClick={() => openAdminDialog(tenant)}
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        {tenant.admins.length}人
+                      </Button>
+                    </TableCell>
+                    <TableCell>{tenant.userCount}</TableCell>
+                    <TableCell>
+                      <Badge variant={tenant.status === "active" ? "default" : "secondary"}>
+                        {tenant.status === "active" ? "启用" : "停用"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{tenant.createdAt}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { setSelectedTenant(tenant); setIsCreateDialogOpen(true) }}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            编辑
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openAdminDialog(tenant)}>
+                            <Users className="mr-2 h-4 w-4" />
+                            管理员管理
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedTenant(tenant); setIsPermissionDialogOpen(true) }}>
+                            <Shield className="mr-2 h-4 w-4" />
+                            权限资源管理
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleStatus(tenant.id)}>
+                            <Power className="mr-2 h-4 w-4" />
+                            {tenant.status === "active" ? "停用" : "启用"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => deleteTenant(tenant.id)} className="text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            删除
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredTenants.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
+                      暂无租户信息
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+            <span>共 {filteredTenants.length} 条记录</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled>上一页</Button>
+              <span className="px-2">1 / 1</span>
+              <Button variant="outline" size="sm" disabled>下一页</Button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 管理员管理对话框 */}
       <Dialog open={isAdminDialogOpen} onOpenChange={setIsAdminDialogOpen}>
@@ -264,16 +343,16 @@ export default function TenantPage() {
                   <div key={admin.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-4">
                       <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary text-sm font-medium">
-                        {admin.name.charAt(0)}
+                        {admin.name.charAt(0) || "?"}
                       </div>
                       <div>
-                        <div className="font-medium text-sm">{admin.name}</div>
-                        <div className="text-xs text-muted-foreground">账号：{admin.account} | 电话：{admin.phone || "-"}</div>
+                        <div className="font-medium text-sm">{admin.name || "管理员"}</div>
+                        <div className="text-xs text-muted-foreground">账号：{admin.account || admin.id} | 电话：{admin.phone || "-"}</div>
                       </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
                       onClick={() => removeAdmin(admin.id)}
                     >
@@ -291,25 +370,25 @@ export default function TenantPage() {
             <div className="border-t pt-4">
               <Label className="mb-2 block">添加管理员</Label>
               <div className="grid grid-cols-3 gap-2">
-                <Input 
-                  placeholder="姓名" 
+                <Input
+                  placeholder="姓名"
                   value={newAdmin.name}
                   onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
                 />
-                <Input 
-                  placeholder="登录账号" 
+                <Input
+                  placeholder="登录账号"
                   value={newAdmin.account}
                   onChange={(e) => setNewAdmin({ ...newAdmin, account: e.target.value })}
                 />
-                <Input 
-                  placeholder="手机号（选填）" 
+                <Input
+                  placeholder="手机号（选填）"
                   value={newAdmin.phone}
                   onChange={(e) => setNewAdmin({ ...newAdmin, phone: e.target.value })}
                 />
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="mt-2"
                 onClick={addAdmin}
                 disabled={!newAdmin.name || !newAdmin.account}

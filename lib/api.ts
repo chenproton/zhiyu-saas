@@ -480,6 +480,32 @@ export const userManagementApi = {
     request<{ count: number }>("/users/batch", { method: "POST", body: JSON.stringify({ items: reqs }) }),
 }
 
+// Portal-scoped variants: use the portal JWT so school-internal admin pages stay
+// decoupled from the SaaS login token.
+export const portalIdentityTypeApi = {
+  list: (params?: { tenantId?: string; search?: string; limit?: number; offset?: number }) =>
+    portalRequest<ListResponse<IdentityType>>(`/identity-types${buildQuery(params || {})}`),
+  get: (id: string) => portalRequest<IdentityType>(`/identity-types/${id}`),
+  create: (req: Omit<IdentityType, "id" | "userCount" | "createdAt">) =>
+    portalRequest<IdentityType>("/identity-types", { method: "POST", body: JSON.stringify(req) }),
+  update: (id: string, req: Partial<Omit<IdentityType, "id" | "userCount" | "createdAt">>) =>
+    portalRequest<IdentityType>(`/identity-types/${id}`, { method: "PUT", body: JSON.stringify(req) }),
+  delete: (id: string) => portalRequest<{ id: string }>(`/identity-types/${id}`, { method: "DELETE" }),
+}
+
+export const portalUserManagementApi = {
+  list: (params?: { tenantId?: string; institutionId?: string; identityTypeId?: string; orgNodeId?: string; majorId?: string; search?: string; status?: string; limit?: number; offset?: number }) =>
+    portalRequest<ListResponse<User>>(`/users${buildQuery(params || {})}`),
+  get: (id: string) => portalRequest<User>(`/users/${id}`),
+  create: (req: CreateUserRequest) => portalRequest<User>("/users", { method: "POST", body: JSON.stringify(req) }),
+  update: (id: string, req: Partial<CreateUserRequest>) => portalRequest<User>(`/users/${id}`, { method: "PUT", body: JSON.stringify(req) }),
+  delete: (id: string) => portalRequest<{ id: string }>(`/users/${id}`, { method: "DELETE" }),
+  updateStatus: (id: string, status: string) =>
+    portalRequest<User>(`/users/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+  batchCreate: (reqs: CreateUserRequest[]) =>
+    portalRequest<{ count: number }>("/users/batch", { method: "POST", body: JSON.stringify({ items: reqs }) }),
+}
+
 export const roleApi = {
   ...createCrudApi<Role, Omit<Role, "id" | "userCount" | "createdAt">, Partial<Omit<Role, "id" | "userCount" | "createdAt">>>("/roles"),
   assign: (id: string, userIds: string[]) =>
@@ -506,6 +532,26 @@ export const logApi = {
 }
 
 export const workflowApi = createCrudApi<Workflow, Omit<Workflow, "id" | "usageCount" | "createdAt">, Partial<Omit<Workflow, "id" | "usageCount" | "createdAt">>>("/workflows")
+
+// Portal-scoped APIs (use the portal JWT). These hit the same backend
+// endpoints as the SaaS versions above, but are called from /portal/* pages.
+export const portalWorkflowApi = {
+  list: (params?: Record<string, string | number | boolean | undefined>) =>
+    portalRequest<ListResponse<Workflow>>(`/workflows${buildQuery(params || {})}`),
+  get: (id: string) => portalRequest<Workflow>(`/workflows/${id}`),
+  create: (req: Omit<Workflow, "id" | "usageCount" | "createdAt">) =>
+    portalRequest<Workflow>("/workflows", { method: "POST", body: JSON.stringify(req) }),
+  update: (id: string, req: Partial<Omit<Workflow, "id" | "usageCount" | "createdAt">>) =>
+    portalRequest<Workflow>(`/workflows/${id}`, { method: "PUT", body: JSON.stringify(req) }),
+  delete: (id: string) => portalRequest<{ id: string }>(`/workflows/${id}`, { method: "DELETE" }),
+}
+
+export const portalLogApi = {
+  loginLogs: (params?: { tenantId?: string; userId?: string; status?: string; limit?: number; offset?: number }) =>
+    portalRequest<ListResponse<LoginLog>>(`/logs/login${buildQuery(params || {})}`),
+  operationLogs: (params?: { tenantId?: string; userId?: string; module?: string; action?: string; limit?: number; offset?: number }) =>
+    portalRequest<ListResponse<OperationLog>>(`/logs/operation${buildQuery(params || {})}`),
+}
 
 export const approvalApi = {
   list: (params?: { targetType?: string; targetId?: string; status?: string; submitterId?: string; limit?: number; offset?: number }) =>

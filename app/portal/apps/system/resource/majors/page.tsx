@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -8,45 +8,70 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Search, Pencil } from "lucide-react"
-
-interface Major {
-  id: string
-  code: string
-  name: string
-  alias: string
-  enabled: boolean
-}
-
-const mockMajors: Major[] = []
+import { Search, Pencil, Loader2 } from "lucide-react"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { portalRequest, buildQuery, type ListResponse } from "@/lib/api"
+import type { Major } from "@/lib/types/backend"
 
 export default function MajorsPage() {
-  const [majors, setMajors] = useState<Major[]>(mockMajors)
+  const { tenantId, loading: authLoading } = usePortalAuth()
+  const [majors, setMajors] = useState<Major[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedMajor, setSelectedMajor] = useState<Major | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [aliasValue, setAliasValue] = useState("")
 
-  const filteredMajors = majors.filter((major) =>
-    major.name.includes(searchTerm) || major.code.includes(searchTerm) || major.alias.includes(searchTerm)
+  useEffect(() => {
+    if (authLoading || !tenantId) return
+
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+
+    portalRequest<ListResponse<Major>>(`/majors${buildQuery({ tenantId, limit: 1000 })}`)
+      .then((res) => {
+        if (!cancelled) {
+          setMajors(res.items)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "加载专业数据失败")
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tenantId, authLoading])
+
+  const filteredMajors = useMemo(
+    () =>
+      majors.filter((major) =>
+        major.name.includes(searchTerm) || major.code.includes(searchTerm) || (major.alias ?? "").includes(searchTerm)
+      ),
+    [majors, searchTerm]
   )
 
   const toggleEnabled = (id: string) => {
-    setMajors((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m))
-    )
+    setMajors((prev) => prev.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)))
   }
 
   const openEditDialog = (major: Major) => {
     setSelectedMajor(major)
-    setAliasValue(major.alias)
+    setAliasValue(major.alias || "")
     setIsDialogOpen(true)
   }
 
   const saveAlias = () => {
     if (selectedMajor) {
       setMajors((prev) =>
-        prev.map((m) => (m.id === selectedMajor.id ? { ...m, alias: aliasValue } : m))
+        prev.map((m) => (m.id === selectedMajor.id ? { ...m, alias: aliasValue || undefined } : m))
       )
     }
     setIsDialogOpen(false)
@@ -66,49 +91,69 @@ export default function MajorsPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-100 bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border">
-              <TableHead className="w-28">专业代码</TableHead>
-              <TableHead>专业名称</TableHead>
-              <TableHead>别名（备注）</TableHead>
-              <TableHead className="w-24 text-center">状态</TableHead>
-              <TableHead className="w-24 text-center">启用/关闭</TableHead>
-              <TableHead className="w-20 text-center">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredMajors.map((major) => (
-              <TableRow key={major.id} className="border-border">
-                <TableCell className="font-mono text-sm">{major.code}</TableCell>
-                <TableCell className="font-medium">{major.name}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {major.alias || <span className="text-gray-300">-</span>}
-                </TableCell>
-                <TableCell className="text-center">
-                  <Badge variant={major.enabled ? "default" : "secondary"}>
-                    {major.enabled ? "已启用" : "已关闭"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Switch
-                    checked={major.enabled}
-                    onCheckedChange={() => toggleEnabled(major.id)}
-                  />
-                </TableCell>
-                <TableCell className="text-center">
-                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(major)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
 
-      <div className="mt-4 text-sm text-muted-foreground">共 {filteredMajors.length} 条记录</div>
+      {error && !loading && (
+        <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {!loading && (
+        <>
+          <div className="rounded-lg border border-gray-100 bg-white shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border">
+                  <TableHead className="w-28">专业代码</TableHead>
+                  <TableHead>专业名称</TableHead>
+                  <TableHead>别名（备注）</TableHead>
+                  <TableHead className="w-24 text-center">状态</TableHead>
+                  <TableHead className="w-24 text-center">启用/关闭</TableHead>
+                  <TableHead className="w-20 text-center">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredMajors.map((major) => (
+                  <TableRow key={major.id} className="border-border">
+                    <TableCell className="font-mono text-sm">{major.code}</TableCell>
+                    <TableCell className="font-medium">{major.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {major.alias || <span className="text-gray-300">-</span>}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={major.enabled ? "default" : "secondary"}>
+                        {major.enabled ? "已启用" : "已关闭"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Switch checked={major.enabled} onCheckedChange={() => toggleEnabled(major.id)} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(major)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredMajors.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                      暂无专业数据
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="mt-4 text-sm text-muted-foreground">共 {filteredMajors.length} 条记录</div>
+        </>
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
@@ -127,11 +172,7 @@ export default function MajorsPage() {
             </div>
             <div className="grid gap-2">
               <Label>别名（备注）</Label>
-              <Input 
-                placeholder="输入专业别名或备注" 
-                value={aliasValue} 
-                onChange={(e) => setAliasValue(e.target.value)} 
-              />
+              <Input placeholder="输入专业别名或备注" value={aliasValue} onChange={(e) => setAliasValue(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
