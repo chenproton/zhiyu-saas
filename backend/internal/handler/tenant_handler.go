@@ -158,6 +158,25 @@ func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 为新租户自动创建默认套餐，避免后续页面报 subscription not found
+	_, _ = h.DB.Exec(r.Context(), `
+		INSERT INTO subscription_packages (tenant_id, name, valid_until, modules, status)
+		VALUES ($1, '默认全功能套餐', NULL, $2, 'active')
+	`, id, domain.JSONMap{
+		"system":   true,
+		"alliance": true,
+		"career":   true,
+		"course":   true,
+		"scene":    true,
+		"ability":  true,
+		"affairs":  true,
+		"ai":       true,
+		"resource": true,
+		"opc":      true,
+		"decision": true,
+		"research": true,
+	})
+
 	tenant, _ := h.fetchTenant(r.Context(), id)
 	respondJSON(w, http.StatusCreated, tenant)
 }

@@ -111,6 +111,8 @@ func (h *SubscriptionHandler) fetchSubscriptionByTenant(ctx context.Context, ten
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, tenant_id, name, valid_until, modules, status, created_at, updated_at
 		FROM subscription_packages WHERE tenant_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
 	`, tenantID).Scan(
 		&sub.ID, &sub.TenantID, &sub.Name, &validUntil, &modules, &sub.Status, &sub.CreatedAt, &sub.UpdatedAt,
 	)
