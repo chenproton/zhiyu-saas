@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { useData } from '@/lib/stores/data-context'
 import { useAuth } from '@/components/auth-provider'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -52,10 +51,19 @@ import {
   ChevronsUpDown,
   ExternalLink,
   Search,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { PositionType } from '@/lib/types/job-source'
+import type { PositionType, Position, Batch, PositionRecommendation } from '@/lib/types/job-source'
 import { POSITION_TYPE_LABELS } from '@/lib/types/job-source'
+import { positionApi, batchApi, recommendApi } from '@/lib/api'
+import {
+  convertCareerPositionToPosition,
+  convertJobBatchToBatch,
+  convertApiRecommendationToLocal,
+} from '@/lib/stores/job-converters'
+import type { PositionRecommendation as ApiPositionRecommendation } from '@/lib/types/job'
+import { useToast } from '@/hooks/use-toast'
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return '-'
@@ -64,16 +72,13 @@ function formatDate(dateStr?: string) {
 }
 
 export default function PostRecommendPage() {
-  const {
-    positions,
-    batches,
-    recommendations,
-    addRecommendation,
-    updateRecommendation,
-    deleteRecommendation,
-    reorderRecommendations,
-  } = useData()
+  const { toast } = useToast()
   const { user } = useAuth()
+
+  const [positions, setPositions] = useState<Position[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [recommendations, setRecommendations] = useState<PositionRecommendation[]>([])
+  const [loading, setLoading] = useState(false)
 
   const [selectedMajor, setSelectedMajor] = useState<string>('')
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -82,7 +87,28 @@ export default function PostRecommendPage() {
   const [isVisibleNew, setIsVisibleNew] = useState(true)
   const [positionSearchOpen, setPositionSearchOpen] = useState(false)
 
-  // 专业列表从批次和专业字符串去重得到
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [posRes, batchRes, recRes] = await Promise.all([
+        positionApi.list({ limit: 1000 }),
+        batchApi.list({ limit: 1000 }),
+        recommendApi.list({ limit: 1000 }),
+      ])
+      setPositions(posRes.items.map(convertCareerPositionToPosition))
+      setBatches(batchRes.items.map(convertJobBatchToBatch))
+      setRecommendations(recRes.items.map(convertApiRecommendationToLocal))
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '加载失败', description: err?.message || '请稍后重试' })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
   const majorOptions = useMemo(() => {
     const set = new Set<string>()
     batches.forEach((b) => set.add(b.major))
@@ -90,7 +116,6 @@ export default function PostRecommendPage() {
     return Array.from(set).sort()
   }, [batches, positions])
 
-  // 默认选中第一个专业
   const currentMajor = selectedMajor || majorOptions[0] || ''
 
   const majorRecommendations = useMemo(() => {
@@ -113,46 +138,102 @@ export default function PostRecommendPage() {
     )
   }, [positions, currentMajor, recommendedPositionIds])
 
-  const handleMove = (index: number, direction: -1 | 1) => {
+  const handleMove = async (index: number, direction: -1 | 1) => {
     const newIndex = index + direction
     if (newIndex < 0 || newIndex >= majorRecommendations.length) return
     const ids = majorRecommendations.map((rec) => rec.id)
     const [moved] = ids.splice(index, 1)
     ids.splice(newIndex, 0, moved)
-    reorderRecommendations(currentMajor, ids)
+    try {
+      const majorRecs = recommendations.filter((r) => r.major === currentMajor).sort((a, b) => a.order - b.order)
+      await Promise.all(
+        ids.map(async (id, idx) => {
+          const rec = majorRecs.find((r) => r.id === id)
+          if (!rec) return
+          const newOrder = idx + 1
+          if (newOrder === rec.order) return
+          await recommendApi.update(id, {
+            major: rec.major,
+            careerPositionId: rec.positionId,
+            positionType: rec.positionType,
+            reason: rec.reason,
+            sortOrder: newOrder,
+            isVisible: rec.isVisible,
+            createdBy: rec.createdBy,
+          } as ApiPositionRecommendation)
+        })
+      )
+      await loadData()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '排序失败', description: err?.message || '请稍后重试' })
+    }
   }
 
-  const handleDelete = (id: string) => {
-    deleteRecommendation(id)
+  const handleDelete = async (id: string) => {
+    try {
+      await recommendApi.delete(id)
+      await loadData()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '删除失败', description: err?.message || '请稍后重试' })
+    }
   }
 
-  const handleToggleVisible = (id: string, isVisible: boolean) => {
-    updateRecommendation(id, { isVisible })
+  const handleToggleVisible = async (id: string, isVisible: boolean) => {
+    const rec = recommendations.find((r) => r.id === id)
+    if (!rec) return
+    try {
+      await recommendApi.update(id, {
+        major: rec.major,
+        careerPositionId: rec.positionId,
+        positionType: rec.positionType,
+        reason: rec.reason,
+        sortOrder: rec.order,
+        isVisible,
+        createdBy: rec.createdBy,
+      } as ApiPositionRecommendation)
+      await loadData()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '操作失败', description: err?.message || '请稍后重试' })
+    }
   }
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!selectedPositionId || !currentMajor || !user) return
     const position = positions.find((p) => p.id === selectedPositionId)
     if (!position) return
-    addRecommendation({
-      major: currentMajor,
-      positionId: position.id,
-      positionType: position.positionType,
-      reason: reason.trim() || undefined,
-      isVisible: isVisibleNew,
-      createdBy: user.id,
-    })
-    setSelectedPositionId('')
-    setReason('')
-    setIsVisibleNew(true)
-    setIsAddOpen(false)
+    try {
+      const majorRecs = recommendations.filter((r) => r.major === currentMajor)
+      await recommendApi.create({
+        major: currentMajor,
+        careerPositionId: position.id,
+        positionType: position.positionType,
+        reason: reason.trim() || undefined,
+        sortOrder: majorRecs.length + 1,
+        isVisible: isVisibleNew,
+        createdBy: user.id,
+      } as Omit<ApiPositionRecommendation, 'id' | 'createdAt' | 'updatedAt'>)
+      await loadData()
+      setSelectedPositionId('')
+      setReason('')
+      setIsVisibleNew(true)
+      setIsAddOpen(false)
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '添加失败', description: err?.message || '请稍后重试' })
+    }
   }
 
   const selectedPosition = positions.find((p) => p.id === selectedPositionId)
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -171,7 +252,6 @@ export default function PostRecommendPage() {
         </Link>
       </div>
 
-      {/* 专业选择 */}
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -203,7 +283,6 @@ export default function PostRecommendPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-6">
-        {/* 已配置推荐 */}
         <Card>
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -213,6 +292,12 @@ export default function PostRecommendPage() {
               </CardDescription>
             </div>
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  添加推荐
+                </Button>
+              </DialogTrigger>
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>添加岗位目标推荐</DialogTitle>

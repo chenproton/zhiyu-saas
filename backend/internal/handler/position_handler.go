@@ -58,8 +58,8 @@ type UpdatePositionRequest struct {
 }
 
 type ReviewPositionRequest struct {
-	Status       string  `json:"status"`
-	RejectReason *string `json:"rejectReason"`
+	Status  string  `json:"status"`
+	Comment *string `json:"comment"`
 }
 
 func (h *PositionHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -279,7 +279,7 @@ func (h *PositionHandler) Submit(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
-	h.transitionStatus(w, r, domain.CareerPositionStatusPending, "")
+	h.transitionStatus(w, r, domain.CareerPositionStatusPending)
 }
 
 func (h *PositionHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
@@ -287,7 +287,7 @@ func (h *PositionHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
-	h.transitionStatus(w, r, domain.CareerPositionStatusDraft, "")
+	h.transitionStatus(w, r, domain.CareerPositionStatusDraft)
 }
 
 func (h *PositionHandler) Invite(w http.ResponseWriter, r *http.Request) {
@@ -355,7 +355,7 @@ func (h *PositionHandler) Publish(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
-	h.transitionStatus(w, r, domain.CareerPositionStatusPublished, "")
+	h.transitionStatus(w, r, domain.CareerPositionStatusPublished)
 }
 
 func (h *PositionHandler) Archive(w http.ResponseWriter, r *http.Request) {
@@ -363,14 +363,11 @@ func (h *PositionHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
-	h.transitionStatus(w, r, domain.CareerPositionStatusArchived, "")
+	h.transitionStatus(w, r, domain.CareerPositionStatusArchived)
 }
 
-func (h *PositionHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.CareerPositionStatus, reason string) {
+func (h *PositionHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.CareerPositionStatus) {
 	id := chi.URLParam(r, "id")
-	if reason != "" {
-		_ = reason
-	}
 	_, err := h.DB.Exec(r.Context(), `
 		UPDATE career_positions SET status = $1, updated_at = NOW() WHERE id = $2
 	`, status, id)

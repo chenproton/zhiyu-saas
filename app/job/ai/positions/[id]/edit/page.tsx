@@ -1,9 +1,8 @@
 'use client'
 
-import { Suspense, useState, useCallback, useEffect, use } from 'react'
+import { Suspense, useState, useEffect, use, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
-import { useData } from '@/lib/stores/data-context'
 import { useAuth } from '@/components/auth-provider'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,7 +21,7 @@ import { Step1BasicInfo, type Step1Draft } from '@/components/job/position-build
 import { Step2AbilityModel } from '@/components/job/position-builder/ai-assisted-2/step2-ability-model'
 import { Step3ResultTable } from '@/components/job/position-builder/ai-assisted-2/step3-result-table'
 import { CoBuilderSelector } from '@/components/job/position-builder/co-builder-selector'
-import type { Position } from '@/lib/types/job-source'
+import type { Position, Batch } from '@/lib/types/job-source'
 import {
   Dialog,
   DialogContent,
@@ -31,6 +30,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { positionApi, batchApi } from '@/lib/api'
+import {
+  convertCareerPositionToPosition,
+  convertJobBatchToBatch,
+  positionToUpdateRequest,
+} from '@/lib/stores/job-converters'
+import { useToast } from '@/hooks/use-toast'
 
 type WizardStep = 'basic' | 'ability' | 'result'
 
@@ -58,7 +64,11 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user: currentUser } = useAuth()
-  const { positions, batches, updatePosition } = useData()
+  const { toast } = useToast()
+
+  const [positions, setPositions] = useState<Position[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [loading, setLoading] = useState(true)
 
   const [step, setStep] = useState<WizardStep>('basic')
   const [draft, setDraft] = useState<Step1Draft | null>(null)
@@ -67,7 +77,27 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
   const [coverUrl, setCoverUrl] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
-  // 加载岗位数据
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    Promise.all([
+      positionApi.list({ limit: 1000 }),
+      batchApi.list({ limit: 1000 }),
+    ])
+      .then(([posRes, batchRes]) => {
+        if (cancelled) return
+        setPositions(posRes.items.map(convertCareerPositionToPosition))
+        setBatches(batchRes.items.map(convertJobBatchToBatch))
+      })
+      .catch((err: any) => {
+        if (!cancelled) toast({ variant: 'destructive', title: '加载失败', description: err?.message || '请稍后重试' })
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [toast])
+
   useEffect(() => {
     const found = positions.find((p) => p.id === id)
     if (found) {
@@ -75,7 +105,6 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
     }
   }, [id, positions])
 
-  // 处理 URL ?step= 参数
   useEffect(() => {
     const stepParam = searchParams.get('step')
     if (stepParam === '1') {
@@ -116,9 +145,22 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
   const handleSave = async () => {
     if (!draft) return
     setIsSaving(true)
-    await updatePosition(id, draft)
-    setIsSaving(false)
-    router.push('/job/ai/positions')
+    try {
+      await positionApi.update(id, positionToUpdateRequest(draft))
+      router.push('/job/ai/positions')
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '保存失败', description: err?.message || '请稍后重试' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   if (!draft) {
@@ -131,7 +173,6 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
 
   return (
     <div className="fixed inset-0 bg-background z-50 overflow-auto">
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -177,7 +218,6 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-6xl mx-auto px-6 py-8">
         {step === 'basic' && (
           <div className="grid grid-cols-3 gap-6">
@@ -185,7 +225,6 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
               <Step1BasicInfo draft={draft} onUpdate={updateDraft} onNext={() => setStep('ability')} />
             </div>
             <div className="space-y-6">
-              {/* Cover Image */}
               <Card>
                 <CardContent className="pt-6">
                   <Label className="mb-3 block">岗位封面</Label>
@@ -195,7 +234,6 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
                   >
                     {draft.coverImage ? (
                       <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={draft.coverImage}
                           alt="岗位封面"
@@ -206,10 +244,7 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
                             variant="outline"
                             size="sm"
                             className="bg-white/90 text-gray-800 border-white hover:bg-white"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleCoverUpload()
-                            }}
+                            onClick={(e) => { e.stopPropagation(); handleCoverUpload() }}
                           >
                             上传封面
                           </Button>
@@ -217,10 +252,7 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
                             variant="outline"
                             size="sm"
                             className="bg-white/90 text-gray-800 border-white hover:bg-white"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setCoverInputOpen(true)
-                            }}
+                            onClick={(e) => { e.stopPropagation(); setCoverInputOpen(true) }}
                           >
                             URL 封面
                           </Button>
@@ -228,10 +260,7 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
                             variant="outline"
                             size="sm"
                             className="bg-white/90 text-gray-800 border-white hover:bg-white"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              updateDraft({ coverImage: '' })
-                            }}
+                            onClick={(e) => { e.stopPropagation(); updateDraft({ coverImage: '' }) }}
                           >
                             移除封面
                           </Button>
@@ -246,10 +275,7 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
                           variant="outline"
                           size="sm"
                           className="mt-3 gap-1"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setCoverInputOpen(true)
-                          }}
+                          onClick={(e) => { e.stopPropagation(); setCoverInputOpen(true) }}
                         >
                           使用图片链接
                         </Button>
@@ -259,7 +285,6 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
                 </CardContent>
               </Card>
 
-              {/* Meta Info */}
               <Card>
                 <CardContent className="pt-6 space-y-4">
                   <div>
@@ -309,7 +334,6 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
         )}
       </div>
 
-      {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -362,7 +386,6 @@ function AiAssisted2EditPositionPageContent({ params }: PageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Cover URL Input Dialog */}
       <Dialog open={coverInputOpen} onOpenChange={setCoverInputOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

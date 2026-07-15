@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useData } from '@/lib/stores/data-context'
 import { useAuth } from '@/components/auth-provider'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,12 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { X, ArrowRight, ArrowLeft, Save, Eye, ImagePlus } from 'lucide-react'
+import { X, ArrowRight, ArrowLeft, Save, Eye, ImagePlus, Loader2 } from 'lucide-react'
 import { Step1BasicInfo, type Step1Draft } from '@/components/job/position-builder/ai-assisted-2/step1-basic-info'
 import { Step2AbilityModel } from '@/components/job/position-builder/ai-assisted-2/step2-ability-model'
 import { Step3ResultTable } from '@/components/job/position-builder/ai-assisted-2/step3-result-table'
 import { CoBuilderSelector } from '@/components/job/position-builder/co-builder-selector'
-import type { Position } from '@/lib/types/job-source'
+import type { Position, Batch } from '@/lib/types/job-source'
 import {
   Dialog,
   DialogContent,
@@ -30,6 +29,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { positionApi, batchApi } from '@/lib/api'
+import { convertJobBatchToBatch, positionToCreateRequest } from '@/lib/stores/job-converters'
+import { useToast } from '@/hooks/use-toast'
 
 type WizardStep = 'basic' | 'ability' | 'result'
 
@@ -42,7 +44,9 @@ const steps = [
 export default function AiAssisted2NewPositionPage() {
   const router = useRouter()
   const { user: currentUser } = useAuth()
-  const { addPosition, batches } = useData()
+  const { toast } = useToast()
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [batchesLoading, setBatchesLoading] = useState(false)
   const [step, setStep] = useState<WizardStep>('basic')
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [coverInputOpen, setCoverInputOpen] = useState(false)
@@ -79,6 +83,14 @@ export default function AiAssisted2NewPositionPage() {
   }
 
   const [draft, setDraft] = useState<Step1Draft>(defaultDraft)
+
+  useEffect(() => {
+    setBatchesLoading(true)
+    batchApi.list({ limit: 1000 })
+      .then((res) => setBatches(res.items.map(convertJobBatchToBatch)))
+      .catch((err: any) => toast({ variant: 'destructive', title: '加载批次失败', description: err?.message || '请稍后重试' }))
+      .finally(() => setBatchesLoading(false))
+  }, [toast])
 
   const currentStepIndex = steps.findIndex((s) => s.id === step)
 
@@ -132,13 +144,16 @@ export default function AiAssisted2NewPositionPage() {
       collaborators: draft.collaborators?.length ? draft.collaborators : (currentUser?.id ? [currentUser.id] : []),
       favoriteCount: 0,
     }
-    await addPosition(positionData)
-    router.push('/job/ai/positions')
+    try {
+      await positionApi.create(positionToCreateRequest(positionData))
+      router.push('/job/ai/positions')
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '保存失败', description: err?.message || '请稍后重试' })
+    }
   }
 
   return (
     <div className="fixed inset-0 bg-background z-50 overflow-auto">
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -184,7 +199,6 @@ export default function AiAssisted2NewPositionPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-6xl mx-auto px-6 py-8">
         {step === 'basic' && (
           <div className="grid grid-cols-3 gap-6">
@@ -192,7 +206,6 @@ export default function AiAssisted2NewPositionPage() {
               <Step1BasicInfo draft={draft} onUpdate={updateDraft} onNext={() => setStep('ability')} />
             </div>
             <div className="space-y-6">
-              {/* Cover Image */}
               <Card>
                 <CardContent className="pt-6">
                   <Label className="mb-3 block">岗位封面</Label>
@@ -202,7 +215,6 @@ export default function AiAssisted2NewPositionPage() {
                   >
                     {draft.coverImage ? (
                       <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={draft.coverImage}
                           alt="岗位封面"
@@ -213,10 +225,7 @@ export default function AiAssisted2NewPositionPage() {
                             variant="outline"
                             size="sm"
                             className="bg-white/90 text-gray-800 border-white hover:bg-white"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleCoverUpload()
-                            }}
+                            onClick={(e) => { e.stopPropagation(); handleCoverUpload() }}
                           >
                             上传封面
                           </Button>
@@ -224,10 +233,7 @@ export default function AiAssisted2NewPositionPage() {
                             variant="outline"
                             size="sm"
                             className="bg-white/90 text-gray-800 border-white hover:bg-white"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setCoverInputOpen(true)
-                            }}
+                            onClick={(e) => { e.stopPropagation(); setCoverInputOpen(true) }}
                           >
                             URL 封面
                           </Button>
@@ -235,10 +241,7 @@ export default function AiAssisted2NewPositionPage() {
                             variant="outline"
                             size="sm"
                             className="bg-white/90 text-gray-800 border-white hover:bg-white"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              updateDraft({ coverImage: '' })
-                            }}
+                            onClick={(e) => { e.stopPropagation(); updateDraft({ coverImage: '' }) }}
                           >
                             移除封面
                           </Button>
@@ -253,10 +256,7 @@ export default function AiAssisted2NewPositionPage() {
                           variant="outline"
                           size="sm"
                           className="mt-3 gap-1"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setCoverInputOpen(true)
-                          }}
+                          onClick={(e) => { e.stopPropagation(); setCoverInputOpen(true) }}
                         >
                           使用图片链接
                         </Button>
@@ -266,7 +266,6 @@ export default function AiAssisted2NewPositionPage() {
                 </CardContent>
               </Card>
 
-              {/* Meta Info */}
               <Card>
                 <CardContent className="pt-6 space-y-4">
                   <div>
@@ -316,7 +315,6 @@ export default function AiAssisted2NewPositionPage() {
         )}
       </div>
 
-      {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -369,7 +367,6 @@ export default function AiAssisted2NewPositionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Cover URL Input Dialog */}
       <Dialog open={coverInputOpen} onOpenChange={setCoverInputOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

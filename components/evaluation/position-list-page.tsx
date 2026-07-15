@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { StatusBadge } from "./status-badge"
+import { StatusBadge } from "@/components/shared/status-badge"
 import { LevelMappingDisplay } from "./level-mapping-display"
 import { LevelMappingDialog } from "./level-mapping-dialog"
 import { positionApi } from "@/lib/api"

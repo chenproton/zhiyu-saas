@@ -20,9 +20,10 @@ import {
   X,
   ArrowDownFromLine,
   ArrowUpFromLine,
+  Loader2,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import { PositionList } from "@/components/job/positions/position-list"
 import { PageHeaderCard } from "@/components/shared/page-header-card"
 import { Badge } from "@/components/ui/badge"
@@ -62,8 +63,16 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-import { useData } from "@/lib/stores/data-context"
-import type { Position } from "@/lib/types/job-source"
+import { positionApi, batchApi, workflowApi, approvalApi, importExportApi } from "@/lib/api"
+import {
+  convertCareerPositionToPosition,
+  convertJobBatchToBatch,
+  convertApiWorkflowToLocal,
+  positionToCreateRequest,
+  positionToUpdateRequest,
+} from "@/lib/stores/job-converters"
+import type { Position, Batch, Workflow } from "@/lib/types/job-source"
+import { useToast } from "@/hooks/use-toast"
 
 const CURRENT_USER_ID = "user-1"
 
@@ -72,7 +81,12 @@ type ViewMode = "list" | "group"
 
 export default function PositionsPage() {
   const router = useRouter()
-  const { positions, batches, workflows, addPosition, deletePosition, updatePosition, submitForApproval, withdrawPosition, invitePosition, importPositions, exportPositions } = useData()
+  const { toast } = useToast()
+
+  const [positions, setPositions] = useState<Position[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [loading, setLoading] = useState(true)
 
   const [activeTab, setActiveTab] = useState<TabType>("my")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
@@ -82,9 +96,6 @@ export default function PositionsPage() {
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
 
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [expandedBatches, setExpandedBatches] = useState<string[]>(batches.map((b) => b.id))
-
-  // Dialogs
 
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false)
   const [isInnerBatchCreateOpen, setIsInnerBatchCreateOpen] = useState(false)
@@ -105,6 +116,33 @@ export default function PositionsPage() {
   const [isCloneRenameDialogOpen, setIsCloneRenameDialogOpen] = useState(false)
   const [cloneRenameValue, setCloneRenameValue] = useState("")
   const [cloneTargetPosition, setCloneTargetPosition] = useState<Position | null>(null)
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [posRes, batchRes, wfRes] = await Promise.all([
+        positionApi.list({ limit: 1000 }),
+        batchApi.list({ limit: 1000 }),
+        workflowApi.list({ limit: 1000 }),
+      ])
+      setPositions(posRes.items.map(convertCareerPositionToPosition))
+      setBatches(batchRes.items.map(convertJobBatchToBatch))
+      setWorkflows(wfRes.items.map(convertApiWorkflowToLocal))
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '加载失败', description: err?.message || '请稍后重试' })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const [expandedBatches, setExpandedBatches] = useState<string[]>(batches.map((b) => b.id))
+  useEffect(() => {
+    setExpandedBatches(batches.map((b) => b.id))
+  }, [batches])
 
   const toggleBatch = (batchId: string) => {
     setExpandedBatches((prev) =>
@@ -166,8 +204,6 @@ export default function PositionsPage() {
     [filteredPositions]
   )
 
-  const openBatches = batches.filter((b) => b.status === "open")
-
   const handleSelectId = (id: string, checked: boolean) => {
     setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((sid) => sid !== id)))
   }
@@ -196,82 +232,128 @@ export default function PositionsPage() {
       if (position && (position.status === "draft" || position.status === "rejected")) {
         const batch = batches.find((b) => b.id === position.batchId)
         if (batch) {
-          await submitForApproval(id, batch.workflowId, "user-2", "李建设")
+          try {
+            await positionApi.submit(id)
+            await approvalApi.create({
+              targetType: 'career_position',
+              targetId: id,
+              workflowId: batch.workflowId,
+            } as any)
+          } catch (err: any) {
+            toast({ variant: 'destructive', title: '提交失败', description: err?.message || '请稍后重试' })
+          }
         }
       }
     }
     setSelectedIds([])
+    loadData()
   }
 
   const handleBatchWithdrawApproval = async () => {
     for (const id of selectedIds) {
       const position = positions.find((p) => p.id === id)
       if (position && position.status === "pending") {
-        await withdrawPosition(id)
+        try {
+          await positionApi.withdraw(id)
+        } catch (err: any) {
+          toast({ variant: 'destructive', title: '撤回失败', description: err?.message || '请稍后重试' })
+        }
       }
     }
     setSelectedIds([])
+    loadData()
   }
 
   const handleBatchUnpublish = async () => {
     for (const id of selectedIds) {
       const position = positions.find((p) => p.id === id)
       if (position && position.status === "published") {
-        await updatePosition(id, { status: "draft" })
+        try {
+          await positionApi.update(id, { status: 'draft' } as any)
+        } catch (_) {}
       }
     }
     setSelectedIds([])
+    loadData()
   }
 
   const handleBatchPublish = async () => {
     for (const id of selectedIds) {
       const position = positions.find((p) => p.id === id)
       if (position && position.status === "approved") {
-        await updatePosition(id, { status: "published" })
+        try {
+          await positionApi.update(id, { status: 'published' } as any)
+        } catch (_) {}
       }
     }
     setSelectedIds([])
+    loadData()
   }
 
   const handleBatchDelete = async () => {
     for (const id of selectedIds) {
-      await deletePosition(id)
+      try {
+        await positionApi.delete(id)
+      } catch (err: any) {
+        toast({ variant: 'destructive', title: '删除失败', description: err?.message || '请稍后重试' })
+      }
     }
     setSelectedIds([])
+    loadData()
   }
 
   const handleBatchClone = async () => {
     const toClone = positions.filter((p) => selectedIds.includes(p.id))
     for (const position of toClone) {
-      await addPosition({
-        batchId: position.batchId,
-        version: position.version,
-        status: "draft",
-        name: `${position.name} (克隆)`,
-        shortName: position.shortName,
-        industry: position.industry,
-        majors: position.majors,
-        positionType: position.positionType,
-        salaryRange: position.salaryRange,
-        certificates: [],
-        description: position.description,
-        responsibilities: position.responsibilities,
-        requirements: position.requirements,
-        careerPath: position.careerPath,
-        abilityModel: { nodes: [], edges: [] },
-        abilityBindings: position.abilityBindings,
-        abilityDomains: position.abilityDomains,
-        competencyConfig: position.competencyConfig,
-        createdBy: CURRENT_USER_ID,
-        collaborators: [CURRENT_USER_ID],
-        favoriteCount: 0,
-      })
+      try {
+        await positionApi.create(positionToCreateRequest({
+          batchId: position.batchId,
+          version: position.version,
+          status: "draft",
+          name: `${position.name} (克隆)`,
+          shortName: position.shortName,
+          industry: position.industry,
+          majors: position.majors,
+          positionType: position.positionType,
+          salaryRange: position.salaryRange,
+          certificates: [],
+          description: position.description,
+          responsibilities: position.responsibilities,
+          requirements: position.requirements,
+          careerPath: position.careerPath,
+          abilityModel: { nodes: [], edges: [] },
+          abilityBindings: position.abilityBindings,
+          abilityDomains: position.abilityDomains,
+          competencyConfig: position.competencyConfig,
+          createdBy: CURRENT_USER_ID,
+          collaborators: [CURRENT_USER_ID],
+          favoriteCount: 0,
+        }))
+      } catch (err: any) {
+        toast({ variant: 'destructive', title: '克隆失败', description: err?.message || '请稍后重试' })
+      }
     }
     setSelectedIds([])
+    loadData()
   }
 
   const handleBatchExport = async () => {
-    await exportPositions()
+    try {
+      const res = await importExportApi.export('career_positions')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('content-disposition')
+      const filename = disposition?.match(/filename="?([^";]+)"?/)?.[1] || 'career_positions-export.csv'
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '导出失败', description: err?.message || '请稍后重试' })
+    }
     setIsExportDialogOpen(false)
     setSelectedIds([])
   }
@@ -283,11 +365,14 @@ export default function PositionsPage() {
   const handleConfirmMove = async () => {
     if (!moveTargetBatchId) return
     for (const id of selectedIds) {
-      await updatePosition(id, { batchId: moveTargetBatchId })
+      try {
+        await positionApi.update(id, { batchId: moveTargetBatchId } as any)
+      } catch (_) {}
     }
     setSelectedIds([])
     setIsBatchMoveDialogOpen(false)
     setMoveTargetBatchId("")
+    loadData()
   }
 
   const handleClone = (position: Position) => {
@@ -298,57 +383,86 @@ export default function PositionsPage() {
 
   const handleConfirmClone = async () => {
     if (!cloneTargetPosition) return
-    await addPosition({
-      batchId: cloneTargetPosition.batchId,
-      version: "V1.0",
-      status: "draft",
-      name: cloneRenameValue,
-      shortName: cloneTargetPosition.shortName,
-      industry: cloneTargetPosition.industry,
-      majors: cloneTargetPosition.majors,
-      positionType: cloneTargetPosition.positionType,
-      salaryRange: cloneTargetPosition.salaryRange,
-      certificates: [],
-      description: cloneTargetPosition.description,
-      responsibilities: cloneTargetPosition.responsibilities,
-      requirements: cloneTargetPosition.requirements,
-      careerPath: cloneTargetPosition.careerPath,
-      abilityModel: { nodes: [], edges: [] },
-      abilityBindings: cloneTargetPosition.abilityBindings,
-      abilityDomains: cloneTargetPosition.abilityDomains,
-      competencyConfig: cloneTargetPosition.competencyConfig,
-      createdBy: CURRENT_USER_ID,
-      collaborators: [CURRENT_USER_ID],
-      favoriteCount: 0,
-    })
+    try {
+      await positionApi.create(positionToCreateRequest({
+        batchId: cloneTargetPosition.batchId,
+        version: "V1.0",
+        status: "draft",
+        name: cloneRenameValue,
+        shortName: cloneTargetPosition.shortName,
+        industry: cloneTargetPosition.industry,
+        majors: cloneTargetPosition.majors,
+        positionType: cloneTargetPosition.positionType,
+        salaryRange: cloneTargetPosition.salaryRange,
+        certificates: [],
+        description: cloneTargetPosition.description,
+        responsibilities: cloneTargetPosition.responsibilities,
+        requirements: cloneTargetPosition.requirements,
+        careerPath: cloneTargetPosition.careerPath,
+        abilityModel: { nodes: [], edges: [] },
+        abilityBindings: cloneTargetPosition.abilityBindings,
+        abilityDomains: cloneTargetPosition.abilityDomains,
+        competencyConfig: cloneTargetPosition.competencyConfig,
+        createdBy: CURRENT_USER_ID,
+        collaborators: [CURRENT_USER_ID],
+        favoriteCount: 0,
+      }))
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '克隆失败', description: err?.message || '请稍后重试' })
+    }
     setIsCloneRenameDialogOpen(false)
     setCloneTargetPosition(null)
     setCloneRenameValue("")
+    loadData()
   }
 
   const handleDelete = async (position: Position) => {
-    if (confirm(`确定要删除岗位「${position.name}」吗？`)) {
-      await deletePosition(position.id)
+    if (!confirm(`确定要删除岗位「${position.name}」吗？`)) return
+    try {
+      await positionApi.delete(position.id)
+      loadData()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '删除失败', description: err?.message || '请稍后重试' })
     }
   }
 
   const handleSubmitApproval = async (position: Position) => {
     const batch = batches.find((b) => b.id === position.batchId)
     if (!batch) {
-      alert("该岗位未关联批次，无法提交审批")
+      toast({ variant: 'destructive', title: '无法提交', description: '该岗位未关联批次，无法提交审批' })
       return
     }
-    await submitForApproval(position.id, batch.workflowId, "user-2", "李建设")
+    try {
+      await positionApi.submit(position.id)
+      await approvalApi.create({
+        targetType: 'career_position',
+        targetId: position.id,
+        workflowId: batch.workflowId,
+      } as any)
+      loadData()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '提交失败', description: err?.message || '请稍后重试' })
+    }
   }
 
   const handleWithdrawApproval = async (position: Position) => {
-    await withdrawPosition(position.id)
+    try {
+      await positionApi.withdraw(position.id)
+      loadData()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '撤回失败', description: err?.message || '请稍后重试' })
+    }
   }
 
   const handleInviteCoBuild = async (position: Position) => {
     const userId = window.prompt(`请输入要邀请共建「${position.name}」的用户 ID`)
     if (!userId) return
-    await invitePosition(position.id, userId)
+    try {
+      await positionApi.invite(position.id, userId)
+      loadData()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '邀请失败', description: err?.message || '请稍后重试' })
+    }
   }
 
   const handleAddBatch = () => {
@@ -374,47 +488,59 @@ export default function PositionsPage() {
     if (!importFile) return
     setIsImporting(true)
     try {
-      const result = await importPositions(importFile)
-      alert(`导入完成：成功 ${result.created} 条，失败 ${result.failed} 条`)
+      const result = await importExportApi.import('career_positions', importFile)
+      toast({ title: `导入完成：成功 ${result.created} 条，失败 ${result.failed} 条` })
       setImportFile(null)
       setIsImportDialogOpen(false)
+      loadData()
     } catch (err: any) {
-      alert(err.message || "导入失败")
+      toast({ variant: 'destructive', title: '导入失败', description: err?.message || '未知错误' })
     } finally {
       setIsImporting(false)
     }
   }
 
   const handleCreate = async () => {
-    const newPosition = await addPosition({
-      batchId: "",
-      version: "V1.0",
-      status: "draft",
-      name: "新建岗位",
-      shortName: "新岗位",
-      industry: "",
-      majors: [],
-      positionType: "enterprise",
-      salaryRange: [0, 0],
-      certificates: [],
-      description: "",
-      responsibilities: [],
-      requirements: [],
-      careerPath: '',
-      abilityModel: { nodes: [], edges: [] },
-      abilityBindings: [],
-      abilityDomains: [],
-      competencyConfig: [],
-      createdBy: CURRENT_USER_ID,
-      collaborators: [CURRENT_USER_ID],
-      favoriteCount: 0,
-    })
-    router.push(`/job/positions/${newPosition.id}/edit`)
+    try {
+      const created = await positionApi.create(positionToCreateRequest({
+        batchId: "",
+        version: "V1.0",
+        status: "draft",
+        name: "新建岗位",
+        shortName: "新岗位",
+        industry: "",
+        majors: [],
+        positionType: "enterprise",
+        salaryRange: [0, 0],
+        certificates: [],
+        description: "",
+        responsibilities: [],
+        requirements: [],
+        careerPath: '',
+        abilityModel: { nodes: [], edges: [] },
+        abilityBindings: [],
+        abilityDomains: [],
+        competencyConfig: [],
+        createdBy: CURRENT_USER_ID,
+        collaborators: [CURRENT_USER_ID],
+        favoriteCount: 0,
+      }))
+      router.push(`/job/positions/${created.id}/edit`)
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '创建失败', description: err?.message || '请稍后重试' })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-      {/* ===== Part 1: Top Title Card ===== */}
       <PageHeaderCard
         title="岗位资源管理"
         description="维护岗位信息、能力模型等岗位资源管理功能"
@@ -582,7 +708,6 @@ export default function PositionsPage() {
         }
       />
 
-      {/* ===== Part 2: View Switch Area ===== */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as TabType); setSelectedIds([]); setSelectedBatchId(null) }}>
           <TabsList className="grid w-full max-w-md grid-cols-3">
@@ -604,14 +729,12 @@ export default function PositionsPage() {
         </ToggleGroup>
       </div>
 
-      {/* ===== Part 3: Data List Area ===== */}
       <Card className="border-slate-200 shadow-sm">
         <CardContent className="flex flex-col gap-4 p-5">
-          {/* Search + Filter row */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex-1 min-w-[200px]">
               <div className="flex items-center gap-2 w-full">
-                <Search className="h-4 w-4 text-slate-400" />
+                <Search className="h-4 w-4 text-slate-400 shrink-0" />
                 <Input
                   placeholder="搜索岗位名称 / 简称"
                   value={searchQuery}
@@ -657,7 +780,6 @@ export default function PositionsPage() {
             </Button>
           </div>
 
-          {/* Quick actions - linked with checkboxes */}
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
             <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
               {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择岗位："}
@@ -697,7 +819,6 @@ export default function PositionsPage() {
           </div>
         </CardContent>
 
-        {/* Position list - merged into the same Card */}
         {filteredPositions.length > 0 && viewMode !== "group" && (
           <CardContent className="pt-0">
             <PositionList
@@ -717,7 +838,6 @@ export default function PositionsPage() {
         )}
       </Card>
 
-      {/* Position list - group view remains outside the card */}
       {filteredPositions.length > 0 && viewMode === "group" && positionsByBatch && (
         <div className="space-y-4">
           {Object.entries(positionsByBatch).map(([batchId, batchPositions]) => {
@@ -807,7 +927,6 @@ export default function PositionsPage() {
         </div>
       )}
 
-      {/* Import Dialog */}
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -841,7 +960,6 @@ export default function PositionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Resource Import Dialog */}
       <Dialog open={isResourceImportDialogOpen} onOpenChange={setIsResourceImportDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
@@ -862,7 +980,6 @@ export default function PositionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Approval Workflow Config Dialog */}
       <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
@@ -909,7 +1026,6 @@ export default function PositionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Export Dialog */}
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
@@ -934,7 +1050,6 @@ export default function PositionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Batch Move Dialog */}
       <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
@@ -962,7 +1077,6 @@ export default function PositionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Clone Rename Dialog */}
       <Dialog open={isCloneRenameDialogOpen} onOpenChange={setIsCloneRenameDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>

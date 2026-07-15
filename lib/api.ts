@@ -281,7 +281,7 @@ function getToken(): string | null {
   return localStorage.getItem("zhiyu-token")
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${path}`
   const token = getToken()
   const headers: Record<string, string> = {
@@ -321,6 +321,10 @@ export function buildQuery(params: Record<string, string | number | boolean | un
   const s = qs.toString()
   return s ? `?${s}` : ""
 }
+
+import { createCrudApi, createContentApi } from "./api-factory"
+
+// ==================== Core APIs (unchanged) ====================
 
 export const authApi = {
   login: (req: LoginRequest) => request<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify(req) }),
@@ -406,51 +410,20 @@ export function removeToken() {
 // ==================== Phase 1: Unified backend management APIs ====================
 
 export const tenantApi = {
-  list: (params?: { search?: string; status?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Tenant>>(`/tenants${buildQuery(params || {})}`),
-  get: (id: string) => request<Tenant>(`/tenants/${id}`),
-  create: (req: Omit<Tenant, "id" | "createdAt" | "updatedAt">) =>
-    request<Tenant>("/tenants", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Tenant, "id" | "createdAt" | "updatedAt">>) =>
-    request<Tenant>(`/tenants/${id}`, { method: "PUT", body: JSON.stringify(req) }),
+  ...createCrudApi<Tenant, Omit<Tenant, "id" | "createdAt" | "updatedAt">, Partial<Omit<Tenant, "id" | "createdAt" | "updatedAt">>>("/tenants"),
   updateStatus: (id: string, status: string) =>
     request<Tenant>(`/tenants/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
 }
 
 export const orgApi = {
-  list: (params?: { tenantId?: string; parentId?: string; typeId?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Organization>>(`/organizations${buildQuery(params || {})}`),
+  ...createCrudApi<Organization, Omit<Organization, "id" | "createdAt" | "updatedAt">, Partial<Omit<Organization, "id" | "createdAt" | "updatedAt">>>("/organizations"),
   tree: (params?: { tenantId?: string; typeId?: string }) =>
     request<Organization[]>(`/organizations/tree${buildQuery(params || {})}`),
-  get: (id: string) => request<Organization>(`/organizations/${id}`),
-  create: (req: Omit<Organization, "id" | "createdAt" | "updatedAt">) =>
-    request<Organization>("/organizations", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Organization, "id" | "createdAt" | "updatedAt">>) =>
-    request<Organization>(`/organizations/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/organizations/${id}`, { method: "DELETE" }),
 }
 
-export const orgTypeApi = {
-  list: (params?: { tenantId?: string; category?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<OrgType>>(`/org-types${buildQuery(params || {})}`),
-  get: (id: string) => request<OrgType>(`/org-types/${id}`),
-  create: (req: Omit<OrgType, "id" | "createdAt">) =>
-    request<OrgType>("/org-types", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<OrgType, "id" | "createdAt">>) =>
-    request<OrgType>(`/org-types/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/org-types/${id}`, { method: "DELETE" }),
-}
+export const orgTypeApi = createCrudApi<OrgType, Omit<OrgType, "id" | "createdAt">, Partial<Omit<OrgType, "id" | "createdAt">>>("/org-types")
 
-export const identityTypeApi = {
-  list: (params?: { tenantId?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<IdentityType>>(`/identity-types${buildQuery(params || {})}`),
-  get: (id: string) => request<IdentityType>(`/identity-types/${id}`),
-  create: (req: Omit<IdentityType, "id" | "userCount" | "createdAt">) =>
-    request<IdentityType>("/identity-types", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<IdentityType, "id" | "userCount" | "createdAt">>) =>
-    request<IdentityType>(`/identity-types/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/identity-types/${id}`, { method: "DELETE" }),
-}
+export const identityTypeApi = createCrudApi<IdentityType, Omit<IdentityType, "id" | "userCount" | "createdAt">, Partial<Omit<IdentityType, "id" | "userCount" | "createdAt">>>("/identity-types")
 
 export interface CreateUserRequest {
   tenantId?: string
@@ -487,50 +460,16 @@ export const userManagementApi = {
 }
 
 export const roleApi = {
-  list: (params?: { tenantId?: string; status?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Role>>(`/roles${buildQuery(params || {})}`),
-  get: (id: string) => request<Role>(`/roles/${id}`),
-  create: (req: Omit<Role, "id" | "userCount" | "createdAt">) =>
-    request<Role>("/roles", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Role, "id" | "userCount" | "createdAt">>) =>
-    request<Role>(`/roles/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/roles/${id}`, { method: "DELETE" }),
+  ...createCrudApi<Role, Omit<Role, "id" | "userCount" | "createdAt">, Partial<Omit<Role, "id" | "userCount" | "createdAt">>>("/roles"),
   assign: (id: string, userIds: string[]) =>
     request<Role>(`/roles/${id}/assign`, { method: "POST", body: JSON.stringify({ userIds }) }),
 }
 
-export const majorApi = {
-  list: (params?: { tenantId?: string; orgNodeId?: string; enabled?: boolean; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Major>>(`/majors${buildQuery(params || {})}`),
-  get: (id: string) => request<Major>(`/majors/${id}`),
-  create: (req: Omit<Major, "id" | "createdAt" | "updatedAt">) =>
-    request<Major>("/majors", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Major, "id" | "createdAt" | "updatedAt">>) =>
-    request<Major>(`/majors/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/majors/${id}`, { method: "DELETE" }),
-}
+export const majorApi = createCrudApi<Major, Omit<Major, "id" | "createdAt" | "updatedAt">, Partial<Omit<Major, "id" | "createdAt" | "updatedAt">>>("/majors")
 
-export const industryApi = {
-  list: (params?: { tenantId?: string; parentId?: string; enabled?: boolean; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Industry>>(`/industries${buildQuery(params || {})}`),
-  get: (id: string) => request<Industry>(`/industries/${id}`),
-  create: (req: Omit<Industry, "id" | "createdAt" | "updatedAt">) =>
-    request<Industry>("/industries", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Industry, "id" | "createdAt" | "updatedAt">>) =>
-    request<Industry>(`/industries/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/industries/${id}`, { method: "DELETE" }),
-}
+export const industryApi = createCrudApi<Industry, Omit<Industry, "id" | "createdAt" | "updatedAt">, Partial<Omit<Industry, "id" | "createdAt" | "updatedAt">>>("/industries")
 
-export const resourceCodeApi = {
-  list: (params?: { tenantId?: string; type?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<ResourceCode>>(`/resource-codes${buildQuery(params || {})}`),
-  get: (id: string) => request<ResourceCode>(`/resource-codes/${id}`),
-  create: (req: Omit<ResourceCode, "id" | "createdAt">) =>
-    request<ResourceCode>("/resource-codes", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<ResourceCode, "id" | "createdAt">>) =>
-    request<ResourceCode>(`/resource-codes/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/resource-codes/${id}`, { method: "DELETE" }),
-}
+export const resourceCodeApi = createCrudApi<ResourceCode, Omit<ResourceCode, "id" | "createdAt">, Partial<Omit<ResourceCode, "id" | "createdAt">>>("/resource-codes")
 
 export const subscriptionApi = {
   get: (tenantId: string) => request<SubscriptionPackage>(`/subscriptions?tenantId=${tenantId}`),
@@ -545,16 +484,7 @@ export const logApi = {
     request<ListResponse<OperationLog>>(`/logs/operation${buildQuery(params || {})}`),
 }
 
-export const workflowApi = {
-  list: (params?: { tenantId?: string; scene?: string; status?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Workflow>>(`/workflows${buildQuery(params || {})}`),
-  get: (id: string) => request<Workflow>(`/workflows/${id}`),
-  create: (req: Omit<Workflow, "id" | "usageCount" | "createdAt">) =>
-    request<Workflow>("/workflows", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Workflow, "id" | "usageCount" | "createdAt">>) =>
-    request<Workflow>(`/workflows/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/workflows/${id}`, { method: "DELETE" }),
-}
+export const workflowApi = createCrudApi<Workflow, Omit<Workflow, "id" | "usageCount" | "createdAt">, Partial<Omit<Workflow, "id" | "usageCount" | "createdAt">>>("/workflows")
 
 export const approvalApi = {
   list: (params?: { targetType?: string; targetId?: string; status?: string; submitterId?: string; limit?: number; offset?: number }) =>
@@ -586,24 +516,7 @@ export const appModuleApi = {
 
 // ==================== Phase 3.2: Job APIs ====================
 
-export const positionApi = {
-  list: (params?: { batchId?: string; status?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<CareerPosition>>(`/job/positions${buildQuery(params || {})}`),
-  get: (id: string) => request<CareerPosition>(`/job/positions/${id}`),
-  create: (req: Omit<CareerPosition, "id" | "createdAt" | "updatedAt">) =>
-    request<CareerPosition>("/job/positions", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<CareerPosition, "id" | "createdAt" | "updatedAt">>) =>
-    request<CareerPosition>(`/job/positions/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/job/positions/${id}`, { method: "DELETE" }),
-  submit: (id: string) => request<CareerPosition>(`/job/positions/${id}/submit`, { method: "POST" }),
-  review: (id: string, req: { status: string; comment?: string }) =>
-    request<CareerPosition>(`/job/positions/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
-  publish: (id: string) => request<CareerPosition>(`/job/positions/${id}/publish`, { method: "POST" }),
-  archive: (id: string) => request<CareerPosition>(`/job/positions/${id}/archive`, { method: "POST" }),
-  withdraw: (id: string) => request<CareerPosition>(`/job/positions/${id}/withdraw`, { method: "POST" }),
-  invite: (id: string, userId: string) =>
-    request<CareerPosition>(`/job/positions/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
-}
+export const positionApi = createContentApi<CareerPosition, Omit<CareerPosition, "id" | "createdAt" | "updatedAt">, Partial<Omit<CareerPosition, "id" | "createdAt" | "updatedAt">>>("/job/positions")
 
 export const abilityApi = {
   list: (params?: { category?: string; isPublic?: boolean; search?: string; limit?: number; offset?: number }) =>
@@ -631,68 +544,20 @@ export const abilityApi = {
 }
 
 export const batchApi = {
-  list: (params?: { orgNodeId?: string; major?: string; status?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<JobBatch>>(`/job/batches${buildQuery(params || {})}`),
-  get: (id: string) => request<JobBatch>(`/job/batches/${id}`),
-  create: (req: Omit<JobBatch, "id" | "positionCount" | "publishedCount" | "pendingCount" | "createdAt" | "updatedAt">) =>
-    request<JobBatch>("/job/batches", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<JobBatch, "id" | "createdAt" | "updatedAt">>) =>
-    request<JobBatch>(`/job/batches/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/job/batches/${id}`, { method: "DELETE" }),
+  ...createCrudApi<JobBatch, Omit<JobBatch, "id" | "positionCount" | "publishedCount" | "pendingCount" | "createdAt" | "updatedAt">, Partial<Omit<JobBatch, "id" | "createdAt" | "updatedAt">>>("/job/batches"),
   updateStatus: (id: string, status: string) =>
     request<JobBatch>(`/job/batches/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
 }
 
-export const recommendApi = {
-  list: (params?: { major?: string; isVisible?: boolean; limit?: number; offset?: number }) =>
-    request<ListResponse<PositionRecommendation>>(`/job/recommendations${buildQuery(params || {})}`),
-  create: (req: Omit<PositionRecommendation, "id" | "createdAt" | "updatedAt">) =>
-    request<PositionRecommendation>("/job/recommendations", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<PositionRecommendation, "id" | "createdAt" | "updatedAt">>) =>
-    request<PositionRecommendation>(`/job/recommendations/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/job/recommendations/${id}`, { method: "DELETE" }),
-}
+export const recommendApi = createCrudApi<PositionRecommendation, Omit<PositionRecommendation, "id" | "createdAt" | "updatedAt">, Partial<Omit<PositionRecommendation, "id" | "createdAt" | "updatedAt">>>("/job/recommendations")
 
-export const learnRoadApi = {
-  list: (params?: { search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<LearnRoad>>(`/job/learn-roads${buildQuery(params || {})}`),
-  get: (id: string) => request<LearnRoad>(`/job/learn-roads/${id}`),
-  create: (req: Omit<LearnRoad, "id" | "createdAt" | "updatedAt">) =>
-    request<LearnRoad>("/job/learn-roads", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<LearnRoad, "id" | "createdAt" | "updatedAt">>) =>
-    request<LearnRoad>(`/job/learn-roads/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/job/learn-roads/${id}`, { method: "DELETE" }),
-}
+export const learnRoadApi = createCrudApi<LearnRoad, Omit<LearnRoad, "id" | "createdAt" | "updatedAt">, Partial<Omit<LearnRoad, "id" | "createdAt" | "updatedAt">>>("/job/learn-roads")
 
-export const jobBannerApi = {
-  list: () => request<ListResponse<BannerConfig>>("/job/banners"),
-  create: (req: Omit<BannerConfig, "id" | "createdAt" | "updatedAt">) =>
-    request<BannerConfig>("/job/banners", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<BannerConfig, "id" | "createdAt" | "updatedAt">>) =>
-    request<BannerConfig>(`/job/banners/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/job/banners/${id}`, { method: "DELETE" }),
-}
+export const jobBannerApi = createCrudApi<BannerConfig, Omit<BannerConfig, "id" | "createdAt" | "updatedAt">, Partial<Omit<BannerConfig, "id" | "createdAt" | "updatedAt">>>("/job/banners")
 
 // ==================== Phase 3.3: Scene APIs ====================
 
-export const scenarioApi = {
-  list: (params?: { batchId?: string; status?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Scenario>>(`/scene/scenarios${buildQuery(params || {})}`),
-  get: (id: string) => request<Scenario>(`/scene/scenarios/${id}`),
-  create: (req: Omit<Scenario, "id" | "viewCount" | "createdAt" | "updatedAt">) =>
-    request<Scenario>("/scene/scenarios", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Scenario, "id" | "createdAt" | "updatedAt">>) =>
-    request<Scenario>(`/scene/scenarios/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/scene/scenarios/${id}`, { method: "DELETE" }),
-  submit: (id: string) => request<Scenario>(`/scene/scenarios/${id}/submit`, { method: "POST" }),
-  review: (id: string, req: { status: string; comment?: string }) =>
-    request<Scenario>(`/scene/scenarios/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
-  publish: (id: string) => request<Scenario>(`/scene/scenarios/${id}/publish`, { method: "POST" }),
-  archive: (id: string) => request<Scenario>(`/scene/scenarios/${id}/archive`, { method: "POST" }),
-  withdraw: (id: string) => request<Scenario>(`/scene/scenarios/${id}/withdraw`, { method: "POST" }),
-  invite: (id: string, userId: string) =>
-    request<Scenario>(`/scene/scenarios/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
-}
+export const scenarioApi = createContentApi<Scenario, Omit<Scenario, "id" | "viewCount" | "createdAt" | "updatedAt">, Partial<Omit<Scenario, "id" | "createdAt" | "updatedAt">>>("/scene/scenarios")
 
 export const taskApi = {
   list: (params?: { scenarioId?: string; search?: string; limit?: number; offset?: number }) =>
@@ -707,72 +572,21 @@ export const taskApi = {
     request<{ ok: boolean }>("/scene/tasks/reorder", { method: "POST", body: JSON.stringify({ scenarioId, taskIds }) }),
 }
 
-export const sceneBatchApi = {
-  list: (params?: { orgNodeId?: string; major?: string; status?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<SceneBatch>>(`/scene/batches${buildQuery(params || {})}`),
-  get: (id: string) => request<SceneBatch>(`/scene/batches/${id}`),
-  create: (req: Omit<SceneBatch, "id" | "createdAt" | "updatedAt">) =>
-    request<SceneBatch>("/scene/batches", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<SceneBatch, "id" | "createdAt" | "updatedAt">>) =>
-    request<SceneBatch>(`/scene/batches/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/scene/batches/${id}`, { method: "DELETE" }),
-}
+export const sceneBatchApi = createCrudApi<SceneBatch, Omit<SceneBatch, "id" | "createdAt" | "updatedAt">, Partial<Omit<SceneBatch, "id" | "createdAt" | "updatedAt">>>("/scene/batches")
 
 // ==================== Phase 3.4: Lesson APIs ====================
 
-export const courseApi = {
-  list: (params?: { type?: string; category?: string; status?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Course>>(`/lesson/courses${buildQuery(params || {})}`),
-  get: (id: string) => request<Course>(`/lesson/courses/${id}`),
-  create: (req: Omit<Course, "id" | "nodeCount" | "resourceCount" | "viewCount" | "studyCount" | "createdAt" | "updatedAt">) =>
-    request<Course>("/lesson/courses", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Course, "id" | "createdAt" | "updatedAt">>) =>
-    request<Course>(`/lesson/courses/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/lesson/courses/${id}`, { method: "DELETE" }),
-  submit: (id: string) => request<Course>(`/lesson/courses/${id}/submit`, { method: "POST" }),
-  review: (id: string, req: { status: string; comment?: string }) =>
-    request<Course>(`/lesson/courses/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
-  publish: (id: string) => request<Course>(`/lesson/courses/${id}/publish`, { method: "POST" }),
-  archive: (id: string) => request<Course>(`/lesson/courses/${id}/archive`, { method: "POST" }),
-  withdraw: (id: string) => request<Course>(`/lesson/courses/${id}/withdraw`, { method: "POST" }),
-  invite: (id: string, userId: string) =>
-    request<Course>(`/lesson/courses/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
-}
+export const courseApi = createContentApi<Course, Omit<Course, "id" | "nodeCount" | "resourceCount" | "viewCount" | "studyCount" | "createdAt" | "updatedAt">, Partial<Omit<Course, "id" | "createdAt" | "updatedAt">>>("/lesson/courses")
 
-export const knowledgeApi = {
-  list: (params?: { search?: string; linked?: boolean; creatorId?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<KnowledgePoint>>(`/lesson/knowledge-points${buildQuery(params || {})}`),
-  get: (id: string) => request<KnowledgePoint>(`/lesson/knowledge-points/${id}`),
-  create: (req: Omit<KnowledgePoint, "id" | "createdAt" | "updatedAt">) =>
-    request<KnowledgePoint>("/lesson/knowledge-points", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<KnowledgePoint, "id" | "createdAt" | "updatedAt">>) =>
-    request<KnowledgePoint>(`/lesson/knowledge-points/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/lesson/knowledge-points/${id}`, { method: "DELETE" }),
-}
+export const knowledgeApi = createCrudApi<KnowledgePoint, Omit<KnowledgePoint, "id" | "createdAt" | "updatedAt">, Partial<Omit<KnowledgePoint, "id" | "createdAt" | "updatedAt">>>("/lesson/knowledge-points")
 
 export const courseNodeApi = {
-  list: (params?: { courseId?: string; parentId?: string }) =>
-    request<ListResponse<SystemCourseNode>>(`/lesson/nodes${buildQuery(params || {})}`),
-  get: (id: string) => request<SystemCourseNode>(`/lesson/nodes/${id}`),
-  create: (req: Omit<SystemCourseNode, "id" | "createdAt" | "updatedAt">) =>
-    request<SystemCourseNode>("/lesson/nodes", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<SystemCourseNode, "id" | "createdAt" | "updatedAt">>) =>
-    request<SystemCourseNode>(`/lesson/nodes/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/lesson/nodes/${id}`, { method: "DELETE" }),
+  ...createCrudApi<SystemCourseNode, Omit<SystemCourseNode, "id" | "createdAt" | "updatedAt">, Partial<Omit<SystemCourseNode, "id" | "createdAt" | "updatedAt">>>("/lesson/nodes"),
   reorder: (courseId: string, nodeIds: string[]) =>
     request<{ ok: boolean }>("/lesson/nodes/reorder", { method: "POST", body: JSON.stringify({ courseId, nodeIds }) }),
 }
 
-export const lessonBatchApi = {
-  list: (params?: { orgNodeId?: string; major?: string; status?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<LessonBatch>>(`/lesson/batches${buildQuery(params || {})}`),
-  get: (id: string) => request<LessonBatch>(`/lesson/batches/${id}`),
-  create: (req: Omit<LessonBatch, "id" | "createdAt" | "updatedAt">) =>
-    request<LessonBatch>("/lesson/batches", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<LessonBatch, "id" | "createdAt" | "updatedAt">>) =>
-    request<LessonBatch>(`/lesson/batches/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/lesson/batches/${id}`, { method: "DELETE" }),
-}
+export const lessonBatchApi = createCrudApi<LessonBatch, Omit<LessonBatch, "id" | "createdAt" | "updatedAt">, Partial<Omit<LessonBatch, "id" | "createdAt" | "updatedAt">>>("/lesson/batches")
 
 export const lessonBehaviorApi = {
   aggregate: (params: { courseId: string; startDate?: string; endDate?: string }) =>
@@ -824,55 +638,16 @@ export const portalApi = {
 
 // ==================== Phase 3.5: Evaluation APIs ====================
 
-export const questionBankApi = {
-  list: (params?: { status?: string; ownerType?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<QuestionBank>>(`/evaluation/question-banks${buildQuery(params || {})}`),
-  get: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}`),
-  create: (req: Omit<QuestionBank, "id" | "questionCount" | "createdAt" | "updatedAt">) =>
-    request<QuestionBank>("/evaluation/question-banks", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<QuestionBank, "id" | "questionCount" | "createdAt" | "updatedAt">>) =>
-    request<QuestionBank>(`/evaluation/question-banks/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/evaluation/question-banks/${id}`, { method: "DELETE" }),
-  submit: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/submit`, { method: "POST" }),
-  review: (id: string, req: { status: string; comment?: string }) =>
-    request<QuestionBank>(`/evaluation/question-banks/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
-  publish: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/publish`, { method: "POST" }),
-  archive: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/archive`, { method: "POST" }),
-  withdraw: (id: string) => request<QuestionBank>(`/evaluation/question-banks/${id}/withdraw`, { method: "POST" }),
-  invite: (id: string, userId: string) =>
-    request<QuestionBank>(`/evaluation/question-banks/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
-}
+export const questionBankApi = createContentApi<QuestionBank, Omit<QuestionBank, "id" | "questionCount" | "createdAt" | "updatedAt">, Partial<Omit<QuestionBank, "id" | "questionCount" | "createdAt" | "updatedAt">>>("/evaluation/question-banks")
 
 export const questionApi = {
-  list: (params?: { bankId?: string; type?: string; difficulty?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Question>>(`/evaluation/questions${buildQuery(params || {})}`),
-  get: (id: string) => request<Question>(`/evaluation/questions/${id}`),
-  create: (req: Omit<Question, "id" | "createdAt">) =>
-    request<Question>("/evaluation/questions", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Question, "id" | "createdAt">>) =>
-    request<Question>(`/evaluation/questions/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/evaluation/questions/${id}`, { method: "DELETE" }),
+  ...createCrudApi<Question, Omit<Question, "id" | "createdAt">, Partial<Omit<Question, "id" | "createdAt">>>("/evaluation/questions"),
   batchCreate: (bankId: string, items: Omit<Question, "id" | "bankId" | "createdAt">[]) =>
     request<{ count: number }>("/evaluation/questions/batch", { method: "POST", body: JSON.stringify({ bankId, items }) }),
 }
 
 export const examApi = {
-  list: (params?: { status?: string; ownerType?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<Exam>>(`/evaluation/exams${buildQuery(params || {})}`),
-  get: (id: string) => request<Exam>(`/evaluation/exams/${id}`),
-  create: (req: Omit<Exam, "id" | "totalScore" | "createdAt" | "updatedAt">) =>
-    request<Exam>("/evaluation/exams", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Exam, "id" | "totalScore" | "createdAt" | "updatedAt">>) =>
-    request<Exam>(`/evaluation/exams/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/evaluation/exams/${id}`, { method: "DELETE" }),
-  submit: (id: string) => request<Exam>(`/evaluation/exams/${id}/submit`, { method: "POST" }),
-  review: (id: string, req: { status: string; comment?: string }) =>
-    request<Exam>(`/evaluation/exams/${id}/review`, { method: "POST", body: JSON.stringify(req) }),
-  publish: (id: string) => request<Exam>(`/evaluation/exams/${id}/publish`, { method: "POST" }),
-  archive: (id: string) => request<Exam>(`/evaluation/exams/${id}/archive`, { method: "POST" }),
-  withdraw: (id: string) => request<Exam>(`/evaluation/exams/${id}/withdraw`, { method: "POST" }),
-  invite: (id: string, userId: string) =>
-    request<Exam>(`/evaluation/exams/${id}/invite`, { method: "POST", body: JSON.stringify({ userId }) }),
+  ...createContentApi<Exam, Omit<Exam, "id" | "totalScore" | "createdAt" | "updatedAt">, Partial<Omit<Exam, "id" | "totalScore" | "createdAt" | "updatedAt">>>("/evaluation/exams"),
   addQuestion: (id: string, questionId: string, score: number) =>
     request<Exam>(`/evaluation/exams/${id}/questions`, { method: "POST", body: JSON.stringify({ questionId, score }) }),
   removeQuestion: (id: string, questionId: string) =>
@@ -990,13 +765,4 @@ export const appealApi = {
     request<AppealRecord>(`/evaluation/appeals/${id}/process`, { method: "POST", body: JSON.stringify(req) }),
 }
 
-export const evaluationBatchApi = {
-  list: (params?: { orgNodeId?: string; major?: string; status?: string; search?: string; limit?: number; offset?: number }) =>
-    request<ListResponse<EvaluationBatch>>(`/evaluation/batches${buildQuery(params || {})}`),
-  get: (id: string) => request<EvaluationBatch>(`/evaluation/batches/${id}`),
-  create: (req: Omit<EvaluationBatch, "id" | "createdAt" | "updatedAt">) =>
-    request<EvaluationBatch>("/evaluation/batches", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<EvaluationBatch, "id" | "createdAt" | "updatedAt">>) =>
-    request<EvaluationBatch>(`/evaluation/batches/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => request<{ id: string }>(`/evaluation/batches/${id}`, { method: "DELETE" }),
-}
+export const evaluationBatchApi = createCrudApi<EvaluationBatch, Omit<EvaluationBatch, "id" | "createdAt" | "updatedAt">, Partial<Omit<EvaluationBatch, "id" | "createdAt" | "updatedAt">>>("/evaluation/batches")

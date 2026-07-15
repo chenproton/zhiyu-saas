@@ -159,7 +159,8 @@ func (h *QuestionBankHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
-	if _, err := h.fetchQuestionBank(r.Context(), id); err != nil {
+	existing, err := h.fetchQuestionBank(r.Context(), id)
+	if err != nil {
 		respondError(w, http.StatusNotFound, "question bank not found")
 		return
 	}
@@ -174,11 +175,20 @@ func (h *QuestionBankHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.DB.Exec(r.Context(), `
+	collaboratorIDs := req.CollaboratorIDs
+	if collaboratorIDs == nil {
+		collaboratorIDs = existing.CollaboratorIDs
+	}
+	collaboratorDeptIDs := req.CollaboratorDeptIDs
+	if collaboratorDeptIDs == nil {
+		collaboratorDeptIDs = existing.CollaboratorDeptIDs
+	}
+
+	_, err = h.DB.Exec(r.Context(), `
 		UPDATE question_banks SET name = $1, description = $2, cover_url = $3,
 			collaborator_ids = $4, collaborator_dept_ids = $5, batch_id = $6, updated_at = NOW()
 		WHERE id = $7
-	`, req.Name, req.Description, req.CoverURL, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID, id)
+	`, req.Name, req.Description, req.CoverURL, collaboratorIDs, collaboratorDeptIDs, req.BatchID, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update question bank")
 		return
@@ -234,8 +244,8 @@ func (h *QuestionBankHandler) Review(w http.ResponseWriter, r *http.Request) {
 
 	var status domain.QuestionBankStatus
 	switch req.Status {
-	case "published":
-		status = domain.QuestionBankStatusPublished
+	case "approved":
+		status = domain.QuestionBankStatusApproved
 	case "rejected":
 		status = domain.QuestionBankStatusRejected
 	default:

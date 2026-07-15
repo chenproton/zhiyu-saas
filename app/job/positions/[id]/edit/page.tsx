@@ -3,7 +3,6 @@
 import { Suspense, useState, useEffect, use } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
-import { useData } from '@/lib/stores/data-context'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -20,7 +19,7 @@ import { StepBasicInfo } from '@/components/job/position-builder/step-basic-info
 import { StepAbilityModeling } from '@/components/job/position-builder/step-ability-modeling'
 import { Step3ResultTable } from '@/components/job/position-builder/ai-assisted-2/step3-result-table'
 import { CoBuilderSelector } from '@/components/job/position-builder/co-builder-selector'
-import type { Position } from '@/lib/types/job-source'
+import type { Position, Batch } from '@/lib/types/job-source'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +28,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { positionApi, batchApi, approvalApi } from '@/lib/api'
+import {
+  convertCareerPositionToPosition,
+  convertJobBatchToBatch,
+  positionToUpdateRequest,
+} from '@/lib/stores/job-converters'
+import { useToast } from '@/hooks/use-toast'
 
 const CURRENT_USER = { id: 'user-1', name: '张建设' }
 
@@ -40,11 +46,36 @@ function PositionEditPageContent({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { positions, batches, updatePosition, submitForApproval } = useData()
+  const { toast } = useToast()
+  const [positions, setPositions] = useState<Position[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [loading, setLoading] = useState(true)
   const [activeStep, setActiveStep] = useState('basic')
   const [isSaving, setIsSaving] = useState(false)
   const [position, setPosition] = useState<Position | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    Promise.all([
+      positionApi.list({ limit: 1000 }),
+      batchApi.list({ limit: 1000 }),
+    ])
+      .then(([posRes, batchRes]) => {
+        if (cancelled) return
+        const posList = posRes.items.map(convertCareerPositionToPosition)
+        setPositions(posList)
+        setBatches(batchRes.items.map(convertJobBatchToBatch))
+      })
+      .catch((err: any) => {
+        if (!cancelled) toast({ variant: 'destructive', title: '加载失败', description: err?.message || '请稍后重试' })
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [toast])
 
   useEffect(() => {
     const found = positions.find((p) => p.id === id)
@@ -53,7 +84,6 @@ function PositionEditPageContent({ params }: PageProps) {
     }
   }, [id, positions])
 
-  // 处理 URL ?step= 参数
   useEffect(() => {
     const stepParam = searchParams.get('step')
     if (stepParam === '2') {
@@ -62,6 +92,14 @@ function PositionEditPageContent({ params }: PageProps) {
       setActiveStep('competency')
     }
   }, [searchParams])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   if (!position) {
     return (
@@ -75,17 +113,33 @@ function PositionEditPageContent({ params }: PageProps) {
 
   const handleSave = async () => {
     setIsSaving(true)
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    updatePosition(position.id, position)
-    setIsSaving(false)
+    try {
+      await positionApi.update(position.id, positionToUpdateRequest(position))
+      setPositions((prev) => prev.map((p) => (p.id === position.id ? { ...position } : p)))
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '保存失败', description: err?.message || '请稍后重试' })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleSubmit = async () => {
-    await handleSave()
-    if (batch) {
-      submitForApproval(position.id, batch.workflowId, 'user-2', '李建设')
+    if (!batch) return
+    setIsSaving(true)
+    try {
+      await positionApi.update(position.id, positionToUpdateRequest(position))
+      await positionApi.submit(position.id)
+      await approvalApi.create({
+        targetType: 'career_position',
+        targetId: position.id,
+        workflowId: batch.workflowId,
+      } as any)
+      router.push('/job/positions')
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '提交失败', description: err?.message || '请稍后重试' })
+    } finally {
+      setIsSaving(false)
     }
-    router.push('/job/positions')
   }
 
   const updatePositionData = (data: Partial<Position>) => {
@@ -116,7 +170,6 @@ function PositionEditPageContent({ params }: PageProps) {
 
   return (
     <div className="fixed inset-0 bg-background z-50 overflow-auto">
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="max-w-full mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -164,7 +217,6 @@ function PositionEditPageContent({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-full mx-auto px-6 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-800">{position.name}</h1>
@@ -175,14 +227,11 @@ function PositionEditPageContent({ params }: PageProps) {
 
         {activeStep === 'basic' ? (
           <div className="grid grid-cols-3 gap-6">
-            {/* Left: form */}
             <div className="col-span-2">
               <StepBasicInfo position={position} onUpdate={updatePositionData} />
             </div>
 
-            {/* Right: sidebar */}
             <div className="space-y-6">
-              {/* Cover Image */}
               <Card>
                 <CardContent className="pt-6">
                   <Label className="mb-3 block">岗位封面</Label>
@@ -192,7 +241,6 @@ function PositionEditPageContent({ params }: PageProps) {
                   >
                     {position.coverImage ? (
                       <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={position.coverImage}
                           alt="岗位封面"
@@ -234,10 +282,8 @@ function PositionEditPageContent({ params }: PageProps) {
                 </CardContent>
               </Card>
 
-              {/* Meta Info */}
               <Card>
                 <CardContent className="pt-6 space-y-4">
-                  {/* Batch */}
                   <div>
                     <Label className="text-gray-500 text-xs">所属批次</Label>
                     <div className="mt-1">
@@ -260,13 +306,11 @@ function PositionEditPageContent({ params }: PageProps) {
                     </div>
                   </div>
 
-                  {/* Creator */}
                   <div>
                     <Label className="text-gray-500 text-xs">创建人</Label>
                     <p className="font-medium text-gray-800 mt-1">{CURRENT_USER.name}</p>
                   </div>
 
-                  {/* Collaborators */}
                   <div>
                     <Label className="text-gray-500 text-xs">共建人</Label>
                     <CoBuilderSelector
@@ -275,7 +319,6 @@ function PositionEditPageContent({ params }: PageProps) {
                     />
                   </div>
 
-                  {/* Version */}
                   <div className="pt-3 border-t border-gray-100">
                     <Label className="text-gray-500 text-xs">当前版本号</Label>
                     <p className="font-medium text-gray-800 mt-1">{position.version}</p>
@@ -302,7 +345,6 @@ function PositionEditPageContent({ params }: PageProps) {
         )}
       </div>
 
-      {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>

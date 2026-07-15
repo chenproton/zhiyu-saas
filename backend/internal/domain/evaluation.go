@@ -7,6 +7,7 @@ type QuestionBankStatus string
 const (
 	QuestionBankStatusDraft     QuestionBankStatus = "draft"
 	QuestionBankStatusPending   QuestionBankStatus = "pending"
+	QuestionBankStatusApproved  QuestionBankStatus = "approved"
 	QuestionBankStatusRejected  QuestionBankStatus = "rejected"
 	QuestionBankStatusPublished QuestionBankStatus = "published"
 	QuestionBankStatusArchived  QuestionBankStatus = "archived"
@@ -17,6 +18,7 @@ type ExamStatus string
 const (
 	ExamStatusDraft     ExamStatus = "draft"
 	ExamStatusPending   ExamStatus = "pending"
+	ExamStatusApproved  ExamStatus = "approved"
 	ExamStatusRejected  ExamStatus = "rejected"
 	ExamStatusPublished ExamStatus = "published"
 	ExamStatusArchived  ExamStatus = "archived"

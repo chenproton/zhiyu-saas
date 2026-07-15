@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import { useData } from '@/lib/stores/data-context'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { StatusBadge } from '@/components/job/status-badge'
+import { StatusBadge } from '@/components/shared/status-badge'
 import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
@@ -32,24 +31,49 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Plus, Search, Pencil, Trash2, FolderOpen, GitBranch } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, FolderOpen, GitBranch, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import type { Batch } from '@/lib/types/job-source'
+import { batchApi, workflowApi } from '@/lib/api'
+import { convertJobBatchToBatch, convertApiWorkflowToLocal } from '@/lib/stores/job-converters'
+import type { Batch, Workflow } from '@/lib/types/job-source'
+import { useToast } from '@/hooks/use-toast'
 
 export default function BatchesPage() {
-  const { batches, workflows, addBatch, updateBatch, deleteBatch } = useData()
+  const { toast } = useToast()
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null)
 
-  // Form state
   const [formData, setFormData] = useState({
     name: '',
     department: '',
     major: '',
     workflowId: '',
   })
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [batchRes, wfRes] = await Promise.all([
+        batchApi.list({ limit: 1000 }),
+        workflowApi.list({ limit: 1000 }),
+      ])
+      setBatches(batchRes.items.map(convertJobBatchToBatch))
+      setWorkflows(wfRes.items.map(convertApiWorkflowToLocal))
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '加载失败', description: err?.message || '请稍后重试' })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const filteredBatches = batches.filter((batch) => {
     const matchesSearch =
@@ -65,21 +89,22 @@ export default function BatchesPage() {
     setEditingBatch(null)
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!formData.name || !formData.department || !formData.major || !formData.workflowId) return
-
-    addBatch({
-      name: formData.name,
-      department: formData.department,
-      major: formData.major,
-      workflowId: formData.workflowId,
-      status: 'open',
-      positionCount: 0,
-      publishedCount: 0,
-      pendingCount: 0,
-    })
-    setIsCreateOpen(false)
-    resetForm()
+    try {
+      await batchApi.create({
+        name: formData.name,
+        status: 'open',
+        orgNodeId: formData.department || undefined,
+        major: formData.major || undefined,
+        workflowId: formData.workflowId || undefined,
+      })
+      await loadData()
+      setIsCreateOpen(false)
+      resetForm()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '创建失败', description: err?.message || '请稍后重试' })
+    }
   }
 
   const handleEdit = (batch: Batch) => {
@@ -92,27 +117,40 @@ export default function BatchesPage() {
     })
   }
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingBatch) return
-    updateBatch(editingBatch.id, {
-      name: formData.name,
-      department: formData.department,
-      major: formData.major,
-      workflowId: formData.workflowId,
-    })
-    setEditingBatch(null)
-    resetForm()
+    try {
+      await batchApi.update(editingBatch.id, {
+        name: formData.name,
+        orgNodeId: formData.department || undefined,
+        major: formData.major || undefined,
+        workflowId: formData.workflowId || undefined,
+      } as any)
+      await loadData()
+      setEditingBatch(null)
+      resetForm()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '更新失败', description: err?.message || '请稍后重试' })
+    }
   }
 
-  const handleToggleStatus = (batch: Batch) => {
-    updateBatch(batch.id, {
-      status: batch.status === 'open' ? 'closed' : 'open',
-    })
+  const handleToggleStatus = async (batch: Batch) => {
+    try {
+      const newStatus = batch.status === 'open' ? 'closed' : 'open'
+      await batchApi.updateStatus(batch.id, newStatus)
+      await loadData()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '操作失败', description: err?.message || '请稍后重试' })
+    }
   }
 
-  const handleDelete = (batchId: string) => {
-    if (confirm('确定要删除这个批次吗？')) {
-      deleteBatch(batchId)
+  const handleDelete = async (batchId: string) => {
+    if (!confirm('确定要删除这个批次吗？')) return
+    try {
+      await batchApi.delete(batchId)
+      await loadData()
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '删除失败', description: err?.message || '请稍后重试' })
     }
   }
 
@@ -182,7 +220,6 @@ export default function BatchesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">批次管理</h1>
@@ -205,7 +242,6 @@ export default function BatchesPage() {
         </Dialog>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -232,10 +268,12 @@ export default function BatchesPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>批次列表</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>批次列表</CardTitle>
+            {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          </div>
           <CardDescription>共 {filteredBatches.length} 个批次</CardDescription>
         </CardHeader>
         <CardContent>
@@ -324,7 +362,6 @@ export default function BatchesPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={!!editingBatch} onOpenChange={(open) => !open && setEditingBatch(null)}>
         <DialogContent>
           <DialogHeader>

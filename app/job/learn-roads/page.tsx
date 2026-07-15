@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,10 +45,10 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { useData } from '@/lib/stores/data-context'
-import { learnRoadApi } from '@/lib/api'
+import { positionApi, batchApi, learnRoadApi } from '@/lib/api'
+import { convertCareerPositionToPosition, convertJobBatchToBatch } from '@/lib/stores/job-converters'
 import { useToast } from '@/hooks/use-toast'
-import type { Position, PositionStatus } from '@/lib/types/job-source'
+import type { Position, PositionStatus, Batch } from '@/lib/types/job-source'
 import type { LearnRoad, LearnRoadStep } from '@/lib/types/job'
 
 interface Task {
@@ -191,8 +191,11 @@ function countScenesAndTasks(road?: LearnRoad): { sceneCount: number; taskCount:
 }
 
 export default function LearnRoadsPage() {
-  const { positions, batches } = useData()
   const { toast } = useToast()
+
+  const [positions, setPositions] = useState<Position[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [dataLoading, setDataLoading] = useState(false)
 
   const [view, setView] = useState<'list' | 'edit'>('list')
   const [editingPosition, setEditingPosition] = useState<Position | null>(null)
@@ -209,6 +212,26 @@ export default function LearnRoadsPage() {
 
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | PositionStatus>('all')
+
+  const loadJobData = useCallback(async () => {
+    setDataLoading(true)
+    try {
+      const [posRes, batchRes] = await Promise.all([
+        positionApi.list({ limit: 1000 }),
+        batchApi.list({ limit: 1000 }),
+      ])
+      setPositions(posRes.items.map(convertCareerPositionToPosition))
+      setBatches(batchRes.items.map(convertJobBatchToBatch))
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '加载失败', description: err?.message || '请稍后重试' })
+    } finally {
+      setDataLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    loadJobData()
+  }, [loadJobData])
 
   useEffect(() => {
     let cancelled = false
@@ -350,7 +373,6 @@ export default function LearnRoadsPage() {
 
   const ListView = () => (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">岗位学习路径管理</h1>
@@ -370,7 +392,6 @@ export default function LearnRoadsPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -403,12 +424,11 @@ export default function LearnRoadsPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <CardTitle>岗位列表</CardTitle>
-            {listLoading && (
+            {(listLoading || dataLoading) && (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             )}
           </div>
@@ -424,7 +444,6 @@ export default function LearnRoadsPage() {
                 <TableHead>所属专业</TableHead>
                 <TableHead>创建人</TableHead>
                 <TableHead>共建人</TableHead>
-
                 <TableHead>场景数</TableHead>
                 <TableHead>任务数</TableHead>
                 <TableHead className="text-right">操作</TableHead>
@@ -544,7 +563,6 @@ export default function LearnRoadsPage() {
           </div>
         )}
 
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" onClick={handleBack} disabled={editLoading}>
@@ -581,7 +599,6 @@ export default function LearnRoadsPage() {
         </div>
 
         <div className="space-y-6">
-          {/* Upper: path timeline */}
           <div className="rounded-2xl bg-[#f8f5f0] p-6 sm:p-8 relative overflow-hidden">
             <h2 className="text-center text-xl sm:text-2xl font-bold text-slate-800">
               {editingPosition.name}学习路径
@@ -649,7 +666,6 @@ export default function LearnRoadsPage() {
             </div>
           </div>
 
-          {/* Lower: scene order list */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">场景顺序</CardTitle>

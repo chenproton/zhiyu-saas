@@ -164,7 +164,8 @@ func (h *ExamHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
-	if _, err := h.fetchExam(r.Context(), id); err != nil {
+	existing, err := h.fetchExam(r.Context(), id)
+	if err != nil {
 		respondError(w, http.StatusNotFound, "exam not found")
 		return
 	}
@@ -179,11 +180,20 @@ func (h *ExamHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.DB.Exec(r.Context(), `
+	collaboratorIDs := req.CollaboratorIDs
+	if collaboratorIDs == nil {
+		collaboratorIDs = existing.CollaboratorIDs
+	}
+	collaboratorDeptIDs := req.CollaboratorDeptIDs
+	if collaboratorDeptIDs == nil {
+		collaboratorDeptIDs = existing.CollaboratorDeptIDs
+	}
+
+	_, err = h.DB.Exec(r.Context(), `
 		UPDATE exams SET name = $1, description = $2, duration = $3, cover_url = $4,
 			collaborator_ids = $5, collaborator_dept_ids = $6, batch_id = $7, updated_at = NOW()
 		WHERE id = $8
-	`, req.Name, req.Description, req.Duration, req.CoverURL, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID, id)
+	`, req.Name, req.Description, req.Duration, req.CoverURL, collaboratorIDs, collaboratorDeptIDs, req.BatchID, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update exam")
 		return
@@ -239,8 +249,8 @@ func (h *ExamHandler) Review(w http.ResponseWriter, r *http.Request) {
 
 	var status domain.ExamStatus
 	switch req.Status {
-	case "published":
-		status = domain.ExamStatusPublished
+	case "approved":
+		status = domain.ExamStatusApproved
 	case "rejected":
 		status = domain.ExamStatusRejected
 	default:

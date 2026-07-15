@@ -67,7 +67,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	abilityHandler := &handler.AbilityHandler{DB: db}
 	positionAbilityHandler := &handler.PositionAbilityHandler{DB: db}
 	abilityDomainHandler := &handler.AbilityDomainHandler{DB: db}
-	jobBatchHandler := &handler.JobBatchHandler{DB: db}
+	jobBatchHandler := handler.NewJobBatchHandler(db)
 	recommendHandler := &handler.RecommendHandler{DB: db}
 	learnRoadHandler := &handler.LearnRoadHandler{DB: db}
 	jobBannerHandler := &handler.JobBannerHandler{DB: db}
@@ -80,7 +80,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	taskKnowledgeAbilityHandler := &handler.TaskKnowledgeAbilityHandler{DB: db}
 	scenarioWeightHandler := &handler.ScenarioWeightHandler{DB: db}
 	scenarioGradeHandler := &handler.ScenarioGradeHandler{DB: db}
-	sceneBatchHandler := &handler.SceneBatchHandler{DB: db}
+	sceneBatchHandler := handler.NewSceneBatchHandler(db)
 
 	// Phase 3.4: lesson handlers
 	courseHandler := &handler.CourseHandler{DB: db}
@@ -89,7 +89,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	nodeQuizHandler := &handler.NodeQuizHandler{DB: db}
 	nodeHomeworkHandler := &handler.NodeHomeworkHandler{DB: db}
 	hybridModuleHandler := &handler.HybridModuleHandler{DB: db}
-	courseBatchHandler := &handler.CourseBatchHandler{DB: db}
+	courseBatchHandler := handler.NewCourseBatchHandler(db)
 	lessonBehaviorHandler := &handler.LessonBehaviorHandler{DB: db}
 
 	// Phase 3.5: evaluation handlers
@@ -105,7 +105,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	microCertHandler := &handler.MicroCertHandler{DB: db}
 	appealHandler := &handler.AppealHandler{DB: db}
 	evaluationMethodHandler := &handler.EvaluationMethodHandler{DB: db}
-	evaluationBatchHandler := &handler.EvaluationBatchHandler{DB: db}
+	evaluationBatchHandler := handler.NewEvaluationBatchHandler(db)
 
 	auth := authmw.JWT(jwtSecret)
 

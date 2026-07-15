@@ -182,6 +182,11 @@ func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Version == nil || *req.Version == "" {
+		v := "v1.0"
+		req.Version = &v
+	}
+
 	id := uuid.NewString()
 	if req.CoCreatorIds == nil {
 		req.CoCreatorIds = domain.JSONSlice{}
@@ -274,7 +279,7 @@ func (h *CourseHandler) Submit(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
-	h.transitionStatus(w, r, domain.CourseStatusPending, "")
+	h.transitionStatus(w, r, domain.CourseStatusPending)
 }
 
 func (h *CourseHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
@@ -282,7 +287,7 @@ func (h *CourseHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
-	h.transitionStatus(w, r, domain.CourseStatusDraft, "")
+	h.transitionStatus(w, r, domain.CourseStatusDraft)
 }
 
 func (h *CourseHandler) Review(w http.ResponseWriter, r *http.Request) {
@@ -300,14 +305,13 @@ func (h *CourseHandler) Review(w http.ResponseWriter, r *http.Request) {
 
 	var status domain.CourseStatus
 	switch req.Status {
-	case "pending":
-		status = domain.CourseStatusPending
+	case "approved":
+		status = domain.CourseStatusApproved
 	case "rejected":
 		status = domain.CourseStatusRejected
-	case "published":
-		status = domain.CourseStatusPublished
 	default:
-		status = domain.CourseStatus(req.Status)
+		respondError(w, http.StatusBadRequest, "invalid review status")
+		return
 	}
 
 	_, err := h.DB.Exec(r.Context(), `
@@ -327,7 +331,7 @@ func (h *CourseHandler) Publish(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
-	h.transitionStatus(w, r, domain.CourseStatusPublished, "")
+	h.transitionStatus(w, r, domain.CourseStatusPublished)
 }
 
 func (h *CourseHandler) Archive(w http.ResponseWriter, r *http.Request) {
@@ -335,7 +339,7 @@ func (h *CourseHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
-	h.transitionStatus(w, r, domain.CourseStatusArchived, "")
+	h.transitionStatus(w, r, domain.CourseStatusArchived)
 }
 
 type InviteRequest struct {
@@ -370,7 +374,7 @@ func (h *CourseHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, course)
 }
 
-func (h *CourseHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.CourseStatus, comment string) {
+func (h *CourseHandler) transitionStatus(w http.ResponseWriter, r *http.Request, status domain.CourseStatus) {
 	id := chi.URLParam(r, "id")
 	_, err := h.DB.Exec(r.Context(), `
 		UPDATE courses SET status = $1, updated_at = NOW() WHERE id = $2
@@ -385,7 +389,6 @@ func (h *CourseHandler) transitionStatus(w http.ResponseWriter, r *http.Request,
 		respondError(w, http.StatusNotFound, "course not found")
 		return
 	}
-	_ = comment
 	respondJSON(w, http.StatusOK, course)
 }
 

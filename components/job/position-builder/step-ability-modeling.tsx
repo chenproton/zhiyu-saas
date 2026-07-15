@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,8 +35,9 @@ import {
   X,
   Pencil,
 } from 'lucide-react'
-import { useData } from '@/lib/stores/data-context'
-import type { Position, PositionAbilityBinding, CompetencyLevel } from '@/lib/types/job-source'
+import { abilityApi } from '@/lib/api'
+import { convertApiAbilityToLocal } from '@/lib/stores/job-converters'
+import type { Position, PositionAbilityBinding, CompetencyLevel, Ability } from '@/lib/types/job-source'
 import { COMPETENCY_LEVEL_LABELS } from '@/lib/types/job-source'
 
 interface StepAbilityModelingProps {
@@ -83,7 +84,7 @@ function getRespColor(respId: string) {
 }
 
 export function StepAbilityModeling({ position, onUpdate, aiMode = false }: StepAbilityModelingProps) {
-  const { abilities } = useData()
+  const [abilities, setAbilities] = useState<Ability[]>([])
   const [selectedRespId, setSelectedRespId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -94,6 +95,12 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
   const [editingRespId, setEditingRespId] = useState<string | null>(null)
   const [editRespName, setEditRespName] = useState('')
   const [expandedBindingId, setExpandedBindingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    abilityApi.list({ limit: 1000, isPublic: true })
+      .then((res) => setAbilities(res.items.map(convertApiAbilityToLocal)))
+      .catch(() => {})
+  }, [])
 
   const selectedResp = position.responsibilities.find(r => r.id === selectedRespId)
 

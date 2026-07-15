@@ -7,6 +7,7 @@ type CourseStatus string
 const (
 	CourseStatusDraft     CourseStatus = "draft"
 	CourseStatusPending   CourseStatus = "pending"
+	CourseStatusApproved  CourseStatus = "approved"
 	CourseStatusRejected  CourseStatus = "rejected"
 	CourseStatusPublished CourseStatus = "published"
 	CourseStatusArchived  CourseStatus = "archived"

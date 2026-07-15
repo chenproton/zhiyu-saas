@@ -237,7 +237,7 @@ func SetupTestEnv(t *testing.T) *TestEnv {
 			r.Put("/job/ability-domains/{id}", abilityDomainHandler.Update)
 			r.Delete("/job/ability-domains/{id}", abilityDomainHandler.Delete)
 
-			jobBatchHandler := &handler.JobBatchHandler{DB: pool}
+			jobBatchHandler := handler.NewJobBatchHandler(pool)
 			r.Get("/job/batches", jobBatchHandler.List)
 			r.Get("/job/batches/{id}", jobBatchHandler.Get)
 			r.Post("/job/batches", jobBatchHandler.Create)
@@ -358,7 +358,7 @@ func SetupTestEnv(t *testing.T) *TestEnv {
 			r.Put("/lesson/hybrid-modules/{id}", hybridModuleHandler.UpsertModule)
 			r.Delete("/lesson/hybrid-modules/{id}", hybridModuleHandler.DeleteModule)
 
-			courseBatchHandler := &handler.CourseBatchHandler{DB: pool}
+			courseBatchHandler := handler.NewCourseBatchHandler(pool)
 			r.Get("/lesson/batches", courseBatchHandler.List)
 			r.Get("/lesson/batches/{id}", courseBatchHandler.Get)
 			r.Post("/lesson/batches", courseBatchHandler.Create)

@@ -120,8 +120,17 @@ func TestCourse_StatusTransitions(t *testing.T) {
 	}
 
 	w = env.Do("POST", "/api/v1/lesson/courses/"+course.ID+"/review", map[string]string{
-		"status": "published",
+		"status": "approved",
 	})
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
+	}
+	course, _ = testhelper.Unmarshal[domain.Course](w)
+	if course.Status != domain.CourseStatusApproved {
+		t.Fatalf("expected approved, got %s", course.Status)
+	}
+
+	w = env.Do("POST", "/api/v1/lesson/courses/"+course.ID+"/publish", nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}

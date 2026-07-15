@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { useData } from "@/lib/stores/data-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,12 +36,21 @@ import {
   ArrowRight,
   MessageSquare,
   History,
-  Filter
+  Filter,
+  Loader2,
 } from "lucide-react"
-import { StatusBadge } from "@/components/job/status-badge"
-import type { ApprovalRecord } from "@/lib/types/job-source"
+import { StatusBadge } from "@/components/shared/status-badge"
+import type { ApprovalRecord, Position, Workflow } from "@/lib/types/job-source"
 import { formatDistanceToNow } from "date-fns"
 import { zhCN } from "date-fns/locale"
+import { approvalApi, positionApi, workflowApi } from "@/lib/api"
+import {
+  convertApiApprovalToLocal,
+  convertCareerPositionToPosition,
+  convertApiWorkflowToLocal,
+} from "@/lib/stores/job-converters"
+import type { CareerPosition } from "@/lib/types/job"
+import { useToast } from "@/hooks/use-toast"
 
 const APPROVAL_TABS = [
   { value: "pending", label: "待我审批", icon: Clock },
@@ -61,9 +69,13 @@ function mapIdentityToJobRole(code?: string): string {
 }
 
 export default function ApprovalsPage() {
+  const { toast } = useToast()
   const { user, identityType } = useAuth()
   const role = mapIdentityToJobRole(identityType?.code)
-  const { approvals, positions, workflows, approveApproval, rejectApproval } = useData()
+  const [approvals, setApprovals] = useState<ApprovalRecord[]>([])
+  const [positions, setPositions] = useState<Position[]>([])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTab, setSelectedTab] = useState("pending")
   const [selectedApproval, setSelectedApproval] = useState<ApprovalRecord | null>(null)
@@ -72,26 +84,44 @@ export default function ApprovalsPage() {
   const [actionType, setActionType] = useState<"approve" | "reject" | null>(null)
   const [comment, setComment] = useState("")
 
-  // 根据当前用户角色过滤审批记录
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [approvalResp, positionResp, wfRes] = await Promise.all([
+        approvalApi.list({ targetType: 'career_position', limit: 1000 }),
+        positionApi.list({ limit: 1000 }),
+        workflowApi.list({ limit: 1000 }),
+      ])
+      const positionMap = new Map(positionResp.items.map((p) => [p.id, p]))
+      setApprovals(approvalResp.items.map((ar) => convertApiApprovalToLocal(ar, positionMap)))
+      setPositions(positionResp.items.map(convertCareerPositionToPosition))
+      setWorkflows(wfRes.items.map(convertApiWorkflowToLocal))
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '加载失败', description: err?.message || '请稍后重试' })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
   const reviewerRoles = ["reviewer", "teacher", "enterprise"]
   const builderRoles = ["builder", "teacher", "enterprise", "student"]
   const myApprovals = approvals.filter((approval) => {
-    // 管理员可以看到所有审批
     if (role === "admin") return true
-    // 审批人只能看到自己负责的审批（根据当前步骤角色判断）
     if (reviewerRoles.includes(role)) {
       const workflow = workflows.find(w => w.id === approval.workflowId)
       const currentStep = workflow?.steps[approval.currentStepIndex]
       return currentStep?.role === "reviewer" || currentStep?.role === "admin"
     }
-    // 岗位建设者只能看到自己提交的审批
     if (user && builderRoles.includes(role)) {
       return approval.submittedBy === user.id
     }
     return false
   })
 
-  // 根据Tab过滤
   const filteredApprovals = myApprovals.filter((approval) => {
     const matchesSearch =
       approval.positionName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -104,7 +134,6 @@ export default function ApprovalsPage() {
     return matchesSearch
   })
 
-  // 统计数据
   const stats = {
     pending: myApprovals.filter((a) => a.status === "pending").length,
     approved: myApprovals.filter((a) => a.status === "approved").length,
@@ -124,19 +153,22 @@ export default function ApprovalsPage() {
     setIsActionDialogOpen(true)
   }
 
-  const handleSubmitAction = () => {
+  const handleSubmitAction = async () => {
     if (!selectedApproval || !actionType || !user) return
-
-    if (actionType === "approve") {
-      approveApproval(selectedApproval.id, user.id, user.name, comment)
-    } else {
-      rejectApproval(selectedApproval.id, user.id, user.name, comment)
+    try {
+      if (actionType === "approve") {
+        await approvalApi.review(selectedApproval.id, { status: "approved", comment })
+      } else {
+        await approvalApi.review(selectedApproval.id, { status: "rejected", comment })
+      }
+      await loadData()
+      setIsActionDialogOpen(false)
+      setSelectedApproval(null)
+      setActionType(null)
+      setComment("")
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: '操作失败', description: err?.message || '请稍后重试' })
     }
-
-    setIsActionDialogOpen(false)
-    setSelectedApproval(null)
-    setActionType(null)
-    setComment("")
   }
 
   const getRelatedPosition = (positionId: string) => {
@@ -146,7 +178,6 @@ export default function ApprovalsPage() {
   const getBatchName = (positionId: string) => {
     const position = positions.find((p) => p.id === positionId)
     if (!position) return "未知批次"
-    // 通过 batchId 查找批次名称（DataContext 中未导出 batches，简化处理）
     return position.batchId ? "常规批次" : "未知批次"
   }
 
@@ -164,9 +195,16 @@ export default function ApprovalsPage() {
     }))
   }
 
+  if (loading && approvals.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      {/* 页面标题 */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">审批管理中心</h1>
         <p className="text-muted-foreground">
@@ -176,7 +214,6 @@ export default function ApprovalsPage() {
         </p>
       </div>
 
-      {/* 统计卡片 */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
@@ -232,7 +269,6 @@ export default function ApprovalsPage() {
         </Card>
       </div>
 
-      {/* 搜索和过滤 */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -264,7 +300,6 @@ export default function ApprovalsPage() {
         </CardContent>
       </Card>
 
-      {/* 审批列表 */}
       <Card>
         <CardContent className="pt-6">
           {filteredApprovals.length === 0 ? (
@@ -393,7 +428,6 @@ export default function ApprovalsPage() {
         </CardContent>
       </Card>
 
-      {/* 详情对话框 */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -404,7 +438,6 @@ export default function ApprovalsPage() {
           </DialogHeader>
           {selectedApproval && (
             <div className="space-y-6">
-              {/* 基本信息 */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">岗位名称</p>
@@ -426,7 +459,6 @@ export default function ApprovalsPage() {
                 </div>
               </div>
 
-              {/* 审批流程 */}
               <div>
                 <h4 className="mb-3 font-medium">审批流程</h4>
                 <div className="space-y-3">
@@ -467,7 +499,6 @@ export default function ApprovalsPage() {
                 </div>
               </div>
 
-              {/* 审批历史 */}
               {selectedApproval.history && selectedApproval.history.length > 0 && (
                 <div>
                   <h4 className="mb-3 font-medium">操作记录</h4>
@@ -534,7 +565,6 @@ export default function ApprovalsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 审批操作对话框 */}
       <Dialog open={isActionDialogOpen} onOpenChange={setIsActionDialogOpen}>
         <DialogContent>
           <DialogHeader>
