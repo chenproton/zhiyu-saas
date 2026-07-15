@@ -7,20 +7,24 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, GraduationCap } from "lucide-react"
-import { authApi, setToken } from "@/lib/api"
+import { authApi, setToken, removeToken } from "@/lib/api"
 import { useAuth } from "@/components/auth-provider"
 
-function getPostLoginPath(identityCode?: string): string {
+function getPostLoginPath(identityCode?: string): string | null {
   switch (identityCode) {
     case "platform_admin":
       return "/admin"
     case "school_admin":
+      // 学校在商城侧是采购方
+      return "/purchased"
     case "enterprise_hr":
     case "enterprise_mentor":
-      return "/dashboard"
+      // 企业在商城侧是资源提供方
+      return "/my-resources"
     case "teacher":
     case "student":
-      return "/portal/workspace"
+      // 教师/学生属于教育管理平台，不允许在商城登录
+      return null
     default:
       return "/"
   }
@@ -45,7 +49,15 @@ export default function LoginPage() {
       await refresh()
       const me = await authApi.saasMe()
       const identityCode = me.identityType?.code
-      router.replace(getPostLoginPath(identityCode))
+      const nextPath = getPostLoginPath(identityCode)
+      if (nextPath === null) {
+        // 教师/学生账号在商城登录时清理 token 并给出明确提示
+        removeToken("saas")
+        setError("教师和学生账号请访问教育管理平台登录：http://localhost:3020/portal/login")
+        setLoading(false)
+        return
+      }
+      router.replace(nextPath)
     } catch (err: any) {
       setError(err.message || "登录失败")
     } finally {

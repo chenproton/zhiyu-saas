@@ -113,61 +113,17 @@ const platformAdminNavigation: NavGroup[] = [
   },
 ]
 
-const schoolAdminNavigation: NavGroup[] = [
-  {
-    name: "学校管理",
-    icon: LayoutDashboard,
-    items: [{ name: "管理控制台", href: "/admin", icon: LayoutDashboard }],
-  },
-  {
-    name: "组织用户",
-    icon: Users,
-    items: [
-      { name: "组织架构", href: "/portal/apps/system/org-user/org-structure", icon: Building2 },
-      { name: "用户账户", href: "/portal/apps/system/org-user/accounts", icon: Users },
-      { name: "教师管理", href: "/portal/apps/system/org-user/teachers", icon: GraduationCap },
-      { name: "学生管理", href: "/portal/apps/system/org-user/students", icon: User },
-      { name: "毕业生管理", href: "/portal/apps/system/org-user/graduates", icon: Award },
-      { name: "职位管理", href: "/portal/apps/system/org-user/positions", icon: Briefcase },
-      { name: "角色权限", href: "/portal/apps/system/org-user/roles", icon: CheckCircle },
-    ],
-  },
-  {
-    name: "教务资源",
-    icon: BookOpen,
-    items: [
-      { name: "专业管理", href: "/portal/apps/system/resource/majors", icon: BookOpen },
-    ],
-  },
-  {
-    name: "流程审计",
-    icon: Settings,
-    items: [
-      { name: "审批流程", href: "/portal/apps/system/approval", icon: FileText },
-      { name: "登录日志", href: "/portal/apps/system/logs/login", icon: History },
-      { name: "操作日志", href: "/portal/apps/system/logs/operation", icon: FileText },
-    ],
-  },
-]
-
+// 商城侧导航仅包含本应用内实际存在的页面，禁止指向 /portal、/job、/scene、/lesson、/evaluation 等
+// 教育管理后台路由，避免在 marketplace 应用中出现 404。
 const schoolNavigation: NavGroup[] = [
-  {
-    name: "机构概览",
-    icon: LayoutDashboard,
-    items: [{ name: "学校仪表盘", href: "/dashboard", icon: LayoutDashboard }],
-  },
   {
     name: "资源采购",
     icon: Store,
     items: [
-      { name: "资源商城", href: "/dashboard/marketplace", icon: Store },
+      { name: "资源商城", href: "/", icon: Store },
       { name: "已购资源", href: "/purchased", icon: ShoppingBag },
+      { name: "本校订单", href: "/orders", icon: FileText },
     ],
-  },
-  {
-    name: "交易管理",
-    icon: FileText,
-    items: [{ name: "本校订单", href: "/orders", icon: FileText }],
   },
   {
     name: "财务管理",
@@ -181,50 +137,12 @@ const schoolNavigation: NavGroup[] = [
   },
 ]
 
-const teacherNavigation: NavGroup[] = [
-  {
-    name: "教学应用",
-    icon: BookOpen,
-    items: [
-      { name: "岗位管理", href: "/job/positions", icon: Briefcase },
-      { name: "场景管理", href: "/scene/", icon: Layers },
-      { name: "课程管理", href: "/lesson/admin/system", icon: FolderKanban },
-      { name: "测评管理", href: "/evaluation/question-banks", icon: CheckCircle },
-    ],
-  },
-  {
-    name: "教务空间",
-    icon: GraduationCap,
-    items: [
-      { name: "开课计划", href: "/lesson/teacher/claim", icon: LayoutDashboard },
-      { name: "学习跟踪", href: "/lesson/teacher/behavior-collection", icon: Compass },
-      { name: "测评跟踪", href: "/lesson/teacher/progress-tracking", icon: BarChart3 },
-      { name: "期末总评", href: "/lesson/teacher/final-assessment", icon: Award },
-      { name: "成绩提交", href: "/lesson/teacher/grade-submit", icon: FileText },
-      { name: "学生画像", href: "/lesson/teacher/learning-portrait", icon: Users },
-    ],
-  },
-]
-
-const studentNavigation: NavGroup[] = [
-  {
-    name: "学习应用",
-    icon: BookOpen,
-    items: [
-      { name: "我的场景", href: "/scene/", icon: Layers },
-      { name: "考试中心", href: "/evaluation/landing/exams", icon: CheckCircle },
-      { name: "毕业查询", href: "/evaluation/landing/graduation", icon: GraduationCap },
-      { name: "我的画像", href: "/evaluation/landing/portrait", icon: Users },
-    ],
-  },
-]
-
 const enterpriseNavigation: NavGroup[] = [
   {
     name: "资源工坊",
     icon: Package,
     items: [
-      { name: "仪表盘", href: "/dashboard", icon: LayoutDashboard },
+      { name: "资源仪表盘", href: "/", icon: LayoutDashboard },
       { name: "新建资源", href: "/my-resources/new", icon: Package },
       { name: "我的资源库", href: "/my-resources", icon: BookOpen },
     ],
@@ -246,20 +164,18 @@ const enterpriseNavigation: NavGroup[] = [
   },
 ]
 
-function getNavigationGroups(identityCode?: string, pathname?: string): NavGroup[] {
+function getNavigationGroups(identityCode?: string): NavGroup[] {
   switch (identityCode) {
     case "platform_admin":
       return platformAdminNavigation
     case "school_admin":
-      // school_admin 在 /admin 下进入学校管理后台，在 /dashboard 下进入 SaaS 采购后台
-      return pathname?.startsWith("/admin") ? schoolAdminNavigation : schoolNavigation
-    case "teacher":
-      return teacherNavigation
-    case "student":
-      return studentNavigation
+      return schoolNavigation
     case "enterprise_hr":
     case "enterprise_mentor":
       return enterpriseNavigation
+    case "teacher":
+    case "student":
+    // 教师/学生属于教育管理平台，商城侧不展示功能菜单
     default:
       return []
   }
@@ -281,7 +197,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [loading, user, router])
 
-  const navigationGroups = getNavigationGroups(identityType?.code, pathname)
+  const navigationGroups = getNavigationGroups(identityType?.code)
 
   const [expandedGroups, setExpandedGroups] = useState<string[]>(
     navigationGroups.map((g) => g.name)
@@ -317,6 +233,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   const roleLabel = IDENTITY_LABELS[identityType?.code ?? ""] ?? "用户"
+  const unsupportedIdentity = navigationGroups.length === 0
+
+  if (unsupportedIdentity) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+        <h1 className="text-xl font-semibold">当前账号无法在商城使用</h1>
+        <p className="max-w-md text-muted-foreground">
+          教师和学生账号请访问教育管理平台登录：
+          <br />
+          <a
+            href="http://localhost:3020/portal/login"
+            className="text-accent hover:underline"
+          >
+            http://localhost:3020/portal/login
+          </a>
+        </p>
+        <Button variant="outline" onClick={logout}>
+          退出登录
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <>

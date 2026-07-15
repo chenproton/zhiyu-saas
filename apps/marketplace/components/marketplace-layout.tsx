@@ -21,7 +21,14 @@ export function MarketplaceLayout({ children }: MarketplaceLayoutProps) {
   const { user, identityType, loading, logout } = useAuth()
   const isLoggedIn = !!user
 
-  const dashboardHref = identityType?.code === "platform_admin" ? "/admin" : "/dashboard"
+  const dashboardHref =
+    identityType?.code === "platform_admin"
+      ? "/admin"
+      : identityType?.code === "school_admin"
+        ? "/purchased"
+        : identityType?.code === "enterprise_hr" || identityType?.code === "enterprise_mentor"
+          ? "/my-resources"
+          : "/"
 
   return (
     <div className="min-h-screen bg-background">
