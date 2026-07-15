@@ -125,7 +125,7 @@ const schoolNavigation: NavGroup[] = [
     name: "资源采购",
     icon: Store,
     items: [
-      { name: "资源商城", href: "/", icon: Store },
+      { name: "资源商城", href: "/marketplace", icon: Store },
       { name: "已购资源", href: "/purchased", icon: ShoppingBag },
       { name: "本校订单", href: "/orders", icon: FileText },
     ],
