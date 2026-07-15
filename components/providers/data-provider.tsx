@@ -28,15 +28,9 @@ import type {
   RectificationDetail,
   AppealRecord,
   CreditConversionRule,
-  ArchiveVersion,
   EvaluationStandard,
   PortraitUpdateConfig,
   TopicApplication,
-  SceneGradingStudent,
-  SceneGradingScenario,
-  SceneGradingSubmission,
-  OnlineClassroom,
-  SmartCourse,
   EvalAbilityItem,
   CertType,
   MicroCertTemplate,
@@ -54,6 +48,8 @@ import {
   graduationApi,
   portraitApi,
   microCertApi,
+  taskApi,
+  scenarioApi,
 } from '@/lib/api'
 import type { ApprovalRecord } from '@/lib/types/backend'
 // Inline defaults for data that does not yet have a dedicated backend API.
@@ -105,17 +101,6 @@ interface DataContextValue {
   getSceneTasksByMethod: (methodId: string) => SceneTask[]
   getResultsByMethod: (methodId: string) => SceneEvaluationResult[]
 
-  // 场景任务评价（从 zhiyu-scene 迁移）
-  sceneGradingStudents: SceneGradingStudent[]
-  sceneGradingScenarios: SceneGradingScenario[]
-  sceneGradingSubmissions: SceneGradingSubmission[]
-
-  // 在线课堂评价
-  onlineClassrooms: OnlineClassroom[]
-
-  // 智慧课程评价
-  smartCourses: SmartCourse[]
-
   // 岗位能力测评结果
   jobAbilityResults: JobAbilityResult[]
   positionsList: Position[]
@@ -149,7 +134,7 @@ interface DataContextValue {
   studentAbilityArchives: StudentAbilityArchive[]
   studentAbilityPortraits: StudentAbilityPortrait[]
   creditConversionRules: CreditConversionRule[]
-  archiveVersions: ArchiveVersion[]
+  archiveVersions: StudentAbilityArchive[]
   portraitUpdateConfig: PortraitUpdateConfig
 
   // 毕业设计管理操作
@@ -283,22 +268,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // 场景任务测评状态
   const [evaluationCategories, setEvaluationCategories] = useState<EvaluationMethodCategory[]>([])
   const [evaluationMethods, setEvaluationMethods] = useState<EvaluationMethod[]>([])
-  const [sceneTasks] = useState<SceneTask[]>([])
+  const [sceneTasks, setSceneTasks] = useState<SceneTask[]>([])
   const [sceneEvaluationResults, setSceneEvaluationResults] = useState<SceneEvaluationResult[]>([])
-  const [jobAbilityResults] = useState<JobAbilityResult[]>([])
+  const [jobAbilityResults, setJobAbilityResults] = useState<JobAbilityResult[]>([])
   const [positionsListState] = useState<Position[]>([])
   const [approvalItems, setApprovalItems] = useState<ApprovalItem[]>([])
-
-  // 场景任务评价状态（已简化，暂无后端支撑）
-  const [sceneGradingStudentsState] = useState<SceneGradingStudent[]>([])
-  const [sceneGradingScenariosState] = useState<SceneGradingScenario[]>([])
-  const [sceneGradingSubmissionsState] = useState<SceneGradingSubmission[]>([])
-
-  // 在线课堂评价状态（暂无后端支撑）
-  const [onlineClassroomsState] = useState<OnlineClassroom[]>([])
-
-  // 智慧课程评价状态（暂无后端支撑）
-  const [smartCoursesState] = useState<SmartCourse[]>([])
 
   // 毕业设计管理状态
   const [graduationProjectTopics, setGraduationProjectTopics] = useState<GraduationProjectTopic[]>([])
@@ -315,7 +289,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [studentAbilityArchives, setStudentAbilityArchives] = useState<StudentAbilityArchive[]>([])
   const [studentAbilityPortraits, setStudentAbilityPortraits] = useState<StudentAbilityPortrait[]>([])
   const [creditConversionRules, setCreditConversionRules] = useState<CreditConversionRule[]>([])
-  const [archiveVersions] = useState<ArchiveVersion[]>([])
+  const [archiveVersions, setArchiveVersions] = useState<StudentAbilityArchive[]>([])
   const [portraitUpdateConfig, setPortraitUpdateConfig] = useState<PortraitUpdateConfig>({
     updateCycle: 'daily',
     queryLimit: 10,
@@ -358,6 +332,45 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setSceneEvaluationResults(res.items.map(parseSceneResult))
   }, [])
 
+  // 场景任务列表：复用 /scene/tasks，methodIds 需通过 /scene/evaluation 二次关联，
+  // 当前弹窗仅展示任务名称与所属场景，故 methodIds 留空。
+  const loadSceneTasks = useCallback(async () => {
+    const [tasksRes, scenariosRes] = await Promise.all([
+      taskApi.list(),
+      scenarioApi.list(),
+    ])
+    const scenarioMap = new Map(scenariosRes.items.map((s) => [s.id, s.name]))
+    setSceneTasks(
+      tasksRes.items.map((t) => ({
+        id: t.id,
+        name: t.name,
+        sceneName: scenarioMap.get(t.scenarioId) || t.scenarioId,
+        methodIds: [],
+      }))
+    )
+  }, [])
+
+  // 岗位能力结果：后端暂无独立端点，暂由 /evaluation/results 映射为岗位能力视图，
+  // 以 methodKey 作为岗位分组键，待后端提供专用接口后替换。
+  const loadJobAbilityResults = useCallback(async () => {
+    const res = await evaluationResultApi.list()
+    setJobAbilityResults(
+      res.items.map((r) => ({
+        id: r.id,
+        positionId: r.methodKey,
+        positionName: r.methodKey,
+        positionCode: r.methodKey,
+        studentName: r.evaluateeId,
+        studentId: r.evaluateeId,
+        totalAbilityPoints: r.maxScore,
+        achievedAbilityPoints: r.totalScore || 0,
+        achievementRate:
+          r.maxScore > 0 ? Math.round(((r.totalScore || 0) / r.maxScore) * 100) : 0,
+        evaluationTime: parseDate((r.gradedAt || r.createdAt) as unknown as string | Date),
+      }))
+    )
+  }, [])
+
   const loadApprovalItems = useCallback(async () => {
     const res = await approvalApi.list()
     setApprovalItems(res.items.map(mapApprovalRecord))
@@ -385,7 +398,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const loadStudentAbilityArchives = useCallback(async () => {
     const res = await portraitApi.listArchives()
-    setStudentAbilityArchives(res.items.map(parseStudentArchive))
+    const parsed = res.items.map(parseStudentArchive)
+    setStudentAbilityArchives(parsed)
+    setArchiveVersions(parsed)
   }, [])
 
   const loadStudentAbilityPortraits = useCallback(async () => {
@@ -412,7 +427,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           loadQuestions(),
           loadExams(),
           loadEvaluationMethods(),
+          loadSceneTasks(),
           loadSceneResults(),
+          loadJobAbilityResults(),
           loadApprovalItems(),
           loadGraduationTopics(),
           loadGraduationArchives(),
@@ -436,7 +453,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     loadQuestions,
     loadExams,
     loadEvaluationMethods,
+    loadSceneTasks,
     loadSceneResults,
+    loadJobAbilityResults,
     loadApprovalItems,
     loadGraduationTopics,
     loadGraduationArchives,
@@ -698,11 +717,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     updateEvaluationMethod,
     getSceneTasksByMethod,
     getResultsByMethod,
-    sceneGradingStudents: sceneGradingStudentsState,
-    sceneGradingScenarios: sceneGradingScenariosState,
-    sceneGradingSubmissions: sceneGradingSubmissionsState,
-    onlineClassrooms: onlineClassroomsState,
-    smartCourses: smartCoursesState,
     jobAbilityResults,
     positionsList: positionsListState,
     getPositionAbilityItems: () => [],

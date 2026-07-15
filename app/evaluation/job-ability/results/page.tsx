@@ -29,9 +29,25 @@ export default function JobAbilityResultsPage() {
   const [selectedStudent, setSelectedStudent] = useState<typeof filteredResults[0] | null>(null)
 
   // 左侧岗位列表（只显示有结果的岗位）
+  // 当 positionsList 为空时，从结果中派生岗位列表，确保页面可导航
   const positionsWithResults = useMemo(() => {
-    const positionIds = new Set(jobAbilityResults.map(r => r.positionId))
-    return positionsList.filter(p => positionIds.has(p.id))
+    const resultMap = new Map<string, { id: string; name: string; positionCode: string }>()
+    jobAbilityResults.forEach((r) => {
+      if (!resultMap.has(r.positionId)) {
+        resultMap.set(r.positionId, {
+          id: r.positionId,
+          name: r.positionName,
+          positionCode: r.positionCode,
+        })
+      }
+    })
+    if (positionsList.length > 0) {
+      const positionIds = new Set(jobAbilityResults.map((r) => r.positionId))
+      return positionsList
+        .filter((p) => positionIds.has(p.id))
+        .map((p) => ({ id: p.id, name: p.name, positionCode: p.positionCode }))
+    }
+    return Array.from(resultMap.values())
   }, [positionsList, jobAbilityResults])
 
   // 默认选中第一个岗位

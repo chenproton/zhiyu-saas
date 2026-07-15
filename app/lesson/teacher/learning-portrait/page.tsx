@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Search, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,12 +20,38 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { DataProvider, useData } from "@/components/providers/lesson-data-provider"
 import { StudentPortraitModal } from "@/components/shared/student-portrait-modal"
-import type { StudentAbilityPortrait } from "@/lib/types/lesson-source"
+import { portraitApi } from "@/lib/api"
+import type { StudentAbilityPortrait } from "@/lib/types"
 
-function StudentAbilityPortraitsPage() {
-  const { studentAbilityPortraits } = useData()
+export default function LearningPortraitPage() {
+  const [studentAbilityPortraits, setStudentAbilityPortraits] = useState<StudentAbilityPortrait[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await portraitApi.list()
+        if (!cancelled) {
+          setStudentAbilityPortraits(res.items.map((p) => ({
+            ...p,
+            updatedAt: p.updatedAt ? new Date(p.updatedAt) : new Date(),
+          })))
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to load student portraits", err)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const [search, setSearch] = useState("")
   const [gradeFilter, setGradeFilter] = useState<string>("all")
@@ -117,17 +143,23 @@ function StudentAbilityPortraitsPage() {
               <Table>
                 <TableHeader><TableRow><TableHead className="w-[100px]">学号</TableHead><TableHead className="w-[100px]">姓名</TableHead><TableHead className="w-[160px]">班级</TableHead><TableHead className="w-[140px]">专业</TableHead><TableHead className="sticky right-0 w-[140px] bg-white text-right">操作</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {filteredPortraits.length === 0 ? (<TableRow><TableCell colSpan={5} className="h-24 text-center text-muted-foreground">暂无画像记录</TableCell></TableRow>) : (filteredPortraits.map((portrait) => (
-                    <TableRow key={portrait.id}>
-                      <TableCell><span className="text-sm text-muted-foreground">{portrait.studentId}</span></TableCell>
-                      <TableCell><span className="text-sm font-medium">{portrait.studentName}</span></TableCell>
-                      <TableCell><span className="text-sm">{portrait.className}</span></TableCell>
-                      <TableCell><span className="text-sm text-muted-foreground">{portrait.majorName}</span></TableCell>
-                      <TableCell className="sticky right-0 bg-white text-right">
-                        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setPortraitModalOpen(true)}><Eye className="size-3" />查看学生画像</Button>
-                      </TableCell>
-                    </TableRow>
-                  )))}
+                  {loading ? (
+                    <TableRow><TableCell colSpan={5} className="h-24 text-center text-muted-foreground">加载中...</TableCell></TableRow>
+                  ) : filteredPortraits.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="h-24 text-center text-muted-foreground">暂无画像记录</TableCell></TableRow>
+                  ) : (
+                    filteredPortraits.map((portrait) => (
+                      <TableRow key={portrait.id}>
+                        <TableCell><span className="text-sm text-muted-foreground">{portrait.studentId}</span></TableCell>
+                        <TableCell><span className="text-sm font-medium">{portrait.studentName}</span></TableCell>
+                        <TableCell><span className="text-sm">{portrait.className}</span></TableCell>
+                        <TableCell><span className="text-sm text-muted-foreground">{portrait.majorName}</span></TableCell>
+                        <TableCell className="sticky right-0 bg-white text-right">
+                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setPortraitModalOpen(true)}><Eye className="size-3" />查看学生画像</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -141,13 +173,5 @@ function StudentAbilityPortraitsPage() {
         onOpenChange={setPortraitModalOpen}
       />
     </div>
-  )
-}
-
-export default function LearningPortraitPage() {
-  return (
-    <DataProvider>
-      <StudentAbilityPortraitsPage />
-    </DataProvider>
   )
 }
