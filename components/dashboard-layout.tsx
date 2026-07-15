@@ -30,10 +30,6 @@ import {
   Compass,
   Award,
   FolderKanban,
-  FolderTree,
-  Shield,
-  History,
-  Workflow,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -144,21 +140,6 @@ const schoolNavigation: NavGroup[] = [
     name: "机构信息",
     icon: Building2,
     items: [{ name: "学校信息", href: "/institution", icon: Building2 }],
-  },
-  {
-    name: "系统管理",
-    icon: Settings,
-    items: [
-      { name: "组织架构", href: "/portal/apps/system/org-user/org-structure", icon: FolderTree },
-      { name: "用户管理", href: "/portal/apps/system/org-user/accounts", icon: Users },
-      { name: "教师管理", href: "/portal/apps/system/org-user/teachers", icon: GraduationCap },
-      { name: "学生管理", href: "/portal/apps/system/org-user/students", icon: Users },
-      { name: "毕业生管理", href: "/portal/apps/system/org-user/graduates", icon: GraduationCap },
-      { name: "角色权限", href: "/portal/apps/system/org-user/roles", icon: Shield },
-      { name: "审批流程", href: "/portal/apps/system/approval", icon: Workflow },
-      { name: "登录日志", href: "/portal/apps/system/logs/login", icon: History },
-      { name: "操作日志", href: "/portal/apps/system/logs/operation", icon: History },
-    ],
   },
   {
     name: "平台服务",
