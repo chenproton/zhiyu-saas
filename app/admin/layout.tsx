@@ -11,7 +11,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const { user, identityType, loading } = useAuth()
+  const { user, identityTypeCode, loading } = useAuth()
 
   useEffect(() => {
     if (loading || !user) return
@@ -21,17 +21,16 @@ export default function AdminLayout({
       return
     }
 
-    const code = identityType?.code ?? ""
-    if (code === "platform_admin") {
+    if (identityTypeCode === "platform_admin") {
       return
     }
 
-    if (code === "school_admin" || code.startsWith("enterprise")) {
+    if (identityTypeCode === "school_admin" || identityTypeCode?.startsWith("enterprise")) {
       router.replace("/dashboard")
     } else {
       router.replace("/login")
     }
-  }, [loading, user, identityType, router])
+  }, [loading, user, identityTypeCode, router])
 
   if (loading) {
     return (
@@ -50,8 +49,7 @@ export default function AdminLayout({
     return null
   }
 
-  const code = identityType?.code ?? ""
-  if (code !== "platform_admin") {
+  if (identityTypeCode !== "platform_admin") {
     return null
   }
 

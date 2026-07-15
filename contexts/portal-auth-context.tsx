@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { authApi, removeToken, getToken, type MeResponse } from "@/lib/api"
 import type { IdentityType, Organization, Major, Role } from "@/lib/types/backend"
@@ -16,6 +16,7 @@ interface PortalAuthContextType {
   tenantId?: string
   identityTypeId?: string
   identityType?: IdentityType
+  identityTypeCode?: string
   orgNodeId?: string
   orgNode?: Organization
   majorId?: string
@@ -87,9 +88,23 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
     await fetchMe()
   }, [fetchMe])
 
+  const user = state.me?.user
+  const role = user?.role as PortalUserRole | undefined
+  const roles = state.me?.roles
+  const identityTypeCode = state.me?.identityType?.code
+
+  const permissions = useMemo(() => {
+    return roles?.reduce<Record<string, any>>((acc, r) => {
+      if (r.permissions && typeof r.permissions === "object") {
+        Object.assign(acc, r.permissions)
+      }
+      return acc
+    }, {}) ?? {}
+  }, [roles])
+
   const hasPermission = useCallback((module: string, page?: string, action?: string) => {
-    const perms = state.me?.user?.oauth?.permissions ?? state.me?.roles?.[0]?.permissions
-    if (!perms) return true
+    const perms = permissions
+    if (!perms || Object.keys(perms).length === 0) return false
     if (typeof perms !== "object") return false
     if (perms.admin === true) return true
 
@@ -104,18 +119,7 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
     if (Array.isArray(p)) return p.includes(action)
     if (typeof p === "object" && Array.isArray(p.buttons)) return p.buttons.includes(action)
     return false
-  }, [state.me])
-
-  const user = state.me?.user
-  const role = user?.role as PortalUserRole | undefined
-  const roles = state.me?.roles
-
-  const permissions = roles?.reduce<Record<string, any>>((acc, r) => {
-    if (r.permissions && typeof r.permissions === "object") {
-      Object.assign(acc, r.permissions)
-    }
-    return acc
-  }, {})
+  }, [permissions])
 
   return (
     <PortalAuthContext.Provider
@@ -127,6 +131,7 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
         tenantId: user?.tenantId,
         identityTypeId: user?.identityTypeId,
         identityType: state.me?.identityType,
+        identityTypeCode,
         orgNodeId: user?.orgNodeId,
         orgNode: state.me?.orgNode,
         majorId: user?.majorId,

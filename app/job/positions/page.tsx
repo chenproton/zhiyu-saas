@@ -73,6 +73,7 @@ import {
 } from "@/lib/stores/job-converters"
 import type { Position, Batch, Workflow } from "@/lib/types/job-source"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/components/auth-provider"
 
 const CURRENT_USER_ID = "user-1"
 
@@ -82,6 +83,7 @@ type ViewMode = "list" | "group"
 export default function PositionsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { hasPermission } = useAuth()
 
   const [positions, setPositions] = useState<Position[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
@@ -784,26 +786,36 @@ export default function PositionsPage() {
             <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
               {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择岗位："}
             </span>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
-              <Send className="mr-1 h-3 w-3" />
-              提交审批
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
-              <Undo2 className="mr-1 h-3 w-3" />
-              撤回审批
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
-              <ArrowUpFromLine className="mr-1 h-3 w-3" />
-              发布
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
-              <ArrowDownFromLine className="mr-1 h-3 w-3" />
-              取消发布
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
-              <Trash2 className="mr-1 h-3 w-3" />
-              删除
-            </Button>
+            {hasPermission("job", "positions", "submit_approval") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
+                <Send className="mr-1 h-3 w-3" />
+                提交审批
+              </Button>
+            )}
+            {hasPermission("job", "positions", "withdraw_approval") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
+                <Undo2 className="mr-1 h-3 w-3" />
+                撤回审批
+              </Button>
+            )}
+            {hasPermission("job", "positions", "publish") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
+                <ArrowUpFromLine className="mr-1 h-3 w-3" />
+                发布
+              </Button>
+            )}
+            {hasPermission("job", "positions", "unpublish") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
+                <ArrowDownFromLine className="mr-1 h-3 w-3" />
+                取消发布
+              </Button>
+            )}
+            {hasPermission("job", "positions", "delete") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
+                <Trash2 className="mr-1 h-3 w-3" />
+                删除
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchClone}>
               <Copy className="mr-1 h-3 w-3" />
               克隆

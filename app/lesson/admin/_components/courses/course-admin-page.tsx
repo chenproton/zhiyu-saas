@@ -58,6 +58,7 @@ import { CourseList } from "./course-list"
 import type { Course, CourseStatus, CourseType } from "@/lib/types/lesson-source"
 import type { Course as BackendCourse, LessonBatch } from "@/lib/types/lesson"
 import type { Workflow } from "@/lib/types/backend"
+import { useAuth } from "@/components/auth-provider"
 
 const CURRENT_USER_ID = "user-1"
 
@@ -113,6 +114,7 @@ interface CourseAdminPageProps {
 
 export function CourseAdminPage({ title, subtitle, courseType, addHref }: CourseAdminPageProps) {
   const router = useRouter()
+  const { hasPermission } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>("my")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
 
@@ -740,30 +742,42 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
             <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
               {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择课程："}
             </span>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
-              <Send className="mr-1 h-3 w-3" />
-              提交审批
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
-              <Undo2 className="mr-1 h-3 w-3" />
-              撤回审批
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchPublish}>
-              <ArrowUpFromLine className="mr-1 h-3 w-3" />
-              发布
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
-              <ArrowDownFromLine className="mr-1 h-3 w-3" />
-              取消发布
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchArchive}>
-              <Download className="mr-1 h-3 w-3" />
-              归档
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
-              <Trash2 className="mr-1 h-3 w-3" />
-              删除
-            </Button>
+            {hasPermission("lesson", "courses", "submit_approval") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
+                <Send className="mr-1 h-3 w-3" />
+                提交审批
+              </Button>
+            )}
+            {hasPermission("lesson", "courses", "withdraw_approval") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
+                <Undo2 className="mr-1 h-3 w-3" />
+                撤回审批
+              </Button>
+            )}
+            {hasPermission("lesson", "courses", "publish") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchPublish}>
+                <ArrowUpFromLine className="mr-1 h-3 w-3" />
+                发布
+              </Button>
+            )}
+            {hasPermission("lesson", "courses", "unpublish") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
+                <ArrowDownFromLine className="mr-1 h-3 w-3" />
+                取消发布
+              </Button>
+            )}
+            {hasPermission("lesson", "courses", "archive") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchArchive}>
+                <Download className="mr-1 h-3 w-3" />
+                归档
+              </Button>
+            )}
+            {hasPermission("lesson", "courses", "delete") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
+                <Trash2 className="mr-1 h-3 w-3" />
+                删除
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchClone}>
               <Copy className="mr-1 h-3 w-3" />
               克隆

@@ -33,8 +33,10 @@ import {
 } from "@/components/ui/select"
 import { Search, Eye, CheckCircle, XCircle, Power } from "lucide-react"
 import { institutionApi, resourceApi, orderApi, type Institution, type InstitutionStatus } from "@/lib/api"
+import { useAuth } from "@/components/auth-provider"
 
 export default function AdminInstitutionsPage() {
+  const { hasPermission } = useAuth()
   const [institutions, setInstitutions] = useState<Institution[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -287,7 +289,7 @@ export default function AdminInstitutionsPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {inst.status === "pending" && (
+                          {inst.status === "pending" && hasPermission("admin", "institutions", "approve") && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -369,34 +371,40 @@ export default function AdminInstitutionsPage() {
 
                 {selectedInstitution.status === "pending" ? (
                   <div className="flex gap-2">
-                    <Button
-                      className="flex-1 gap-2 bg-success hover:bg-success/90"
-                      onClick={() => handleApprove()}
-                      disabled={actionLoading}
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      审核通过
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      className="flex-1 gap-2"
-                      onClick={() => setRejectOpen(true)}
-                      disabled={actionLoading}
-                    >
-                      <XCircle className="h-4 w-4" />
-                      驳回
-                    </Button>
+                    {hasPermission("admin", "institutions", "approve") && (
+                      <Button
+                        className="flex-1 gap-2 bg-success hover:bg-success/90"
+                        onClick={() => handleApprove()}
+                        disabled={actionLoading}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        审核通过
+                      </Button>
+                    )}
+                    {hasPermission("admin", "institutions", "reject") && (
+                      <Button
+                        variant="destructive"
+                        className="flex-1 gap-2"
+                        onClick={() => setRejectOpen(true)}
+                        disabled={actionLoading}
+                      >
+                        <XCircle className="h-4 w-4" />
+                        驳回
+                      </Button>
+                    )}
                   </div>
                 ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2"
-                    onClick={handleToggleStatus}
-                    disabled={actionLoading}
-                  >
-                    <Power className="h-4 w-4" />
-                    {selectedInstitution.status === "approved" ? "禁用机构" : "启用机构"}
-                  </Button>
+                  hasPermission("admin", "institutions", "disable") && (
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={handleToggleStatus}
+                      disabled={actionLoading}
+                    >
+                      <Power className="h-4 w-4" />
+                      {selectedInstitution.status === "approved" ? "禁用机构" : "启用机构"}
+                    </Button>
+                  )
                 )}
               </div>
             )}
@@ -423,13 +431,15 @@ export default function AdminInstitutionsPage() {
               <Button variant="outline" onClick={() => setRejectOpen(false)} disabled={actionLoading}>
                 取消
               </Button>
-              <Button
-                variant="destructive"
-                onClick={handleReject}
-                disabled={!rejectReason.trim() || actionLoading}
-              >
-                确认驳回
-              </Button>
+              {hasPermission("admin", "institutions", "reject") && (
+                <Button
+                  variant="destructive"
+                  onClick={handleReject}
+                  disabled={!rejectReason.trim() || actionLoading}
+                >
+                  确认驳回
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

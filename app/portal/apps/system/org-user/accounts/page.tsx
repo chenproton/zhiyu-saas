@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { Search, MoreHorizontal, Key, Ban, CheckCircle, Loader2, AlertCircle, RotateCcw } from "lucide-react"
 
 function mapAccountStatus(status: string): { label: string; className: string } {
@@ -19,6 +20,7 @@ function mapAccountStatus(status: string): { label: string; className: string } 
 
 export default function AccountsPage() {
   const { toast } = useToast()
+  const { hasPermission } = usePortalAuth()
   const [searchText, setSearchText] = useState("")
   const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
     search: searchText || undefined,
@@ -139,20 +141,24 @@ export default function AccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleResetPassword(account.id, account.name)}>
-                          <Key className="h-4 w-4 mr-2" />
-                          重置密码
-                        </DropdownMenuItem>
-                        {account.statusLabel === "正常" ? (
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleToggleStatus(account.id, account.status)}>
-                            <Ban className="h-4 w-4 mr-2" />
-                            禁用账户
+                        {hasPermission("portal_system", "accounts", "reset_password") && (
+                          <DropdownMenuItem onClick={() => handleResetPassword(account.id, account.name)}>
+                            <Key className="h-4 w-4 mr-2" />
+                            重置密码
                           </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => handleToggleStatus(account.id, account.status)}>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            启用账户
-                          </DropdownMenuItem>
+                        )}
+                        {hasPermission("portal_system", "accounts", "disable") && (
+                          account.statusLabel === "正常" ? (
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleToggleStatus(account.id, account.status)}>
+                              <Ban className="h-4 w-4 mr-2" />
+                              禁用账户
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => handleToggleStatus(account.id, account.status)}>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              启用账户
+                            </DropdownMenuItem>
+                          )
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>

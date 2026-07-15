@@ -7,7 +7,7 @@ import { PlatformShell } from "@/components/platform-shell"
 import { evaluationNavigationConfig, portalTopNavItems } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 
-const ALLOWED_IDENTITIES = ["platform_admin", "school_admin", "teacher", "student"]
+const ALLOWED_IDENTITIES = ["teacher", "school_admin", "enterprise_hr", "enterprise_mentor"]
 
 export default function EvaluationLayout({
   children,
@@ -16,7 +16,7 @@ export default function EvaluationLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, loading, identityType } = useAuth()
+  const { user, loading, identityTypeCode } = useAuth()
   const isLanding = pathname.startsWith("/evaluation/landing")
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export default function EvaluationLayout({
     }
   }, [loading, user, isLanding, router])
 
-  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityType?.code ?? "")
+  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityTypeCode ?? "")
 
   const content = isLanding ? (
     <>{children}</>

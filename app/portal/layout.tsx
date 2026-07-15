@@ -10,10 +10,9 @@ import { YiKnowAssistant } from "@/components/portal/yi-know-assistant"
 function PortalAuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, identityType, loading } = usePortalAuth()
+  const { user, identityTypeCode, loading } = usePortalAuth()
 
   const isLoginPage = pathname === "/portal/login"
-  const identityCode = identityType?.code
 
   useEffect(() => {
     if (loading || isLoginPage) return
@@ -27,21 +26,22 @@ function PortalAuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // 应用服务中心 + 系统管理只对学校管理员开放
-    if (pathname.startsWith("/portal/apps") && identityCode !== "school_admin") {
+    if (pathname.startsWith("/portal/apps") && identityTypeCode !== "school_admin") {
       router.replace("/portal")
       return
     }
 
-    // 我的服务台只对教师、学生开放
+    // 我的服务台只对教师、学生、学校管理员开放
     if (
       (pathname === "/portal/workspace" || pathname.startsWith("/portal/workspace/")) &&
-      identityCode !== "teacher" &&
-      identityCode !== "student"
+      identityTypeCode !== "teacher" &&
+      identityTypeCode !== "student" &&
+      identityTypeCode !== "school_admin"
     ) {
       router.replace("/portal")
       return
     }
-  }, [loading, user, identityCode, router, pathname, isLoginPage])
+  }, [loading, user, identityTypeCode, router, pathname, isLoginPage])
 
   if (loading && !isLoginPage) {
     return (

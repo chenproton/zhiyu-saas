@@ -7,7 +7,7 @@ import { PlatformShell } from "@/components/platform-shell"
 import { jobNavigationConfig, portalTopNavItems } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 
-const ALLOWED_IDENTITIES = ["platform_admin", "school_admin", "teacher"]
+const ALLOWED_IDENTITIES = ["teacher", "school_admin", "enterprise_hr", "enterprise_mentor"]
 
 export default function JobLayout({
   children,
@@ -15,7 +15,7 @@ export default function JobLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const { user, loading, identityType } = useAuth()
+  const { user, loading, identityTypeCode } = useAuth()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -23,7 +23,7 @@ export default function JobLayout({
     }
   }, [loading, user, router])
 
-  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityType?.code ?? "")
+  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityTypeCode ?? "")
 
   const config = {
     ...jobNavigationConfig,

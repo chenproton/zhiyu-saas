@@ -69,6 +69,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { PageHeaderCard } from "@/components/shared/page-header-card"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/components/auth-provider"
 
 const CURRENT_USER_ID = "user-1"
 
@@ -119,6 +120,7 @@ function formatDate(iso: string) {
 
 export default function ExamsPage() {
   const router = useRouter()
+  const { hasPermission } = useAuth()
 
   const [exams, setExams] = useState<BackendExam[]>([])
   const [batches, setBatches] = useState<EvaluationBatch[]>([])
@@ -684,36 +686,42 @@ export default function ExamsPage() {
                     </Button>
                     {exam.status === "pending" && (
                       <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700"
-                          onClick={() => handleReview(exam.id, "published")}
-                        >
-                          <CheckCircle className="mr-1 h-3 w-3" />
-                          通过
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
-                          onClick={() => handleReview(exam.id, "rejected")}
-                        >
-                          <XCircle className="mr-1 h-3 w-3" />
-                          驳回
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs text-amber-600 hover:text-amber-700"
-                          onClick={() => handleWithdrawApproval(exam.id)}
-                        >
-                          <Undo2 className="mr-1 h-3 w-3" />
-                          撤回
-                        </Button>
+                        {hasPermission("evaluation", "exams", "review") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700"
+                            onClick={() => handleReview(exam.id, "published")}
+                          >
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                            通过
+                          </Button>
+                        )}
+                        {hasPermission("evaluation", "exams", "reject") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
+                            onClick={() => handleReview(exam.id, "rejected")}
+                          >
+                            <XCircle className="mr-1 h-3 w-3" />
+                            驳回
+                          </Button>
+                        )}
+                        {hasPermission("evaluation", "exams", "withdraw_approval") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-amber-600 hover:text-amber-700"
+                            onClick={() => handleWithdrawApproval(exam.id)}
+                          >
+                            <Undo2 className="mr-1 h-3 w-3" />
+                            撤回
+                          </Button>
+                        )}
                       </>
                     )}
-                    {(exam.status === "pending" || exam.status === "rejected") && (
+                    {(exam.status === "pending" || exam.status === "rejected") && hasPermission("evaluation", "exams", "publish") && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -724,7 +732,7 @@ export default function ExamsPage() {
                         发布
                       </Button>
                     )}
-                    {exam.status === "published" && (
+                    {exam.status === "published" && hasPermission("evaluation", "exams", "unpublish") && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -735,7 +743,7 @@ export default function ExamsPage() {
                         取消发布
                       </Button>
                     )}
-                    {(exam.status === "draft" || exam.status === "rejected") && (
+                    {(exam.status === "draft" || exam.status === "rejected") && hasPermission("evaluation", "exams", "delete") && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -999,26 +1007,36 @@ export default function ExamsPage() {
             <span className={cn("text-xs mr-1", hasSelected ? "text-slate-700 font-medium" : "text-slate-400")}>
               {hasSelected ? `已选择 ${selectedIds.length} 项：` : "请选择试卷："}
             </span>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
-              <Send className="mr-1 h-3 w-3" />
-              提交审批
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
-              <Undo2 className="mr-1 h-3 w-3" />
-              撤回审批
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
-              <ArrowUpFromLine className="mr-1 h-3 w-3" />
-              发布
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
-              <ArrowDownFromLine className="mr-1 h-3 w-3" />
-              取消发布
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
-              <Trash2 className="mr-1 h-3 w-3" />
-              删除
-            </Button>
+            {hasPermission("evaluation", "exams", "submit_approval") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchSubmit} onClick={handleBatchSubmitApproval}>
+                <Send className="mr-1 h-3 w-3" />
+                提交审批
+              </Button>
+            )}
+            {hasPermission("evaluation", "exams", "withdraw_approval") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchWithdraw} onClick={handleBatchWithdrawApproval}>
+                <Undo2 className="mr-1 h-3 w-3" />
+                撤回审批
+              </Button>
+            )}
+            {hasPermission("evaluation", "exams", "publish") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchPublish} onClick={handleBatchPublish}>
+                <ArrowUpFromLine className="mr-1 h-3 w-3" />
+                发布
+              </Button>
+            )}
+            {hasPermission("evaluation", "exams", "unpublish") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchUnpublish} onClick={handleBatchUnpublish}>
+                <ArrowDownFromLine className="mr-1 h-3 w-3" />
+                取消发布
+              </Button>
+            )}
+            {hasPermission("evaluation", "exams", "delete") && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected || !canBatchDelete} onClick={handleBatchDelete}>
+                <Trash2 className="mr-1 h-3 w-3" />
+                删除
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!hasSelected} onClick={handleBatchClone}>
               <Copy className="mr-1 h-3 w-3" />
               克隆

@@ -8,7 +8,7 @@ import { adminNavigationConfig, portalTopNavItems } from "@/lib/navigation-confi
 import { useAuth } from "@/components/auth-provider"
 import type { PlatformNavigationConfig } from "@/components/platform-shell"
 
-const ALLOWED_IDENTITIES = ["platform_admin", "school_admin", "teacher"]
+const ALLOWED_IDENTITIES = ["school_admin", "teacher"]
 
 const config: PlatformNavigationConfig = {
   ...adminNavigationConfig,
@@ -25,7 +25,7 @@ export default function LessonAdminLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const { user, loading, identityType } = useAuth()
+  const { user, loading, identityTypeCode } = useAuth()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -33,7 +33,7 @@ export default function LessonAdminLayout({
     }
   }, [loading, user, router])
 
-  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityType?.code ?? "")
+  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityTypeCode ?? "")
 
   return (
     <PlatformShell config={config}>
