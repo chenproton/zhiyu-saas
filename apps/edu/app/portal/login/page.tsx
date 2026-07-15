@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { AlertCircle, GraduationCap } from "lucide-react"
 import { authApi, setToken } from "@/lib/api"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { useAuth } from "@/components/auth-provider"
 
 function getPostLoginPath(identityCode?: string): string {
   switch (identityCode) {
@@ -25,6 +26,7 @@ function getPostLoginPath(identityCode?: string): string {
 export default function PortalLoginPage() {
   const router = useRouter()
   const { refresh } = usePortalAuth()
+  const { refresh: refreshRootAuth } = useAuth()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -38,7 +40,7 @@ export default function PortalLoginPage() {
     try {
       const res = await authApi.portalLogin({ username, password })
       setToken(res.token, "portal")
-      await refresh()
+      await Promise.all([refresh(), refreshRootAuth()])
       const me = await authApi.portalMe()
       const identityCode = me.identityType?.code
       router.replace(getPostLoginPath(identityCode))

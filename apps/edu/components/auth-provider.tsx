@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
-import { authApi, getToken, removeToken, isPortalPath, type MeResponse, type AuthPlatform } from "@/lib/api"
+import { authApi, getToken, removeToken, type MeResponse } from "@/lib/api"
 import type { IdentityType, Organization, Major, Role } from "@/lib/types/backend"
 
 export type UserRole = "school" | "enterprise" | "operator"
@@ -49,22 +49,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }>({ loading: true })
 
   const fetchMe = useCallback(async () => {
-    const platform: AuthPlatform = isPortalPath() ? "portal" : "saas"
-    const token = getToken(platform)
+    // edu 应用（管理后台）所有页面都面向 portal 用户（学校/教师/学生），
+    // 因此统一使用 portal token，避免 /portal 登录后跳转到 /job、/scene 等模块时因 token 不一致被踢回登录页。
+    const token = getToken("portal")
     if (!token) {
       setState({ loading: false })
       return
     }
 
     try {
-      const data = platform === "portal" ? await authApi.portalMe() : await authApi.saasMe()
+      const data = await authApi.portalMe()
       setState({
         me: data,
         loading: false,
         error: undefined,
       })
     } catch (err) {
-      removeToken(platform)
+      removeToken("portal")
       setState({
         loading: false,
         error: err instanceof Error ? err.message : "获取用户信息失败",
@@ -77,11 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchMe])
 
   const logout = useCallback(() => {
-    const platform: AuthPlatform = isPortalPath() ? "portal" : "saas"
-    removeToken(platform)
+    removeToken("portal")
     setState({ me: undefined, loading: false })
     if (typeof window !== "undefined") {
-      window.location.href = platform === "portal" ? "/portal/login" : "/login"
+      window.location.href = "/portal/login"
     }
   }, [])
 
