@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   BookOpen, Calendar, Clock, MapPin,
   BarChart3, Users, ClipboardList, GraduationCap, Layers, TrendingUp,
@@ -28,13 +28,11 @@ import { StatCard } from "./stat-card"
 import { PrepAssociateDialog } from "./prep-associate-dialog"
 import { GradingIframeDialog } from "./grading-iframe-dialog"
 import { HybridGradingDialog } from "./hybrid-grading-dialog"
+import { portalApi } from "@/lib/api"
+import type { WorkspaceDashboard, WorkspaceTeacherCourse, WorkspaceClassPlan, WorkspaceClassSession } from "@/lib/types"
 import {
-  mockTeacherCourses,
-  mockClassPlans,
-  mockClassSessions,
   mockGradeSubmissions,
   mockTeacherSchedule,
-  semesters,
   type PrepAssociationRecord,
 } from "../_data/mock-teacher-data"
 import {
@@ -498,9 +496,10 @@ interface TeacherCoursesTabProps {
 }
 
 export function TeacherCoursesTab({ prepAssociations = {}, onAssociate }: TeacherCoursesTabProps = {}) {
+  const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null)
   const [activeSubTab, setActiveSubTab] = useState("plans")
   const [courseFilter, setCourseFilter] = useState("all")
-  const [selectedTerm, setSelectedTerm] = useState(semesters[2] || "")
+  const [selectedTerm, setSelectedTerm] = useState("")
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<SelectedCourse | null>(null)
@@ -521,15 +520,36 @@ export function TeacherCoursesTab({ prepAssociations = {}, onAssociate }: Teache
   const [hybridGradeSessionTitle, setHybridGradeSessionTitle] = useState("")
   const [hybridGradeClassName, setHybridGradeClassName] = useState("")
 
-  const filteredCourses = mockTeacherCourses.filter((c) => {
+  useEffect(() => {
+    portalApi.workspaceDashboard()
+      .then((res) => setDashboard(res))
+      .catch(() => setDashboard(null))
+  }, [])
+
+  const teacherCourses = dashboard?.teacherCourses || []
+  const classPlans = dashboard?.classPlans || []
+  const classSessions = dashboard?.classSessions || []
+
+  const semesters = useMemo(() => {
+    const terms = new Set(classPlans.map((p) => p.term).filter(Boolean))
+    return Array.from(terms)
+  }, [classPlans])
+
+  useEffect(() => {
+    if (semesters.length > 0 && !semesters.includes(selectedTerm)) {
+      setSelectedTerm(semesters[0])
+    }
+  }, [semesters, selectedTerm])
+
+  const filteredCourses = teacherCourses.filter((c) => {
     if (courseFilter !== "all" && c.status !== courseFilter) return false
     return true
   })
 
-  const termPlans = mockClassPlans.filter((p) => p.term === selectedTerm)
+  const termPlans = classPlans.filter((p) => p.term === selectedTerm)
   const selectedPlan = termPlans.find((p) => p.id === selectedPlanId) || null
   const planCourseIds = new Set(termPlans.map((p) => p.id))
-  const termSessions = mockClassSessions.filter((s) => planCourseIds.has(s.courseId))
+  const termSessions = classSessions.filter((s) => planCourseIds.has(s.courseId))
 
   useEffect(() => {
     if (termPlans.length > 0) {
@@ -539,7 +559,7 @@ export function TeacherCoursesTab({ prepAssociations = {}, onAssociate }: Teache
     }
   }, [selectedTerm])
 
-  const openCourseDialog = (course: typeof mockTeacherCourses[0], tab: string) => {
+  const openCourseDialog = (course: WorkspaceTeacherCourse, tab: string) => {
     setSelectedCourse({
       id: course.id,
       name: course.name,
@@ -550,7 +570,7 @@ export function TeacherCoursesTab({ prepAssociations = {}, onAssociate }: Teache
     setDialogOpen(true)
   }
 
-  const openSessionDialog = (plan: typeof mockClassPlans[0], tab: string) => {
+  const openSessionDialog = (plan: WorkspaceClassPlan, tab: string) => {
     setSelectedCourse({
       id: plan.id,
       name: plan.course,
@@ -586,7 +606,7 @@ export function TeacherCoursesTab({ prepAssociations = {}, onAssociate }: Teache
             </div>
             <div className="max-h-[calc(100vh-320px)] overflow-y-auto p-2">
               {termPlans.map((plan, index) => {
-                const sessions = mockClassSessions.filter((s) => s.courseId === plan.id)
+                const sessions = classSessions.filter((s) => s.courseId === plan.id)
                 const courseTypeTag = ["混合课程", "实践场景", "混合课程", "实践场景", "混合课程", "实践场景"][index % 2]
                 const isHybrid = courseTypeTag === "混合课程"
                 const isActive = selectedPlanId === plan.id
@@ -632,7 +652,7 @@ export function TeacherCoursesTab({ prepAssociations = {}, onAssociate }: Teache
               <div className="space-y-4">
                 {(() => {
                   const plan = selectedPlan
-                  const sessions = mockClassSessions
+                  const sessions = classSessions
                     .filter((s) => s.courseId === plan.id)
                     .sort((a, b) => a.week - b.week)
                   const planIndex = termPlans.findIndex((p) => p.id === plan.id)

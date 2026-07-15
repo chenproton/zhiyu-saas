@@ -55,16 +55,6 @@ export interface TeacherCourse {
   nextDeadline?: string
 }
 
-export interface ClassSessionData {
-  id: string
-  courseId: string
-  venue: string
-  week: number
-  weekday: string
-  period: string
-  status: "pending" | "associated"
-}
-
 export interface GradeSubmitItem {
   id: string
   courseName: string
@@ -105,23 +95,7 @@ export const mockTeacherCourses: TeacherCourse[] = []
 
 // ==================== 开课计划-课程节次 ====================
 
-export interface ClassPlanItem {
-  id: string
-  name: string
-  course: string
-  term: string
-  students: number
-  teacher: string
-  status: "pending" | "active"
-}
 
-export const semesters: string[] = []
-
-export const mockClassPlans: ClassPlanItem[] = []
-
-export const mockClassSessions: ClassSessionData[] = []
-
-// ==================== 教师课程表 ====================
 
 export type TeacherScheduleEventType = "course" | "scene" | "meeting" | "training" | "exam" | "todo"
 

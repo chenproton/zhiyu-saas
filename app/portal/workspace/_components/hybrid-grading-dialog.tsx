@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   BookOpen,
   CheckCircle2,
@@ -27,7 +27,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { mockClassPlans, mockClassSessions, type ClassPlanItem, type ClassSessionData } from "../_data/mock-teacher-data"
+import { portalApi } from "@/lib/api"
+import type { WorkspaceClassPlan, WorkspaceClassSession } from "@/lib/types"
 
 interface HybridGradingDialogProps {
   open: boolean
@@ -36,13 +37,7 @@ interface HybridGradingDialogProps {
   className?: string
 }
 
-const lastNames = ["张", "李", "王", "赵", "陈", "刘", "周", "吴", "孙", "郑", "林", "杨", "黄", "朱", "马", "胡", "郭", "何", "罗", "高"]
-const firstNames = ["伟", "芳", "明", "静", "涛", "敏", "洋", "杰", "丽", "强", "军", "磊", "婷", "文", "波", "娜", "辉", "雪", "勇", "云"]
-const classNames = ["计网2401班", "计网2402班", "计网2301班"]
 
-function genStudentId(i: number) { return `s-${String(i + 1).padStart(3, "0")}` }
-function genStudentName(i: number) { return `${lastNames[i % lastNames.length]}${firstNames[(i + 3) % firstNames.length]}` }
-function genStudentNumber(i: number) { return `20240101${String(i + 1).padStart(2, "0")}` }
 
 interface CourseStudent {
   studentId: string
@@ -73,46 +68,25 @@ interface CourseGroup {
   gradedCount: number
 }
 
-const HYBRID_PLAN_IDS = ["cls-1", "cls-3", "cls-6"]
-
-function generateMockSubmissions(): CourseGroup[] {
-  const plans = HYBRID_PLAN_IDS.map(id => mockClassPlans.find(p => p.id === id)).filter(Boolean) as ClassPlanItem[]
-  return plans.map(plan => {
-    const sessions = mockClassSessions.filter(s => s.courseId === plan.id).sort((a, b) => a.week - b.week)
-    const sessionGroups: SessionGroup[] = sessions.slice(0, 6).map((sess, si) => {
-      const studentCount = 8 + Math.floor(Math.random() * 15)
-      const students: CourseStudent[] = Array.from({ length: studentCount }, (_, i) => {
-        const statusRand = Math.random()
-        return {
-          studentId: genStudentId(si * 20 + i),
-          studentName: genStudentName(si * 20 + i),
-          studentNumber: genStudentNumber(si * 20 + i),
-          className: classNames[i % classNames.length],
-          enrollmentYear: 2024,
-          status: statusRand > 0.4 ? "graded" : "pending",
-          submittedAt: `2026-0${Math.floor(Math.random() * 6 + 1)}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, "0")} ${String(Math.floor(Math.random() * 12) + 8).padStart(2, "0")}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-        }
-      })
-      const pendingCount = students.filter(s => s.status === "pending").length
-      return {
-        sessionId: sess.id,
-        sessionLabel: `第 ${sess.week} 周 · ${sess.weekday} ${sess.period}`,
-        venue: sess.venue,
-        students,
-        pendingCount,
-        gradedCount: students.length - pendingCount,
-      }
-    })
-    const totalPending = sessionGroups.reduce((s, g) => s + g.pendingCount, 0)
-    const totalGraded = sessionGroups.reduce((s, g) => s + g.gradedCount, 0)
+function buildCourseGroups(classPlans: WorkspaceClassPlan[], classSessions: WorkspaceClassSession[]): CourseGroup[] {
+  return classPlans.map(plan => {
+    const sessions = classSessions.filter(s => s.courseId === plan.id).sort((a, b) => a.week - b.week)
+    const sessionGroups: SessionGroup[] = sessions.map(sess => ({
+      sessionId: sess.id,
+      sessionLabel: `第 ${sess.week} 周 · ${sess.weekday} ${sess.period}`,
+      venue: sess.venue,
+      students: [],
+      pendingCount: 0,
+      gradedCount: 0,
+    }))
     return {
       planId: plan.id,
       courseName: plan.course,
       className: plan.name,
       studentCount: plan.students,
       sessions: sessionGroups,
-      pendingCount: totalPending,
-      gradedCount: totalGraded,
+      pendingCount: 0,
+      gradedCount: 0,
     }
   })
 }
@@ -121,8 +95,19 @@ export function HybridGradingDialog({ open, onOpenChange, sessionTitle, classNam
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  const [classPlans, setClassPlans] = useState<WorkspaceClassPlan[]>([])
+  const [classSessions, setClassSessions] = useState<WorkspaceClassSession[]>([])
 
-  const courseGroups = useMemo(() => generateMockSubmissions(), [])
+  useEffect(() => {
+    portalApi.workspaceDashboard()
+      .then(res => {
+        setClassPlans(res.classPlans || [])
+        setClassSessions(res.classSessions || [])
+      })
+      .catch(() => {})
+  }, [])
+
+  const courseGroups = useMemo(() => buildCourseGroups(classPlans, classSessions), [classPlans, classSessions])
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return courseGroups

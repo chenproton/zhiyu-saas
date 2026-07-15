@@ -1,23 +1,42 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { BarChart3, BookOpen, Clock, Layers, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SectionCard } from "./section-card"
 import { StatCard } from "./stat-card"
-import { mockCourses, mockSceneTasks } from "../_data/mock-student-data"
+import { portalApi } from "@/lib/api"
+import type { WorkspaceCourse, WorkspaceSceneTask } from "@/lib/types"
+
 export function LearningTab() {
+  const [courses, setCourses] = useState<WorkspaceCourse[]>([])
+  const [sceneTasks, setSceneTasks] = useState<WorkspaceSceneTask[]>([])
+  const [loading, setLoading] = useState(true)
   const [courseFilter, setCourseFilter] = useState("all")
   const [sceneFilter, setSceneFilter] = useState("all")
 
-  const filteredCourses = mockCourses.filter((c) => {
+  useEffect(() => {
+    setLoading(true)
+    portalApi.workspaceDashboard()
+      .then((res) => {
+        setCourses(res.courses || [])
+        setSceneTasks(res.sceneTasks || [])
+      })
+      .catch(() => {
+        setCourses([])
+        setSceneTasks([])
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  const filteredCourses = courses.filter((c) => {
     if (courseFilter !== "all" && c.status !== courseFilter) return false
     return true
   })
 
-  const filteredScenes = mockSceneTasks.filter((s) => {
+  const filteredScenes = sceneTasks.filter((s) => {
     if (sceneFilter !== "all" && s.status !== sceneFilter) return false
     return true
   })
@@ -36,12 +55,25 @@ export function LearningTab() {
     困难: "text-rose-600",
   }
 
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard title="在修课程" value="-" icon={BookOpen} trend="加载中..." color="blue" />
+          <StatCard title="场景任务" value="-" icon={Layers} trend="加载中..." color="green" />
+          <StatCard title="学习时长" value="-" icon={Clock} trend="加载中..." color="amber" />
+          <StatCard title="本周完成任务" value="-" icon={BarChart3} trend="加载中..." color="purple" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5">
       {/* 顶部指标 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="在修课程" value={mockCourses.length} icon={BookOpen} trend="本学期共 5 门" color="blue" />
-        <StatCard title="场景任务" value={mockSceneTasks.length} icon={Layers} trend="2 个待完成" color="green" />
+        <StatCard title="在修课程" value={courses.length} icon={BookOpen} trend="本学期共 5 门" color="blue" />
+        <StatCard title="场景任务" value={sceneTasks.length} icon={Layers} trend="2 个待完成" color="green" />
         <StatCard title="学习时长" value="86h" icon={Clock} trend="本月 +12h" trendUp color="amber" />
         <StatCard title="本周完成任务" value={12} icon={BarChart3} trend="较上周 +3" trendUp color="purple" />
       </div>
@@ -95,7 +127,7 @@ export function LearningTab() {
                       <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" />
-                          截止 {task.deadline}
+                          截止 {task.deadline || "未设置"}
                         </span>
                         <span className={difficultyColorMap[task.difficulty]}>难度：{task.difficulty}</span>
                         {task.score !== undefined && (

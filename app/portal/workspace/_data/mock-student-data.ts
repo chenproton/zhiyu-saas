@@ -149,13 +149,7 @@ export const mockTodos: TodoItem[] = []
 
 export const mockCalendarEvents: CalendarEvent[] = []
 
-export const mockCourses: Course[] = []
-
-export const mockSceneTasks: SceneTask[] = []
-
 export const mockPositions: Position[] = []
-
-export const mockExams: Exam[] = []
 
 export const mockAbilityDimensions: AbilityDimension[] = []
 

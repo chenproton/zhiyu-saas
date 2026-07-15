@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Award, FileCheck, GraduationCap, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SectionCard } from "./section-card"
-import { mockExams } from "../_data/mock-student-data"
+import { portalApi } from "@/lib/api"
+import type { WorkspaceExam } from "@/lib/types"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
@@ -41,11 +42,21 @@ const typeIconMap: Record<string, typeof GraduationCap> = {
 }
 
 export function AssessmentTab() {
+  const [exams, setExams] = useState<WorkspaceExam[]>([])
+  const [loading, setLoading] = useState(true)
   const [examFilter, setExamFilter] = useState("all")
 
+  useEffect(() => {
+    setLoading(true)
+    portalApi.workspaceDashboard()
+      .then((res) => setExams(res.exams || []))
+      .catch(() => setExams([]))
+      .finally(() => setLoading(false))
+  }, [])
+
   const filteredExams = examFilter === "all"
-    ? mockExams
-    : mockExams.filter((e) => e.status === examFilter)
+    ? exams
+    : exams.filter((e) => e.status === examFilter)
 
   return (
     <div className="space-y-5">
@@ -105,7 +116,12 @@ export function AssessmentTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredExams.map((exam, i) => {
+              {loading && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-xs text-gray-400 py-10">加载中...</TableCell>
+                </TableRow>
+              )}
+              {!loading && filteredExams.map((exam, i) => {
                 const Icon = typeIconMap[exam.type]
                 return (
                   <TableRow key={exam.id}>
@@ -122,7 +138,7 @@ export function AssessmentTab() {
                         {exam.status}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs text-gray-500">{exam.startTime}</TableCell>
+                    <TableCell className="text-xs text-gray-500">{exam.startTime || "-"}</TableCell>
                     <TableCell className="text-xs text-gray-500">{exam.duration}分钟</TableCell>
                     <TableCell className="text-xs text-right font-semibold">
                       {exam.score !== undefined
@@ -140,7 +156,7 @@ export function AssessmentTab() {
               })}
             </TableBody>
           </Table>
-          {filteredExams.length === 0 && (
+          {!loading && filteredExams.length === 0 && (
             <div className="py-10 text-center text-xs text-gray-400">暂无记录</div>
           )}
         </div>

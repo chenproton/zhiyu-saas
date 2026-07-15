@@ -8,6 +8,17 @@ type WorkspaceDashboard struct {
 	Todos         []WorkspaceTodo           `json:"todos"`
 	Schedule      []WorkspaceScheduleEvent  `json:"schedule"`
 	Stats         *WorkspaceStats           `json:"stats,omitempty"`
+
+	// Student workspace data
+	Courses      []WorkspaceCourse       `json:"courses"`
+	SceneTasks   []WorkspaceSceneTask    `json:"sceneTasks"`
+	Exams        []WorkspaceExam         `json:"exams"`
+	LearningPath []WorkspaceLearningPath `json:"learningPath"`
+
+	// Teacher workspace data
+	TeacherCourses []WorkspaceTeacherCourse `json:"teacherCourses"`
+	ClassPlans     []WorkspaceClassPlan     `json:"classPlans"`
+	ClassSessions  []WorkspaceClassSession  `json:"classSessions"`
 }
 
 type WorkspaceAnnouncement struct {
@@ -44,4 +55,88 @@ type WorkspaceStats struct {
 	Value1 int    `json:"value1"`
 	Label2 string `json:"label2"`
 	Value2 int    `json:"value2"`
+}
+
+type WorkspaceCourse struct {
+	ID           string `json:"id"`
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	Type         string `json:"type"`
+	Teacher      string `json:"teacher"`
+	Credit       int    `json:"credit"`
+	Hours        int    `json:"hours"`
+	Progress     int    `json:"progress"`
+	Cover        string `json:"cover"`
+	Status       string `json:"status"`
+	NextTask     string `json:"nextTask,omitempty"`
+	NextDeadline string `json:"nextDeadline,omitempty"`
+}
+
+type WorkspaceSceneTask struct {
+	ID          string   `json:"id"`
+	ScenarioID  string   `json:"scenarioId"`
+	SceneName   string   `json:"sceneName"`
+	TaskName    string   `json:"taskName"`
+	Position    string   `json:"position"`
+	AbilityTags []string `json:"abilityTags"`
+	Status      string   `json:"status"`
+	Deadline    string   `json:"deadline"`
+	Score       *int     `json:"score,omitempty"`
+	TotalScore  int      `json:"totalScore"`
+	Difficulty  string   `json:"difficulty"`
+}
+
+type WorkspaceExam struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	Status     string `json:"status"`
+	StartTime  string `json:"startTime"`
+	EndTime    string `json:"endTime"`
+	Duration   int    `json:"duration"`
+	Score      *int   `json:"score,omitempty"`
+	TotalScore int    `json:"totalScore"`
+}
+
+type WorkspaceLearningPath struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Resources string `json:"resources"`
+	Duration  string `json:"duration"`
+}
+
+type WorkspaceTeacherCourse struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Code         string `json:"code"`
+	Type         string `json:"type"`
+	ClassName    string `json:"className"`
+	Term         string `json:"term"`
+	Students     int    `json:"students"`
+	Hours        int    `json:"hours"`
+	Progress     int    `json:"progress"`
+	Cover        string `json:"cover"`
+	Status       string `json:"status"`
+	NextTask     string `json:"nextTask,omitempty"`
+	NextDeadline string `json:"nextDeadline,omitempty"`
+}
+
+type WorkspaceClassPlan struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Course  string `json:"course"`
+	Term    string `json:"term"`
+	Students int   `json:"students"`
+	Teacher string `json:"teacher"`
+	Status  string `json:"status"`
+}
+
+type WorkspaceClassSession struct {
+	ID       string `json:"id"`
+	CourseID string `json:"courseId"`
+	Venue    string `json:"venue"`
+	Week     int    `json:"week"`
+	Weekday  string `json:"weekday"`
+	Period   string `json:"period"`
+	Status   string `json:"status"`
 }

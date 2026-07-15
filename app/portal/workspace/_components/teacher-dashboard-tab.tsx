@@ -23,9 +23,8 @@ import { GradingIframeDialog } from "./grading-iframe-dialog"
 import { HybridGradingDialog } from "./hybrid-grading-dialog"
 import { portalApi } from "@/lib/api"
 import type { WorkspaceDashboard, WorkspaceScheduleEvent } from "@/lib/types"
+import type { WorkspaceClassPlan, WorkspaceClassSession } from "@/lib/types"
 import {
-  mockClassPlans,
-  mockClassSessions,
   type TeacherScheduleEvent,
   type PrepAssociationRecord,
 } from "../_data/mock-teacher-data"
@@ -60,6 +59,8 @@ export function TeacherDashboardTab({ onTabChange, prepAssociations = {}, onAsso
   const announcements = dashboard?.announcements || []
   const todos = dashboard?.todos || []
   const schedule = dashboard?.schedule || []
+  const classPlans = dashboard?.classPlans || []
+  const classSessions = dashboard?.classSessions || []
 
   const [prepDialogOpen, setPrepDialogOpen] = useState(false)
   const [prepPlanId, setPrepPlanId] = useState("")
@@ -85,6 +86,8 @@ export function TeacherDashboardTab({ onTabChange, prepAssociations = {}, onAsso
           <SectionCard>
             <CourseScheduleTable
               events={schedule as WorkspaceScheduleEvent[]}
+              classPlans={classPlans}
+              classSessions={classSessions}
               prepAssociations={prepAssociations}
               onAssociate={onAssociate}
               onPrepRequest={(planId, sessionId, planName, isHybrid, url, sessionLabel) => {
@@ -281,13 +284,15 @@ function getCourseUrls(event: TeacherScheduleEvent) {
 
 interface CourseScheduleTableProps {
   events?: WorkspaceScheduleEvent[]
+  classPlans?: WorkspaceClassPlan[]
+  classSessions?: WorkspaceClassSession[]
   prepAssociations?: Record<string, PrepAssociationRecord>
   onAssociate?: (fn: (prev: Record<string, PrepAssociationRecord>) => Record<string, PrepAssociationRecord>) => void
   onPrepRequest?: (planId: string, sessionId: string, planName: string, isHybrid: boolean, url: string, sessionLabel?: string) => void
   onGradeRequest?: (title: string, className: string, isHybrid: boolean) => void
 }
 
-function CourseScheduleTable({ events = [], prepAssociations = {}, onAssociate, onPrepRequest, onGradeRequest }: CourseScheduleTableProps = {}) {
+function CourseScheduleTable({ events = [], classPlans = [], classSessions = [], prepAssociations = {}, onAssociate, onPrepRequest, onGradeRequest }: CourseScheduleTableProps = {}) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<DashboardSelectedCourse | null>(null)
   const [dialogTab, setDialogTab] = useState("tracking")
@@ -319,7 +324,7 @@ function CourseScheduleTable({ events = [], prepAssociations = {}, onAssociate, 
   }
 
   const openActionDialog = (event: TeacherScheduleEvent, tab: string) => {
-    const matchingPlan = mockClassPlans.find(
+    const matchingPlan = classPlans.find(
       (p) => p.course === event.title && (event.className ? p.name === event.className : true)
     )
     setSelectedCourse({
@@ -412,12 +417,12 @@ function CourseScheduleTable({ events = [], prepAssociations = {}, onAssociate, 
               const isCourseLike = event?.type === "course" || event?.type === "scene"
                 if (event && config && isCourseLike) {
                 const urls = getCourseUrls(event)
-                const matchingPlan = mockClassPlans.find(
+                const matchingPlan = classPlans.find(
                   (p) => p.course === event.title && (event.className ? p.name === event.className : true)
                 )
                 const pid = matchingPlan?.id || event.id
                 const session = matchingPlan
-                  ? mockClassSessions.find(
+                  ? classSessions.find(
                       (s) => s.courseId === matchingPlan.id && s.weekday === days[event.dayOfWeek - 1] && s.period === event.period
                     )
                   : null
