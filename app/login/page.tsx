@@ -10,6 +10,22 @@ import { AlertCircle, GraduationCap } from "lucide-react"
 import { authApi, setToken } from "@/lib/api"
 import { useAuth } from "@/components/auth-provider"
 
+function getPostLoginPath(identityCode?: string): string {
+  switch (identityCode) {
+    case "platform_admin":
+      return "/admin"
+    case "school_admin":
+    case "enterprise_hr":
+    case "enterprise_mentor":
+      return "/dashboard"
+    case "teacher":
+    case "student":
+      return "/portal/workspace"
+    default:
+      return "/"
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const { refresh } = useAuth()
@@ -27,8 +43,9 @@ export default function LoginPage() {
       const res = await authApi.login({ username, password })
       setToken(res.token)
       await refresh()
-      // Let the root page decide the destination based on identity type.
-      router.push("/")
+      const me = await authApi.me()
+      const identityCode = me.identityType?.code
+      router.replace(getPostLoginPath(identityCode))
     } catch (err: any) {
       setError(err.message || "登录失败")
     } finally {
