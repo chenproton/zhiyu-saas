@@ -171,7 +171,7 @@ export default function AdminInstitutionsPage() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">租户管理</h1>
+          <h1 className="text-2xl font-semibold text-foreground">机构入驻审核</h1>
           <p className="text-sm text-muted-foreground">管理平台入驻机构与入驻审核</p>
         </div>
 
@@ -246,7 +246,7 @@ export default function AdminInstitutionsPage() {
         {/* Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">租户列表</CardTitle>
+            <CardTitle className="text-base">机构列表</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
