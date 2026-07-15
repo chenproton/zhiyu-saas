@@ -1,0 +1,165 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { Home, Briefcase, LayoutGrid, ChevronDown, User, Settings, LogOut, LogIn, Link2 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
+
+const baseNavItems = [
+  { href: "/portal", label: "门户首页", icon: Home },
+  { href: "/portal/workspace", label: "我的服务台", icon: Briefcase, identityCodes: ["teacher", "student"] },
+  { href: "/portal/apps", label: "应用服务中心", icon: LayoutGrid, identityCodes: ["school_admin"] },
+]
+
+export function TopNav() {
+  const pathname = usePathname()
+  const { user, identityType, institution, loading, logout } = usePortalAuth()
+  const identityCode = identityType?.code
+  const isLoggedIn = !!user
+
+  const navItems = baseNavItems.filter((item) =>
+    !item.identityCodes || (identityCode && item.identityCodes.includes(identityCode))
+  )
+  const [currentTime, setCurrentTime] = useState("")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    const updateTime = () => {
+      const now = new Date()
+      const weekDays = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, "0")
+      const day = String(now.getDate()).padStart(2, "0")
+      const weekDay = weekDays[now.getDay()]
+      const hours = String(now.getHours()).padStart(2, "0")
+      const minutes = String(now.getMinutes()).padStart(2, "0")
+      const seconds = String(now.getSeconds()).padStart(2, "0")
+      setCurrentTime(`${year}年${month}月${day}日 ${weekDay} ${hours}:${minutes}:${seconds}`)
+    }
+    updateTime()
+    const timer = setInterval(updateTime, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const isActive = (href: string) => {
+    if (href === "/portal") {
+      return pathname === "/portal"
+    }
+    return pathname.startsWith(href)
+  }
+
+  const handleLogout = () => {
+    logout()
+  }
+
+  return (
+    <>
+      <header className="h-14 bg-white/70 backdrop-blur-xl border-b border-white/20 flex items-center justify-between px-6 shrink-0 fixed top-0 left-0 right-0 z-50 shadow-sm">
+        <div className="flex items-center gap-8">
+          <Link href="/portal" className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-primary-foreground" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <span className="font-semibold text-foreground text-base">场景化数智教学服务平台</span>
+          </Link>
+          
+          {isLoggedIn && (
+            <nav className="flex items-center gap-1">
+              {navItems.map((item) => {
+                const Icon = item.icon
+                const active = isActive(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-1.5 px-4 py-2 text-sm rounded-md transition-colors relative ${
+                      active
+                        ? "text-primary font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {item.label}
+                    {active && (
+                      <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-primary rounded-full" />
+                    )}
+                  </Link>
+                )
+              })}
+            </nav>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-6">
+          {mounted && (
+            <div className="text-sm text-muted-foreground">
+              {currentTime}
+            </div>
+          )}
+          
+          {isLoggedIn && user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2 px-2 h-auto py-1.5 hover:bg-muted">
+                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
+                    {user.name?.charAt(0).toUpperCase() || "U"}
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm text-foreground">{user.name}</div>
+                    <div className="text-xs text-muted-foreground">{identityType?.name || "用户"} · {institution?.name || "组织"}</div>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem>
+                  <User className="w-4 h-4 mr-2" />
+                  个人中心
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Settings className="w-4 h-4 mr-2" />
+                  账号设置
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/portal/config/links" className="cursor-pointer">
+                    <Link2 className="w-4 h-4 mr-2" />
+                    平台地址配置
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  退出登录
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2 text-muted-foreground hover:text-primary hover:bg-primary/5"
+              asChild
+            >
+              <Link href="/portal/login">
+                <LogIn className="w-4 h-4" />
+                登录
+              </Link>
+            </Button>
+          )}
+        </div>
+      </header>
+    </>
+  )
+}

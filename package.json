@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "dev:marketplace": "pnpm --filter @zhiyu/marketplace dev",
+    "dev:edu": "pnpm --filter @zhiyu/edu dev",
+    "build:marketplace": "pnpm --filter @zhiyu/marketplace build",
+    "build:edu": "pnpm --filter @zhiyu/edu build",
+    "build:backend": "cd backend && go build -o bin/server ./cmd/server/main.go",
+    "build:all": "pnpm build:backend && pnpm build:marketplace && pnpm build:edu",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -68,6 +71,9 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.0",
+    "@eslint/eslintrc": "^3",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.0",
     "@types/d3": "^7.4.3",
     "@types/node": "^22",
     "@types/react": "^19",
