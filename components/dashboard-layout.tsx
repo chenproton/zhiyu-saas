@@ -160,6 +160,11 @@ const schoolNavigation: NavGroup[] = [
       { name: "操作日志", href: "/portal/apps/system/logs/operation", icon: History },
     ],
   },
+  {
+    name: "平台服务",
+    icon: Store,
+    items: [{ name: "资源商城", href: "/", icon: Store }],
+  },
 ]
 
 const teacherNavigation: NavGroup[] = [
@@ -171,7 +176,6 @@ const teacherNavigation: NavGroup[] = [
       { name: "场景管理", href: "/scene/", icon: Layers },
       { name: "课程管理", href: "/lesson/admin/system", icon: FolderKanban },
       { name: "测评管理", href: "/evaluation/question-banks", icon: CheckCircle },
-      { name: "资源商城", href: "/", icon: Store },
     ],
   },
   {
@@ -197,7 +201,6 @@ const studentNavigation: NavGroup[] = [
       { name: "考试中心", href: "/evaluation/landing/exams", icon: CheckCircle },
       { name: "毕业查询", href: "/evaluation/landing/graduation", icon: GraduationCap },
       { name: "我的画像", href: "/evaluation/landing/portrait", icon: Users },
-      { name: "资源商城", href: "/", icon: Store },
     ],
   },
 ]
