@@ -93,6 +93,16 @@ pnpm test               # 60 tests passed
 ## 状态
 **改造完成，代码已提交并部署。**
 
+## 2026-07-15 后续拆分：资源共享商城 vs 教育管理后台
+
+- 已将前端拆分为两个独立应用：
+  - `apps/marketplace`：商城首页、资源、订单、钱包、运营后台 `/admin/*`，端口 `3010`。
+  - `apps/edu`：Portal、Job、Scene、Lesson、Evaluation，端口 `3020`。
+- 建立共享 packages：`@zhiyu/ui`、`@zhiyu/api-client`、`@zhiyu/shared-types`。
+- 后端保持单服务 `8080`，通过 JWT `platform` 区分 `saas`/`portal`。
+- `ecosystem.config.js` 与 `deploy.sh` 已更新为启动并部署三个进程。
+- 部署验证：商城 `/login`、教育管理 `/portal/login`、后端 `/health` 均通过。
+
 ## 注意事项
 - 所有修改已通过 `deploy.sh` 完成部署验证
 - 修改 `AGENTS.md` 或 `docs/audits/*.md` 必须独立 commit
