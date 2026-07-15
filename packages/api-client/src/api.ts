@@ -92,6 +92,33 @@ import type { WorkspaceDashboard } from "./types/portal"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1"
 
+function getCurrentOrigin(): string {
+  if (typeof window !== "undefined") {
+    return window.location.origin
+  }
+  return ""
+}
+
+export function getMarketplaceBaseUrl(): string {
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_MARKETPLACE_URL) {
+    return process.env.NEXT_PUBLIC_MARKETPLACE_URL
+  }
+  const origin = getCurrentOrigin()
+  if (origin.includes(":3020")) return origin.replace(":3020", ":3010")
+  if (origin.includes(":3010")) return origin
+  return "http://localhost:3010"
+}
+
+export function getEduBaseUrl(): string {
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_EDU_URL) {
+    return process.env.NEXT_PUBLIC_EDU_URL
+  }
+  const origin = getCurrentOrigin()
+  if (origin.includes(":3010")) return origin.replace(":3010", ":3020")
+  if (origin.includes(":3020")) return origin
+  return "http://localhost:3020"
+}
+
 export interface ApiError {
   error: string
 }

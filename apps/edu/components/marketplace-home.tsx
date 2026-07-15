@@ -46,7 +46,7 @@ import {
   getCategoryColor,
   type ResourceCategoryId,
 } from "@/lib/resource-constants"
-import { resourceApi, institutionApi, bannerApi, type Resource, type Institution, type Banner } from "@/lib/api"
+import { resourceApi, institutionApi, bannerApi, getMarketplaceBaseUrl, type Resource, type Institution, type Banner } from "@/lib/api"
 
 const CATEGORY_ICONS: Record<ResourceCategoryId, React.ElementType> = {
   post: Briefcase,
@@ -188,7 +188,7 @@ export function MarketplaceHome() {
                 浏览资源
               </Button>
             </Link>
-            <a href="http://localhost:3010/institution/apply">
+            <a href={`${getMarketplaceBaseUrl()}/institution/apply`}>
               <Button size="lg" variant="outline" className="border-white/40 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20">
                 机构入驻
               </Button>
@@ -417,7 +417,7 @@ function ResourceCard({
   institutionName: string
 }) {
   return (
-    <a href={`http://localhost:3010/resources/${resource.id}`}>
+    <a href={`${getMarketplaceBaseUrl()}/resources/${resource.id}`}>
       <Card className="group h-full cursor-pointer overflow-hidden border-border/60 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           <Image

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, GraduationCap } from "lucide-react"
-import { authApi, setToken, removeToken } from "@/lib/api"
+import { authApi, setToken, removeToken, getEduBaseUrl } from "@/lib/api"
 import { useAuth } from "@/components/auth-provider"
 
 function getPostLoginPath(identityCode?: string): string | null {
@@ -50,7 +50,7 @@ export default function LoginPage() {
       if (nextPath === null) {
         // 教师/学生账号在商城登录时清理 token 并给出明确提示
         removeToken("saas")
-        setError("教师和学生账号请访问教育管理平台登录：http://localhost:3020/portal/login")
+        setError(`教师和学生账号请访问教育管理平台登录：${getEduBaseUrl()}/portal/login`)
         setLoading(false)
         return
       }

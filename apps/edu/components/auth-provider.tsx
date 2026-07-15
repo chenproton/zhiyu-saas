@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
-import { authApi, getToken, removeToken, type MeResponse } from "@/lib/api"
+import { authApi, getToken, removeToken, isPortalPath, type MeResponse, type AuthPlatform } from "@/lib/api"
 import type { IdentityType, Organization, Major, Role } from "@/lib/types/backend"
 
 export type UserRole = "school" | "enterprise" | "operator"
@@ -49,21 +49,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }>({ loading: true })
 
   const fetchMe = useCallback(async () => {
-    const token = getToken()
+    const platform: AuthPlatform = isPortalPath() ? "portal" : "saas"
+    const token = getToken(platform)
     if (!token) {
       setState({ loading: false })
       return
     }
 
     try {
-      const data = await authApi.me()
+      const data = platform === "portal" ? await authApi.portalMe() : await authApi.saasMe()
       setState({
         me: data,
         loading: false,
         error: undefined,
       })
     } catch (err) {
-      removeToken()
+      removeToken(platform)
       setState({
         loading: false,
         error: err instanceof Error ? err.message : "获取用户信息失败",
@@ -76,10 +77,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchMe])
 
   const logout = useCallback(() => {
-    removeToken()
+    const platform: AuthPlatform = isPortalPath() ? "portal" : "saas"
+    removeToken(platform)
     setState({ me: undefined, loading: false })
     if (typeof window !== "undefined") {
-      window.location.href = "/portal/login"
+      window.location.href = platform === "portal" ? "/portal/login" : "/login"
     }
   }, [])
 

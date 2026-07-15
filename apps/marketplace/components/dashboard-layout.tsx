@@ -49,6 +49,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { useAuth } from "@/components/auth-provider"
+import { getEduBaseUrl } from "@/lib/api"
 
 interface NavItem {
   name: string
@@ -248,10 +249,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           教师和学生账号请访问教育管理平台登录：
           <br />
           <a
-            href="http://localhost:3020/portal/login"
+            href={`${getEduBaseUrl()}/portal/login`}
             className="text-accent hover:underline"
           >
-            http://localhost:3020/portal/login
+            {getEduBaseUrl()}/portal/login
           </a>
         </p>
         <Button variant="outline" onClick={logout}>

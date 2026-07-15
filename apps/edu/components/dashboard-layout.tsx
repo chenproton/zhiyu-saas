@@ -49,6 +49,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { useAuth } from "@/components/auth-provider"
+import { getMarketplaceBaseUrl } from "@/lib/api"
 
 interface NavItem {
   name: string
@@ -89,7 +90,7 @@ const schoolAdminNavigation: NavGroup[] = [
     icon: Store,
     items: [
       { name: "资源商城", href: "/dashboard/marketplace", icon: Store },
-      { name: "已购资源", href: "http://localhost:3010/purchased", icon: ShoppingBag },
+      { name: "已购资源", href: `${getMarketplaceBaseUrl()}/purchased`, icon: ShoppingBag },
     ],
   },
   {
@@ -139,7 +140,7 @@ const teacherNavigation: NavGroup[] = [
     icon: Store,
     items: [
       { name: "资源商城", href: "/dashboard/marketplace", icon: Store },
-      { name: "已购资源", href: "http://localhost:3010/purchased", icon: ShoppingBag },
+      { name: "已购资源", href: `${getMarketplaceBaseUrl()}/purchased`, icon: ShoppingBag },
     ],
   },
   {
@@ -248,10 +249,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           平台管理员和企业账号请访问资源共享商城：
           <br />
           <a
-            href="http://localhost:3010/login"
+            href={`${getMarketplaceBaseUrl()}/login`}
             className="text-accent hover:underline"
           >
-            http://localhost:3010/login
+            {getMarketplaceBaseUrl()}/login
           </a>
         </p>
         <Button variant="outline" onClick={logout}>
