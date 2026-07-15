@@ -75,43 +75,8 @@ export function useRole() {
   return useAuth()
 }
 
-const platformAdminNavigation: NavGroup[] = [
-  {
-    name: "平台概览",
-    icon: LayoutDashboard,
-    items: [{ name: "运营仪表盘", href: "/admin", icon: LayoutDashboard }],
-  },
-  {
-    name: "租户管理",
-    icon: Building2,
-    items: [
-      { name: "租户列表", href: "/admin/tenants", icon: Building2 },
-      { name: "机构入驻审核", href: "/admin/institutions", icon: CheckCircle },
-    ],
-  },
-  {
-    name: "内容管理",
-    icon: BookOpen,
-    items: [{ name: "资源审核", href: "/admin/resources", icon: BookOpen }],
-  },
-  {
-    name: "交易管理",
-    icon: FileText,
-    items: [
-      { name: "全平台订单", href: "/admin/orders", icon: FileText },
-      { name: "提现审核", href: "/admin/withdrawals", icon: Wallet },
-      { name: "结算中心", href: "/admin/settlement", icon: BarChart3 },
-    ],
-  },
-  {
-    name: "系统配置",
-    icon: Settings,
-    items: [
-      { name: "轮播图配置", href: "/admin/banners", icon: ImageIcon },
-      { name: "标签字典", href: "/admin/dictionary", icon: BookOpen },
-    ],
-  },
-]
+// 教育管理后台（edu）侧导航，仅包含本应用内实际存在的页面。
+// platform_admin 不属于本应用使用场景；enterprise 角色应使用商城（marketplace）。
 
 const schoolAdminNavigation: NavGroup[] = [
   {
@@ -147,37 +112,6 @@ const schoolAdminNavigation: NavGroup[] = [
       { name: "登录日志", href: "/portal/apps/system/logs/login", icon: History },
       { name: "操作日志", href: "/portal/apps/system/logs/operation", icon: FileText },
     ],
-  },
-]
-
-const schoolNavigation: NavGroup[] = [
-  {
-    name: "机构概览",
-    icon: LayoutDashboard,
-    items: [{ name: "学校仪表盘", href: "/dashboard", icon: LayoutDashboard }],
-  },
-  {
-    name: "资源采购",
-    icon: Store,
-    items: [
-      { name: "资源商城", href: "/dashboard/marketplace", icon: Store },
-      { name: "已购资源", href: "/purchased", icon: ShoppingBag },
-    ],
-  },
-  {
-    name: "交易管理",
-    icon: FileText,
-    items: [{ name: "本校订单", href: "/orders", icon: FileText }],
-  },
-  {
-    name: "财务管理",
-    icon: Wallet,
-    items: [{ name: "本校钱包", href: "/wallet", icon: Wallet }],
-  },
-  {
-    name: "机构信息",
-    icon: Building2,
-    items: [{ name: "学校信息", href: "/institution", icon: Building2 }],
   },
 ]
 
@@ -219,47 +153,18 @@ const studentNavigation: NavGroup[] = [
   },
 ]
 
-const enterpriseNavigation: NavGroup[] = [
-  {
-    name: "资源工坊",
-    icon: Package,
-    items: [
-      { name: "仪表盘", href: "/dashboard", icon: LayoutDashboard },
-      { name: "新建资源", href: "/my-resources/new", icon: Package },
-      { name: "我的资源库", href: "/my-resources", icon: BookOpen },
-    ],
-  },
-  {
-    name: "交易管理",
-    icon: FileText,
-    items: [{ name: "销售订单", href: "/orders", icon: FileText }],
-  },
-  {
-    name: "财务管理",
-    icon: Wallet,
-    items: [{ name: "钱包/提现", href: "/wallet", icon: Wallet }],
-  },
-  {
-    name: "机构中心",
-    icon: Building2,
-    items: [{ name: "企业信息", href: "/institution", icon: Building2 }],
-  },
-]
-
-function getNavigationGroups(identityCode?: string, pathname?: string): NavGroup[] {
+function getNavigationGroups(identityCode?: string): NavGroup[] {
   switch (identityCode) {
-    case "platform_admin":
-      return platformAdminNavigation
     case "school_admin":
-      // school_admin 在 /admin 下进入学校管理后台，在 /dashboard 下进入 SaaS 采购后台
-      return pathname?.startsWith("/admin") ? schoolAdminNavigation : schoolNavigation
+      return schoolAdminNavigation
     case "teacher":
       return teacherNavigation
     case "student":
       return studentNavigation
+    case "platform_admin":
     case "enterprise_hr":
     case "enterprise_mentor":
-      return enterpriseNavigation
+    // platform_admin 与 enterprise 角色不属于教育管理后台，不展示功能菜单
     default:
       return []
   }
@@ -281,7 +186,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [loading, user, router])
 
-  const navigationGroups = getNavigationGroups(identityType?.code, pathname)
+  const navigationGroups = getNavigationGroups(identityType?.code)
 
   const [expandedGroups, setExpandedGroups] = useState<string[]>(
     navigationGroups.map((g) => g.name)
@@ -317,6 +222,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   const roleLabel = IDENTITY_LABELS[identityType?.code ?? ""] ?? "用户"
+  const unsupportedIdentity = navigationGroups.length === 0
+
+  if (unsupportedIdentity) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+        <h1 className="text-xl font-semibold">当前账号无法在教育管理后台使用</h1>
+        <p className="max-w-md text-muted-foreground">
+          平台管理员和企业账号请访问资源共享商城：
+          <br />
+          <a
+            href="http://localhost:3010/login"
+            className="text-accent hover:underline"
+          >
+            http://localhost:3010/login
+          </a>
+        </p>
+        <Button variant="outline" onClick={logout}>
+          退出登录
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -336,7 +263,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
               {!collapsed && (
                 <span className="text-sm font-semibold text-sidebar-foreground">
-                  教学资源商城
+                  教育教学管理后台
                 </span>
               )}
             </div>

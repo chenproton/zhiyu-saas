@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { authApi, removeToken, type MeResponse } from "@/lib/api"
+import { authApi, getToken, removeToken, type MeResponse } from "@/lib/api"
 import type { IdentityType, Organization, Major, Role } from "@/lib/types/backend"
 
 export type UserRole = "school" | "enterprise" | "operator"
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }>({ loading: true })
 
   const fetchMe = useCallback(async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("zhiyu-token") : null
+    const token = getToken()
     if (!token) {
       setState({ loading: false })
       return
