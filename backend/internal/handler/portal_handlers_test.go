@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/zhiyu-saas/backend/internal/domain"
@@ -13,8 +14,12 @@ func TestMajor_CRUD(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	wc := env.Do("POST", "/api/v1/majors", map[string]interface{}{
+	wc := do("POST", "/api/v1/majors", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"code":     "test-major",
 		"name":     "Test Major",
@@ -29,7 +34,7 @@ func TestMajor_CRUD(t *testing.T) {
 	}
 	defer env.DB.Exec(ctx, "DELETE FROM majors WHERE id = $1", major.ID)
 
-	wList := env.Do("GET", "/api/v1/majors?tenantId="+testhelper.TestTenantID, nil)
+	wList := do("GET", "/api/v1/majors?tenantId="+testhelper.TestTenantID, nil)
 	if wList.Code != http.StatusOK {
 		t.Fatalf("list: %d", wList.Code)
 	}
@@ -41,7 +46,7 @@ func TestMajor_CRUD(t *testing.T) {
 		t.Fatal("expected items > 0")
 	}
 
-	wGet := env.Do("GET", "/api/v1/majors/"+major.ID, nil)
+	wGet := do("GET", "/api/v1/majors/"+major.ID, nil)
 	if wGet.Code != http.StatusOK {
 		t.Fatalf("get: %d", wGet.Code)
 	}
@@ -53,7 +58,7 @@ func TestMajor_CRUD(t *testing.T) {
 		t.Fatalf("expected id %s, got %s", major.ID, majorGet.ID)
 	}
 
-	wUpd := env.Do("PUT", "/api/v1/majors/"+major.ID, map[string]interface{}{
+	wUpd := do("PUT", "/api/v1/majors/"+major.ID, map[string]interface{}{
 		"code":    "test-major-upd",
 		"name":    "Updated Major",
 		"enabled": false,
@@ -69,7 +74,7 @@ func TestMajor_CRUD(t *testing.T) {
 		t.Fatalf("expected name 'Updated Major', got %s", majorUpd.Name)
 	}
 
-	wDel := env.Do("DELETE", "/api/v1/majors/"+major.ID, nil)
+	wDel := do("DELETE", "/api/v1/majors/"+major.ID, nil)
 	if wDel.Code != http.StatusOK {
 		t.Fatalf("delete: %d %s", wDel.Code, testhelper.ErrMsg(wDel))
 	}
@@ -79,8 +84,12 @@ func TestIndustry_CRUD(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	wc := env.Do("POST", "/api/v1/industries", map[string]interface{}{
+	wc := do("POST", "/api/v1/industries", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"code":     "test-industry",
 		"name":     "Test Industry",
@@ -95,7 +104,7 @@ func TestIndustry_CRUD(t *testing.T) {
 	}
 	defer env.DB.Exec(ctx, "DELETE FROM industries WHERE id = $1", industry.ID)
 
-	wList := env.Do("GET", "/api/v1/industries?tenantId="+testhelper.TestTenantID, nil)
+	wList := do("GET", "/api/v1/industries?tenantId="+testhelper.TestTenantID, nil)
 	if wList.Code != http.StatusOK {
 		t.Fatalf("list: %d", wList.Code)
 	}
@@ -107,7 +116,7 @@ func TestIndustry_CRUD(t *testing.T) {
 		t.Fatal("expected items > 0")
 	}
 
-	wGet := env.Do("GET", "/api/v1/industries/"+industry.ID, nil)
+	wGet := do("GET", "/api/v1/industries/"+industry.ID, nil)
 	if wGet.Code != http.StatusOK {
 		t.Fatalf("get: %d", wGet.Code)
 	}
@@ -119,7 +128,7 @@ func TestIndustry_CRUD(t *testing.T) {
 		t.Fatalf("expected id %s, got %s", industry.ID, indGet.ID)
 	}
 
-	wUpd := env.Do("PUT", "/api/v1/industries/"+industry.ID, map[string]interface{}{
+	wUpd := do("PUT", "/api/v1/industries/"+industry.ID, map[string]interface{}{
 		"code":    "test-industry-upd",
 		"name":    "Updated Industry",
 		"enabled": false,
@@ -135,7 +144,7 @@ func TestIndustry_CRUD(t *testing.T) {
 		t.Fatalf("expected name 'Updated Industry', got %s", indUpd.Name)
 	}
 
-	wDel := env.Do("DELETE", "/api/v1/industries/"+industry.ID, nil)
+	wDel := do("DELETE", "/api/v1/industries/"+industry.ID, nil)
 	if wDel.Code != http.StatusOK {
 		t.Fatalf("delete: %d %s", wDel.Code, testhelper.ErrMsg(wDel))
 	}
@@ -145,8 +154,12 @@ func TestResourceCode_CRUD(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	wc := env.Do("POST", "/api/v1/resource-codes", map[string]string{
+	wc := do("POST", "/api/v1/resource-codes", map[string]string{
 		"tenantId": testhelper.TestTenantID,
 		"code":     "test-rc",
 		"name":     "Test Resource Code",
@@ -161,7 +174,7 @@ func TestResourceCode_CRUD(t *testing.T) {
 	}
 	defer env.DB.Exec(ctx, "DELETE FROM resource_codes WHERE id = $1", rc.ID)
 
-	wList := env.Do("GET", "/api/v1/resource-codes?tenantId="+testhelper.TestTenantID, nil)
+	wList := do("GET", "/api/v1/resource-codes?tenantId="+testhelper.TestTenantID, nil)
 	if wList.Code != http.StatusOK {
 		t.Fatalf("list: %d", wList.Code)
 	}
@@ -173,7 +186,7 @@ func TestResourceCode_CRUD(t *testing.T) {
 		t.Fatal("expected items > 0")
 	}
 
-	wGet := env.Do("GET", "/api/v1/resource-codes/"+rc.ID, nil)
+	wGet := do("GET", "/api/v1/resource-codes/"+rc.ID, nil)
 	if wGet.Code != http.StatusOK {
 		t.Fatalf("get: %d", wGet.Code)
 	}
@@ -185,7 +198,7 @@ func TestResourceCode_CRUD(t *testing.T) {
 		t.Fatalf("expected id %s, got %s", rc.ID, rcGet.ID)
 	}
 
-	wUpd := env.Do("PUT", "/api/v1/resource-codes/"+rc.ID, map[string]string{
+	wUpd := do("PUT", "/api/v1/resource-codes/"+rc.ID, map[string]string{
 		"code": "test-rc-upd",
 		"name": "Updated RC",
 		"type": "resource",
@@ -201,7 +214,7 @@ func TestResourceCode_CRUD(t *testing.T) {
 		t.Fatalf("expected name 'Updated RC', got %s", rcUpd.Name)
 	}
 
-	wDel := env.Do("DELETE", "/api/v1/resource-codes/"+rc.ID, nil)
+	wDel := do("DELETE", "/api/v1/resource-codes/"+rc.ID, nil)
 	if wDel.Code != http.StatusOK {
 		t.Fatalf("delete: %d %s", wDel.Code, testhelper.ErrMsg(wDel))
 	}

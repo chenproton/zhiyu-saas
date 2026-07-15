@@ -46,7 +46,7 @@ func (h *SubscriptionHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *SubscriptionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}

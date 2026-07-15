@@ -42,11 +42,11 @@ type DailySignIn struct {
 }
 
 type QuizResult struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	AvgScore  int    `json:"avgScore"`
-	PassRate  int    `json:"passRate"`
-	Count     int    `json:"count"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	AvgScore int    `json:"avgScore"`
+	PassRate int    `json:"passRate"`
+	Count    int    `json:"count"`
 }
 
 type RushRank struct {

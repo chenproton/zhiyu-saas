@@ -13,12 +13,13 @@ func TestIdentityType_Create(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
 
-	w := env.Do("POST", "/api/v1/identity-types", map[string]string{
+	w := env.DoWithToken("POST", "/api/v1/identity-types", map[string]string{
 		"tenantId": testhelper.TestTenantID,
 		"code":     "test-identity-type",
 		"name":     "Test Identity Type",
-	})
+	}, schoolAdminToken)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
@@ -35,11 +36,12 @@ func TestIdentityType_Create(t *testing.T) {
 func TestIdentityType_Create_MissingCode(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
 
-	w := env.Do("POST", "/api/v1/identity-types", map[string]string{
+	w := env.DoWithToken("POST", "/api/v1/identity-types", map[string]string{
 		"tenantId": testhelper.TestTenantID,
 		"name":     "No Code",
-	})
+	}, schoolAdminToken)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", w.Code)
 	}
@@ -49,19 +51,20 @@ func TestIdentityType_List(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
 
-	wc := env.Do("POST", "/api/v1/identity-types", map[string]string{
+	wc := env.DoWithToken("POST", "/api/v1/identity-types", map[string]string{
 		"tenantId": testhelper.TestTenantID,
 		"code":     "list-it-type",
 		"name":     "List IT",
-	})
+	}, schoolAdminToken)
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
 	}
 	it, _ := testhelper.Unmarshal[domain.IdentityType](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE id = $1", it.ID)
 
-	w := env.Do("GET", "/api/v1/identity-types?tenantId="+testhelper.TestTenantID, nil)
+	w := env.DoWithToken("GET", "/api/v1/identity-types?tenantId="+testhelper.TestTenantID, nil, schoolAdminToken)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -78,19 +81,20 @@ func TestIdentityType_Get(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
 
-	wc := env.Do("POST", "/api/v1/identity-types", map[string]string{
+	wc := env.DoWithToken("POST", "/api/v1/identity-types", map[string]string{
 		"tenantId": testhelper.TestTenantID,
 		"code":     "get-it-type",
 		"name":     "Get IT",
-	})
+	}, schoolAdminToken)
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
 	}
 	created, _ := testhelper.Unmarshal[domain.IdentityType](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE id = $1", created.ID)
 
-	w := env.Do("GET", "/api/v1/identity-types/"+created.ID, nil)
+	w := env.DoWithToken("GET", "/api/v1/identity-types/"+created.ID, nil, schoolAdminToken)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -107,21 +111,22 @@ func TestIdentityType_Update(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
 
-	wc := env.Do("POST", "/api/v1/identity-types", map[string]string{
+	wc := env.DoWithToken("POST", "/api/v1/identity-types", map[string]string{
 		"tenantId": testhelper.TestTenantID,
 		"code":     "update-it-type",
 		"name":     "Old IT",
-	})
+	}, schoolAdminToken)
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
 	}
 	created, _ := testhelper.Unmarshal[domain.IdentityType](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE id = $1", created.ID)
 
-	w := env.Do("PUT", "/api/v1/identity-types/"+created.ID, map[string]string{
+	w := env.DoWithToken("PUT", "/api/v1/identity-types/"+created.ID, map[string]string{
 		"name": "Updated IT",
-	})
+	}, schoolAdminToken)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
@@ -138,24 +143,25 @@ func TestIdentityType_Delete(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
 
-	wc := env.Do("POST", "/api/v1/identity-types", map[string]string{
+	wc := env.DoWithToken("POST", "/api/v1/identity-types", map[string]string{
 		"tenantId": testhelper.TestTenantID,
 		"code":     "delete-it-type",
 		"name":     "Delete IT",
-	})
+	}, schoolAdminToken)
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
 	}
 	created, _ := testhelper.Unmarshal[domain.IdentityType](wc)
 
-	w := env.Do("DELETE", "/api/v1/identity-types/"+created.ID, nil)
+	w := env.DoWithToken("DELETE", "/api/v1/identity-types/"+created.ID, nil, schoolAdminToken)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
 
 	_ = ctx
-	wg := env.Do("GET", "/api/v1/identity-types/"+created.ID, nil)
+	wg := env.DoWithToken("GET", "/api/v1/identity-types/"+created.ID, nil, schoolAdminToken)
 	if wg.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 after delete, got %d", wg.Code)
 	}

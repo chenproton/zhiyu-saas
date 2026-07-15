@@ -260,7 +260,7 @@ func (h *StaffTitleHandler) canManageUsers(r *http.Request) bool {
 	if claims == nil {
 		return false
 	}
-	if claims.Role == domain.UserRoleOperator {
+	if canManagePortal(claims) {
 		return true
 	}
 	return claims.Platform == domain.UserPlatformPortal && h.currentIdentityCode(r) == "school_admin"

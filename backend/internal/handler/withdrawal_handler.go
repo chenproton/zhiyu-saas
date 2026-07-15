@@ -57,7 +57,7 @@ func (h *WithdrawalHandler) List(w http.ResponseWriter, r *http.Request) {
 		argIdx++
 	}
 
-	if claims.Role != domain.UserRoleOperator && claims.InstitutionID != nil {
+	if !platformAdminOnly(claims) && claims.InstitutionID != nil {
 		where = append(where, "institution_id = $"+itoa(argIdx))
 		args = append(args, *claims.InstitutionID)
 		argIdx++

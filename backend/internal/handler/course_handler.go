@@ -24,47 +24,47 @@ type CourseListResponse struct {
 }
 
 type CreateCourseRequest struct {
-	Code          string   `json:"code"`
-	Name          string   `json:"name"`
-	Type          string   `json:"type"`
-	Category      string   `json:"category"`
-	Major         *string  `json:"major"`
-	TeacherID     *string  `json:"teacherId"`
-	Industry      *string  `json:"industry"`
-	Version       *string  `json:"version"`
-	OnlineHours   *float64 `json:"onlineHours"`
-	OfflineHours  *float64 `json:"offlineHours"`
-	OnlineWeight  *float64 `json:"onlineWeight"`
-	OfflineWeight *float64 `json:"offlineWeight"`
-	Semester      *string  `json:"semester"`
-	ClassName     *string  `json:"className"`
-	CoverColor    *string  `json:"coverColor"`
-	CoverImage    *string  `json:"coverImage"`
-	CourseTag     *string  `json:"courseTag"`
+	Code          string           `json:"code"`
+	Name          string           `json:"name"`
+	Type          string           `json:"type"`
+	Category      string           `json:"category"`
+	Major         *string          `json:"major"`
+	TeacherID     *string          `json:"teacherId"`
+	Industry      *string          `json:"industry"`
+	Version       *string          `json:"version"`
+	OnlineHours   *float64         `json:"onlineHours"`
+	OfflineHours  *float64         `json:"offlineHours"`
+	OnlineWeight  *float64         `json:"onlineWeight"`
+	OfflineWeight *float64         `json:"offlineWeight"`
+	Semester      *string          `json:"semester"`
+	ClassName     *string          `json:"className"`
+	CoverColor    *string          `json:"coverColor"`
+	CoverImage    *string          `json:"coverImage"`
+	CourseTag     *string          `json:"courseTag"`
 	CoCreatorIds  domain.JSONSlice `json:"coCreatorIds"`
-	BatchGroup    *string  `json:"batchGroup"`
+	BatchGroup    *string          `json:"batchGroup"`
 }
 
 type UpdateCourseRequest struct {
-	Code          string   `json:"code"`
-	Name          string   `json:"name"`
-	Type          string   `json:"type"`
-	Category      string   `json:"category"`
-	Major         *string  `json:"major"`
-	TeacherID     *string  `json:"teacherId"`
-	Industry      *string  `json:"industry"`
-	Version       *string  `json:"version"`
-	OnlineHours   *float64 `json:"onlineHours"`
-	OfflineHours  *float64 `json:"offlineHours"`
-	OnlineWeight  *float64 `json:"onlineWeight"`
-	OfflineWeight *float64 `json:"offlineWeight"`
-	Semester      *string  `json:"semester"`
-	ClassName     *string  `json:"className"`
-	CoverColor    *string  `json:"coverColor"`
-	CoverImage    *string  `json:"coverImage"`
-	CourseTag     *string  `json:"courseTag"`
+	Code          string           `json:"code"`
+	Name          string           `json:"name"`
+	Type          string           `json:"type"`
+	Category      string           `json:"category"`
+	Major         *string          `json:"major"`
+	TeacherID     *string          `json:"teacherId"`
+	Industry      *string          `json:"industry"`
+	Version       *string          `json:"version"`
+	OnlineHours   *float64         `json:"onlineHours"`
+	OfflineHours  *float64         `json:"offlineHours"`
+	OnlineWeight  *float64         `json:"onlineWeight"`
+	OfflineWeight *float64         `json:"offlineWeight"`
+	Semester      *string          `json:"semester"`
+	ClassName     *string          `json:"className"`
+	CoverColor    *string          `json:"coverColor"`
+	CoverImage    *string          `json:"coverImage"`
+	CourseTag     *string          `json:"courseTag"`
 	CoCreatorIds  domain.JSONSlice `json:"coCreatorIds"`
-	BatchGroup    *string  `json:"batchGroup"`
+	BatchGroup    *string          `json:"batchGroup"`
 }
 
 type ReviewCourseRequest struct {
@@ -97,6 +97,17 @@ func (h *CourseHandler) List(w http.ResponseWriter, r *http.Request) {
 	where := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
+	tenantClaims := middleware.CurrentUser(r)
+	effectiveTenantID, ok := tenantFilter(tenantClaims)
+	if !ok {
+		respondError(w, http.StatusForbidden, "missing tenant")
+		return
+	}
+	if effectiveTenantID != "" {
+		where = append(where, "tenant_id = $"+itoa(argIdx))
+		args = append(args, effectiveTenantID)
+		argIdx++
+	}
 
 	if courseType != "" {
 		where = append(where, "type = $"+itoa(argIdx))

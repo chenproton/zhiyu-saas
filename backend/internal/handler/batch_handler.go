@@ -89,6 +89,17 @@ func (h *BatchHandler) List(w http.ResponseWriter, r *http.Request) {
 	where := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
+	tenantClaims := middleware.CurrentUser(r)
+	effectiveTenantID, ok := tenantFilter(tenantClaims)
+	if !ok {
+		respondError(w, http.StatusForbidden, "missing tenant")
+		return
+	}
+	if effectiveTenantID != "" {
+		where = append(where, "tenant_id = $"+itoa(argIdx))
+		args = append(args, effectiveTenantID)
+		argIdx++
+	}
 
 	if orgNodeID != "" {
 		where = append(where, "org_node_id = $"+itoa(argIdx))

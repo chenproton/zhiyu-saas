@@ -115,5 +115,5 @@ func (h *BannerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func requireOperator(r *http.Request) bool {
 	claims := middleware.CurrentUser(r)
-	return claims != nil && claims.Role == domain.UserRoleOperator
+	return claims != nil && canManagePlatform(claims)
 }

@@ -99,15 +99,15 @@ func TestInstitution_CRUD(t *testing.T) {
 
 	t.Run("Create", func(t *testing.T) {
 		w := env.Do("POST", "/api/v1/institutions", map[string]interface{}{
-			"type":              "school",
-			"name":              "Test Institution",
-			"creditCode":        creditCode,
-			"orgCode":           orgCode,
-			"contactName":       "Contact Person",
-			"contactPhone":      "13800138000",
-			"contactEmail":      "test@example.com",
-			"intro":             "Test intro",
-			"expertiseTags":     []string{"tag1", "tag2"},
+			"type":          "school",
+			"name":          "Test Institution",
+			"creditCode":    creditCode,
+			"orgCode":       orgCode,
+			"contactName":   "Contact Person",
+			"contactPhone":  "13800138000",
+			"contactEmail":  "test@example.com",
+			"intro":         "Test intro",
+			"expertiseTags": []string{"tag1", "tag2"},
 		})
 		if w.Code != http.StatusCreated {
 			t.Fatalf("expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
@@ -213,7 +213,7 @@ func TestResource_CRUD(t *testing.T) {
 	defer env.DB.Exec(ctx, "DELETE FROM institutions WHERE id = $1", instID)
 
 	userID := uuid.NewString()
-	token := env.NewUserToken(userID, testhelper.TestTenantID, domain.UserRoleEnterprise, &instID)
+	token := env.NewTokenWithIdentity(userID, testhelper.TestTenantID, domain.UserRoleEnterprise, &instID, "enterprise_hr")
 	_, err := env.DB.Exec(ctx,
 		`INSERT INTO users (id, tenant_id, role, institution_id, username, login_name, password_hash, name, status, title_ids) VALUES ($1, $2, 'enterprise', $3, $4, $4, $5, 'Test Enterprise User', 'active', '{}')`,
 		userID, testhelper.TestTenantID, instID, userID[:8], "$2a$10$placeholderhash")
@@ -355,7 +355,7 @@ func TestOrder_CRUD(t *testing.T) {
 	defer env.DB.Exec(ctx, "DELETE FROM institutions WHERE id = $1", sellerInst.ID)
 
 	sellerUserID := uuid.NewString()
-	sellerToken := env.NewUserToken(sellerUserID, testhelper.TestTenantID, domain.UserRoleEnterprise, &sellerInst.ID)
+	sellerToken := env.NewTokenWithIdentity(sellerUserID, testhelper.TestTenantID, domain.UserRoleEnterprise, &sellerInst.ID, "enterprise_hr")
 	_, err := env.DB.Exec(ctx,
 		`INSERT INTO users (id, tenant_id, role, institution_id, username, login_name, password_hash, name, status, title_ids) VALUES ($1, $2, 'enterprise', $3, $4, $4, $5, 'Seller User', 'active', '{}')`,
 		sellerUserID, testhelper.TestTenantID, sellerInst.ID, sellerUserID[:8], "$2a$10$placeholderhash")
@@ -417,7 +417,7 @@ func TestOrder_CRUD(t *testing.T) {
 	defer env.DB.Exec(ctx, "DELETE FROM institutions WHERE id = $1", buyerInst.ID)
 
 	buyerUserID := uuid.NewString()
-	buyerToken := env.NewUserToken(buyerUserID, testhelper.TestTenantID, domain.UserRoleSchool, &buyerInst.ID)
+	buyerToken := env.NewTokenWithIdentity(buyerUserID, testhelper.TestTenantID, domain.UserRoleSchool, &buyerInst.ID, "teacher")
 	_, err = env.DB.Exec(ctx,
 		`INSERT INTO users (id, tenant_id, role, institution_id, username, login_name, password_hash, name, status, title_ids) VALUES ($1, $2, 'school', $3, $4, $4, $5, 'Buyer User', 'active', '{}')`,
 		buyerUserID, testhelper.TestTenantID, buyerInst.ID, buyerUserID[:8], "$2a$10$placeholderhash")
@@ -504,7 +504,7 @@ func TestWithdrawal_CRUD(t *testing.T) {
 	env.DB.Exec(ctx, "UPDATE institutions SET balance = 500 WHERE id = $1", instID)
 
 	userID := uuid.NewString()
-	token := env.NewUserToken(userID, testhelper.TestTenantID, domain.UserRoleEnterprise, &instID)
+	token := env.NewTokenWithIdentity(userID, testhelper.TestTenantID, domain.UserRoleEnterprise, &instID, "enterprise_hr")
 	_, err := env.DB.Exec(ctx,
 		`INSERT INTO users (id, tenant_id, role, institution_id, username, login_name, password_hash, name, status, title_ids) VALUES ($1, $2, 'enterprise', $3, $4, $4, $5, 'WD User', 'active', '{}')`,
 		userID, testhelper.TestTenantID, instID, userID[:8], "$2a$10$placeholderhash")

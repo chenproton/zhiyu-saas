@@ -24,10 +24,10 @@ type UserExtensionFieldListResponse struct {
 }
 
 type UpdateUserExtensionFieldRequest struct {
-	FieldName                 string   `json:"fieldName"`
-	IsEnabled                 bool     `json:"isEnabled"`
-	IsRequired                bool     `json:"isRequired"`
-	ApplicableIdentityCodes   []string `json:"applicableIdentityCodes"`
+	FieldName               string   `json:"fieldName"`
+	IsEnabled               bool     `json:"isEnabled"`
+	IsRequired              bool     `json:"isRequired"`
+	ApplicableIdentityCodes []string `json:"applicableIdentityCodes"`
 }
 
 func (h *UserExtensionFieldHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +236,7 @@ func (h *UserExtensionFieldHandler) canManageUsers(r *http.Request) bool {
 	if claims == nil {
 		return false
 	}
-	if claims.Role == domain.UserRoleOperator {
+	if canManagePortal(claims) {
 		return true
 	}
 	return claims.Platform == domain.UserPlatformPortal && h.currentIdentityCode(r) == "school_admin"

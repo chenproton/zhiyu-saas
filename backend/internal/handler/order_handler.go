@@ -30,10 +30,10 @@ type CreateOrderRequest struct {
 }
 
 type OrderDetailResponse struct {
-	Order        domain.Order        `json:"order"`
-	Buyer        domain.Institution  `json:"buyer"`
-	Seller       domain.Institution  `json:"seller"`
-	Resource     domain.Resource     `json:"resource"`
+	Order         domain.Order          `json:"order"`
+	Buyer         domain.Institution    `json:"buyer"`
+	Seller        domain.Institution    `json:"seller"`
+	Resource      domain.Resource       `json:"resource"`
 	Authorization *domain.Authorization `json:"authorization,omitempty"`
 }
 
@@ -82,7 +82,7 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Filter by institution membership unless operator
-	if claims.Role != domain.UserRoleOperator && claims.InstitutionID != nil {
+	if !platformAdminOnly(claims) && claims.InstitutionID != nil {
 		where = append(where, "(buyer_id = $"+itoa(argIdx)+" OR seller_id = $"+itoa(argIdx)+")")
 		args = append(args, *claims.InstitutionID)
 		argIdx++
@@ -130,7 +130,7 @@ func (h *OrderHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if claims.Role != domain.UserRoleOperator && claims.InstitutionID != nil &&
+	if !platformAdminOnly(claims) && claims.InstitutionID != nil &&
 		order.BuyerID != *claims.InstitutionID && order.SellerID != *claims.InstitutionID {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
@@ -307,7 +307,7 @@ func (h *OrderHandler) ListAuthorizations(w http.ResponseWriter, r *http.Request
 	args := []interface{}{}
 	argIdx := 1
 
-	if claims.Role != domain.UserRoleOperator && claims.InstitutionID != nil {
+	if !platformAdminOnly(claims) && claims.InstitutionID != nil {
 		where = append(where, "a.buyer_id = $"+itoa(argIdx))
 		args = append(args, *claims.InstitutionID)
 		argIdx++
@@ -370,7 +370,7 @@ func (h *OrderHandler) VerifyAuthorization(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Only operator or seller can verify
-	if claims.Role != domain.UserRoleOperator && (claims.InstitutionID == nil || *claims.InstitutionID != resourceInstitutionID) {
+	if !platformAdminOnly(claims) && (claims.InstitutionID == nil || *claims.InstitutionID != resourceInstitutionID) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}

@@ -712,11 +712,11 @@ func TestScenarioCreateWithInvalidPositionId(t *testing.T) {
 
 	code := fmt.Sprintf("test-fk-sc-%s", t.Name())
 	w := env.Do("POST", "/api/v1/scene/scenarios", map[string]interface{}{
-		"name":              "FK Test Scenario",
-		"code":              code,
-		"difficulty":        1,
-		"version":           "v1.0",
-		"careerPositionId":  "00000000-0000-0000-0000-00000000dead",
+		"name":             "FK Test Scenario",
+		"code":             code,
+		"difficulty":       1,
+		"version":          "v1.0",
+		"careerPositionId": "00000000-0000-0000-0000-00000000dead",
 	})
 	if w.Code != http.StatusCreated {
 		t.Fatalf("expected 201 for create with arbitrary careerPositionId, got %d", w.Code)

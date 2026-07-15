@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -35,6 +36,10 @@ func TestPagination(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	typeID := uuid.NewString()
 	_, err := env.DB.Exec(ctx,
@@ -46,7 +51,7 @@ func TestPagination(t *testing.T) {
 	defer env.DB.Exec(ctx, "DELETE FROM org_types WHERE id = $1", typeID)
 
 	for i := 1; i <= 3; i++ {
-		w := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+		w := do("POST", "/api/v1/organizations", map[string]interface{}{
 			"tenantId": testhelper.TestTenantID,
 			"name":     fmt.Sprintf("Pagination Org %d", i),
 			"typeId":   typeID,
@@ -58,7 +63,7 @@ func TestPagination(t *testing.T) {
 		defer env.DB.Exec(ctx, "DELETE FROM organizations WHERE id = $1", org.ID)
 	}
 
-	w := env.Do("GET", "/api/v1/organizations?tenantId="+testhelper.TestTenantID+"&limit=2&offset=0", nil)
+	w := do("GET", "/api/v1/organizations?tenantId="+testhelper.TestTenantID+"&limit=2&offset=0", nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
@@ -148,7 +153,7 @@ func TestNonOperatorAccess(t *testing.T) {
 	ctx := context.Background()
 
 	schoolUserID := uuid.NewString()
-	token := env.NewUserToken(schoolUserID, testhelper.TestTenantID, domain.UserRoleSchool, nil)
+	token := env.NewTokenWithIdentity(schoolUserID, testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
 	_, err := env.DB.Exec(ctx,
 		`INSERT INTO users (id, tenant_id, role, username, login_name, password_hash, name, status, title_ids) VALUES ($1, $2, 'school', $3, $3, $4, 'School User', 'active', '{}')`,
 		schoolUserID, testhelper.TestTenantID, schoolUserID[:8], "$2a$10$placeholderhash")

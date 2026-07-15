@@ -60,6 +60,17 @@ func (h *RoleHandler) List(w http.ResponseWriter, r *http.Request) {
 	where := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
+	tenantClaims := middleware.CurrentUser(r)
+	effectiveTenantID, ok := tenantFilter(tenantClaims)
+	if !ok {
+		respondError(w, http.StatusForbidden, "missing tenant")
+		return
+	}
+	if effectiveTenantID != "" {
+		where = append(where, "tenant_id = $"+itoa(argIdx))
+		args = append(args, effectiveTenantID)
+		argIdx++
+	}
 
 	if tenantID != "" {
 		where = append(where, "tenant_id = $"+itoa(argIdx))
@@ -117,7 +128,7 @@ func (h *RoleHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *RoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePortal(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -154,7 +165,7 @@ func (h *RoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePortal(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -195,7 +206,7 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePortal(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -216,7 +227,7 @@ func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *RoleHandler) Assign(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePortal(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}

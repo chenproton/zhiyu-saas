@@ -20,9 +20,9 @@ type AppModuleHandler struct {
 }
 
 type AppModuleGroup struct {
-	ID      string              `json:"id"`
-	Name    string              `json:"name"`
-	Modules []domain.AppModule  `json:"modules"`
+	ID      string             `json:"id"`
+	Name    string             `json:"name"`
+	Modules []domain.AppModule `json:"modules"`
 }
 
 type AppModuleListResponse struct {
@@ -94,7 +94,7 @@ func (h *AppModuleHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *AppModuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -127,7 +127,7 @@ func (h *AppModuleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *AppModuleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -164,7 +164,7 @@ func (h *AppModuleHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *AppModuleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -243,19 +243,19 @@ func (h *AppModuleHandler) groupByPlatform(modules []domain.AppModule) []AppModu
 
 func platformDisplayName(platform string) string {
 	names := map[string]string{
-		"system":    "系统管理",
-		"alliance":  "产教协同与人才品牌运营平台",
-		"career":    "职业岗位学习平台",
-		"course":    "数字课程服务平台",
-		"scene":     "实践场景学习平台",
-		"ability":   "能力评价与测评资源管理平台",
-		"affairs":   "教务服务平台",
-		"ai":        "AI 智能服务平台",
-		"resource":  "教学资源共享服务平台",
-		"opc":       "OPC专区",
-		"decision":  "敏捷决策中心",
-		"research":  "教科研服务中心",
-		"mall":      "产教资源中心",
+		"system":   "系统管理",
+		"alliance": "产教协同与人才品牌运营平台",
+		"career":   "职业岗位学习平台",
+		"course":   "数字课程服务平台",
+		"scene":    "实践场景学习平台",
+		"ability":  "能力评价与测评资源管理平台",
+		"affairs":  "教务服务平台",
+		"ai":       "AI 智能服务平台",
+		"resource": "教学资源共享服务平台",
+		"opc":      "OPC专区",
+		"decision": "敏捷决策中心",
+		"research": "教科研服务中心",
+		"mall":     "产教资源中心",
 	}
 	if name, ok := names[platform]; ok {
 		return name

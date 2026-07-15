@@ -104,7 +104,7 @@ func (h *PlatformLinkHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *PlatformLinkHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -138,7 +138,7 @@ func (h *PlatformLinkHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *PlatformLinkHandler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -170,7 +170,7 @@ func (h *PlatformLinkHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *PlatformLinkHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}

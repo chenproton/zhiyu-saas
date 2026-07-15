@@ -24,31 +24,31 @@ type CourseNodeListResponse struct {
 }
 
 type CreateCourseNodeRequest struct {
-	CourseID          string          `json:"courseId"`
-	ParentID          *string         `json:"parentId"`
-	Name              string          `json:"name"`
-	SortOrder         int             `json:"sortOrder"`
-	RefType           string          `json:"refType"`
-	SourceID          *string         `json:"sourceId"`
-	SourceName        *string         `json:"sourceName"`
-	TeachingGoals     *string         `json:"teachingGoals"`
-	Duration          *float64        `json:"duration"`
+	CourseID          string           `json:"courseId"`
+	ParentID          *string          `json:"parentId"`
+	Name              string           `json:"name"`
+	SortOrder         int              `json:"sortOrder"`
+	RefType           string           `json:"refType"`
+	SourceID          *string          `json:"sourceId"`
+	SourceName        *string          `json:"sourceName"`
+	TeachingGoals     *string          `json:"teachingGoals"`
+	Duration          *float64         `json:"duration"`
 	KnowledgePointIds domain.JSONSlice `json:"knowledgePointIds"`
 	ResourceIds       domain.JSONSlice `json:"resourceIds"`
-	Status            string          `json:"status"`
+	Status            string           `json:"status"`
 }
 
 type UpdateCourseNodeRequest struct {
-	Name              string          `json:"name"`
-	SortOrder         int             `json:"sortOrder"`
-	RefType           string          `json:"refType"`
-	SourceID          *string         `json:"sourceId"`
-	SourceName        *string         `json:"sourceName"`
-	TeachingGoals     *string         `json:"teachingGoals"`
-	Duration          *float64        `json:"duration"`
+	Name              string           `json:"name"`
+	SortOrder         int              `json:"sortOrder"`
+	RefType           string           `json:"refType"`
+	SourceID          *string          `json:"sourceId"`
+	SourceName        *string          `json:"sourceName"`
+	TeachingGoals     *string          `json:"teachingGoals"`
+	Duration          *float64         `json:"duration"`
 	KnowledgePointIds domain.JSONSlice `json:"knowledgePointIds"`
 	ResourceIds       domain.JSONSlice `json:"resourceIds"`
-	Status            string          `json:"status"`
+	Status            string           `json:"status"`
 }
 
 type ReorderCourseNodesRequest struct {
@@ -68,6 +68,17 @@ func (h *CourseNodeHandler) List(w http.ResponseWriter, r *http.Request) {
 	where := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
+	tenantClaims := middleware.CurrentUser(r)
+	effectiveTenantID, ok := tenantFilter(tenantClaims)
+	if !ok {
+		respondError(w, http.StatusForbidden, "missing tenant")
+		return
+	}
+	if effectiveTenantID != "" {
+		where = append(where, "tenant_id = $"+itoa(argIdx))
+		args = append(args, effectiveTenantID)
+		argIdx++
+	}
 
 	if courseID != "" {
 		where = append(where, "course_id = $"+itoa(argIdx))

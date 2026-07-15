@@ -67,6 +67,17 @@ func (h *InstitutionHandler) List(w http.ResponseWriter, r *http.Request) {
 	where := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
+	institutionClaims := middleware.CurrentUser(r)
+	filterInstitutionID, ok := institutionFilter(institutionClaims)
+	if !ok {
+		respondError(w, http.StatusForbidden, "missing institution")
+		return
+	}
+	if filterInstitutionID != "" {
+		where = append(where, "id = $"+itoa(argIdx))
+		args = append(args, filterInstitutionID)
+		argIdx++
+	}
 
 	if status != "" {
 		where = append(where, "status = $"+itoa(argIdx))
@@ -171,7 +182,7 @@ func (h *InstitutionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
 	id := chi.URLParam(r, "id")
 
-	if claims.Role != domain.UserRoleOperator && (claims.InstitutionID == nil || *claims.InstitutionID != id) {
+	if !platformAdminOnly(claims) && (claims.InstitutionID == nil || *claims.InstitutionID != id) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -217,7 +228,7 @@ func (h *InstitutionHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *InstitutionHandler) UpdateStatus(w http.ResponseWriter, r *http.Request, status domain.InstitutionStatus) {
 	claims := middleware.CurrentUser(r)
-	if claims.Role != domain.UserRoleOperator {
+	if !platformAdminOnly(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}

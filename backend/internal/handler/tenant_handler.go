@@ -68,6 +68,17 @@ func (h *TenantHandler) List(w http.ResponseWriter, r *http.Request) {
 	where := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
+	tenantClaims := middleware.CurrentUser(r)
+	effectiveTenantID, ok := tenantFilter(tenantClaims)
+	if !ok {
+		respondError(w, http.StatusForbidden, "missing tenant")
+		return
+	}
+	if effectiveTenantID != "" {
+		where = append(where, "id = $"+itoa(argIdx))
+		args = append(args, effectiveTenantID)
+		argIdx++
+	}
 
 	if status != "" {
 		where = append(where, "status = $"+itoa(argIdx))
@@ -120,7 +131,7 @@ func (h *TenantHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -153,7 +164,7 @@ func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *TenantHandler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -191,7 +202,7 @@ func (h *TenantHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *TenantHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}

@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -31,10 +32,14 @@ func TestOrg_Create(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	typeID := createTestOrgType(t, env)
 
-	w := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+	w := do("POST", "/api/v1/organizations", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"name":     "Test Org",
 		"typeId":   typeID,
@@ -55,8 +60,12 @@ func TestOrg_Create(t *testing.T) {
 func TestOrg_Create_MissingFields(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	w := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+	w := do("POST", "/api/v1/organizations", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"typeId":   "some-type-id",
 	})
@@ -69,10 +78,14 @@ func TestOrg_List(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	typeID := createTestOrgType(t, env)
 
-	w1 := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+	w1 := do("POST", "/api/v1/organizations", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"name":     "OrgA",
 		"typeId":   typeID,
@@ -83,7 +96,7 @@ func TestOrg_List(t *testing.T) {
 	org1, _ := testhelper.Unmarshal[domain.Organization](w1)
 	defer env.DB.Exec(ctx, "DELETE FROM organizations WHERE id = $1", org1.ID)
 
-	w2 := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+	w2 := do("POST", "/api/v1/organizations", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"name":     "OrgB",
 		"typeId":   typeID,
@@ -94,7 +107,7 @@ func TestOrg_List(t *testing.T) {
 	org2, _ := testhelper.Unmarshal[domain.Organization](w2)
 	defer env.DB.Exec(ctx, "DELETE FROM organizations WHERE id = $1", org2.ID)
 
-	w := env.Do("GET", "/api/v1/organizations?tenantId="+testhelper.TestTenantID, nil)
+	w := do("GET", "/api/v1/organizations?tenantId="+testhelper.TestTenantID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -114,10 +127,14 @@ func TestOrg_Tree(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	typeID := createTestOrgType(t, env)
 
-	wParent := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+	wParent := do("POST", "/api/v1/organizations", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"name":     "Parent Org",
 		"typeId":   typeID,
@@ -128,7 +145,7 @@ func TestOrg_Tree(t *testing.T) {
 	parent, _ := testhelper.Unmarshal[domain.Organization](wParent)
 	defer env.DB.Exec(ctx, "DELETE FROM organizations WHERE id = $1", parent.ID)
 
-	wChild := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+	wChild := do("POST", "/api/v1/organizations", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"name":     "Child Org",
 		"typeId":   typeID,
@@ -140,7 +157,7 @@ func TestOrg_Tree(t *testing.T) {
 	child, _ := testhelper.Unmarshal[domain.Organization](wChild)
 	defer env.DB.Exec(ctx, "DELETE FROM organizations WHERE id = $1", child.ID)
 
-	w := env.Do("GET", "/api/v1/organizations/tree?tenantId="+testhelper.TestTenantID, nil)
+	w := do("GET", "/api/v1/organizations/tree?tenantId="+testhelper.TestTenantID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
@@ -166,10 +183,14 @@ func TestOrg_Get(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	typeID := createTestOrgType(t, env)
 
-	wc := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+	wc := do("POST", "/api/v1/organizations", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"name":     "GetOrg",
 		"typeId":   typeID,
@@ -180,7 +201,7 @@ func TestOrg_Get(t *testing.T) {
 	created, _ := testhelper.Unmarshal[domain.Organization](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM organizations WHERE id = $1", created.ID)
 
-	w := env.Do("GET", "/api/v1/organizations/"+created.ID, nil)
+	w := do("GET", "/api/v1/organizations/"+created.ID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -196,8 +217,12 @@ func TestOrg_Get(t *testing.T) {
 func TestOrg_Get_NotFound(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	w := env.Do("GET", "/api/v1/organizations/nonexistent", nil)
+	w := do("GET", "/api/v1/organizations/nonexistent", nil)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", w.Code)
 	}
@@ -207,10 +232,14 @@ func TestOrg_Update(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	typeID := createTestOrgType(t, env)
 
-	wc := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+	wc := do("POST", "/api/v1/organizations", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"name":     "OldOrg",
 		"typeId":   typeID,
@@ -221,7 +250,7 @@ func TestOrg_Update(t *testing.T) {
 	created, _ := testhelper.Unmarshal[domain.Organization](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM organizations WHERE id = $1", created.ID)
 
-	w := env.Do("PUT", "/api/v1/organizations/"+created.ID, map[string]interface{}{
+	w := do("PUT", "/api/v1/organizations/"+created.ID, map[string]interface{}{
 		"name":   "UpdatedOrg",
 		"typeId": typeID,
 	})
@@ -241,10 +270,14 @@ func TestOrg_Delete(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	typeID := createTestOrgType(t, env)
 
-	wc := env.Do("POST", "/api/v1/organizations", map[string]interface{}{
+	wc := do("POST", "/api/v1/organizations", map[string]interface{}{
 		"tenantId": testhelper.TestTenantID,
 		"name":     "DeleteOrg",
 		"typeId":   typeID,
@@ -254,13 +287,13 @@ func TestOrg_Delete(t *testing.T) {
 	}
 	created, _ := testhelper.Unmarshal[domain.Organization](wc)
 
-	w := env.Do("DELETE", "/api/v1/organizations/"+created.ID, nil)
+	w := do("DELETE", "/api/v1/organizations/"+created.ID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
 
 	_ = ctx
-	wg := env.Do("GET", "/api/v1/organizations/"+created.ID, nil)
+	wg := do("GET", "/api/v1/organizations/"+created.ID, nil)
 	if wg.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 after delete, got %d", wg.Code)
 	}
@@ -270,11 +303,15 @@ func TestOrgType_CRUD(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	var typeID string
 
 	t.Run("Create", func(t *testing.T) {
-		w := env.Do("POST", "/api/v1/org-types", map[string]interface{}{
+		w := do("POST", "/api/v1/org-types", map[string]interface{}{
 			"tenantId":    testhelper.TestTenantID,
 			"name":        "Test Org Type",
 			"category":    "internal",
@@ -306,7 +343,7 @@ func TestOrgType_CRUD(t *testing.T) {
 	}
 
 	t.Run("List", func(t *testing.T) {
-		w := env.Do("GET", "/api/v1/org-types?tenantId="+testhelper.TestTenantID, nil)
+		w := do("GET", "/api/v1/org-types?tenantId="+testhelper.TestTenantID, nil)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 		}
@@ -321,7 +358,7 @@ func TestOrgType_CRUD(t *testing.T) {
 	})
 
 	t.Run("Get", func(t *testing.T) {
-		w := env.Do("GET", "/api/v1/org-types/"+typeID, nil)
+		w := do("GET", "/api/v1/org-types/"+typeID, nil)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 		}
@@ -335,7 +372,7 @@ func TestOrgType_CRUD(t *testing.T) {
 	})
 
 	t.Run("Update", func(t *testing.T) {
-		w := env.Do("PUT", "/api/v1/org-types/"+typeID, map[string]interface{}{
+		w := do("PUT", "/api/v1/org-types/"+typeID, map[string]interface{}{
 			"name":        "Updated Org Type",
 			"category":    "business",
 			"description": "Updated description",
@@ -357,13 +394,13 @@ func TestOrgType_CRUD(t *testing.T) {
 
 	t.Run("Delete", func(t *testing.T) {
 		deletedID := typeID
-		w := env.Do("DELETE", "/api/v1/org-types/"+deletedID, nil)
+		w := do("DELETE", "/api/v1/org-types/"+deletedID, nil)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 		}
 		typeID = ""
 
-		w = env.Do("GET", "/api/v1/org-types/"+deletedID, nil)
+		w = do("GET", "/api/v1/org-types/"+deletedID, nil)
 		if w.Code != http.StatusNotFound {
 			t.Fatalf("expected 404 after delete, got %d", w.Code)
 		}

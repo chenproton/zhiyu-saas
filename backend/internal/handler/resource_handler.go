@@ -24,14 +24,14 @@ type ResourceListResponse struct {
 }
 
 type CreateResourceRequest struct {
-	Name           string         `json:"name"`
-	Intro          string         `json:"intro"`
-	Category       string         `json:"category"`
-	CoverImage     *string        `json:"coverImage"`
-	Attachment     *string        `json:"attachment"`
-	AttachmentName *string        `json:"attachmentName"`
-	Price          float64        `json:"price"`
-	Version        string         `json:"version"`
+	Name           string             `json:"name"`
+	Intro          string             `json:"intro"`
+	Category       string             `json:"category"`
+	CoverImage     *string            `json:"coverImage"`
+	Attachment     *string            `json:"attachment"`
+	AttachmentName *string            `json:"attachmentName"`
+	Price          float64            `json:"price"`
+	Version        string             `json:"version"`
 	Tags           []ResourceTagInput `json:"tags"`
 }
 
@@ -89,7 +89,7 @@ func (h *ResourceHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Non-operators (or anonymous users) can only see published resources or their own
-	if claims == nil || claims.Role != domain.UserRoleOperator {
+	if claims == nil || !platformAdminOnly(claims) {
 		if claims != nil && claims.InstitutionID != nil {
 			where = append(where, "(r.status = $"+itoa(argIdx)+" OR r.institution_id = $"+itoa(argIdx+1)+")")
 			args = append(args, domain.ResourceStatusPublished, *claims.InstitutionID)
@@ -142,7 +142,7 @@ func (h *ResourceHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *ResourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims.Role == domain.UserRoleOperator {
+	if platformAdminOnly(claims) {
 		respondError(w, http.StatusForbidden, "operator cannot create resources")
 		return
 	}
@@ -209,7 +209,7 @@ func (h *ResourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if claims.Role != domain.UserRoleOperator && (claims.InstitutionID == nil || *claims.InstitutionID != existing.InstitutionID) {
+	if !platformAdminOnly(claims) && (claims.InstitutionID == nil || *claims.InstitutionID != existing.InstitutionID) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -264,7 +264,7 @@ func (h *ResourceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if claims.Role != domain.UserRoleOperator && (claims.InstitutionID == nil || *claims.InstitutionID != existing.InstitutionID) {
+	if !platformAdminOnly(claims) && (claims.InstitutionID == nil || *claims.InstitutionID != existing.InstitutionID) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -283,7 +283,7 @@ func (h *ResourceHandler) SubmitForReview(w http.ResponseWriter, r *http.Request
 
 func (h *ResourceHandler) Review(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims.Role != domain.UserRoleOperator {
+	if !platformAdminOnly(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -322,7 +322,7 @@ func (h *ResourceHandler) Review(w http.ResponseWriter, r *http.Request) {
 
 func (h *ResourceHandler) Publish(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims.Role != domain.UserRoleOperator {
+	if !platformAdminOnly(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -331,7 +331,7 @@ func (h *ResourceHandler) Publish(w http.ResponseWriter, r *http.Request) {
 
 func (h *ResourceHandler) Offline(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if claims.Role != domain.UserRoleOperator {
+	if !platformAdminOnly(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}

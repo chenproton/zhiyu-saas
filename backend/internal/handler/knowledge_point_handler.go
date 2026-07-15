@@ -24,18 +24,18 @@ type KnowledgePointListResponse struct {
 }
 
 type CreateKnowledgePointRequest struct {
-	Name              string          `json:"name"`
-	Code              *string         `json:"code"`
-	Description       *string         `json:"description"`
-	Linked            bool            `json:"linked"`
+	Name              string           `json:"name"`
+	Code              *string          `json:"code"`
+	Description       *string          `json:"description"`
+	Linked            bool             `json:"linked"`
 	GranularLessonIds domain.JSONSlice `json:"granularLessonIds"`
 }
 
 type UpdateKnowledgePointRequest struct {
-	Name              string          `json:"name"`
-	Code              *string         `json:"code"`
-	Description       *string         `json:"description"`
-	Linked            bool            `json:"linked"`
+	Name              string           `json:"name"`
+	Code              *string          `json:"code"`
+	Description       *string          `json:"description"`
+	Linked            bool             `json:"linked"`
 	GranularLessonIds domain.JSONSlice `json:"granularLessonIds"`
 }
 
@@ -63,6 +63,17 @@ func (h *KnowledgePointHandler) List(w http.ResponseWriter, r *http.Request) {
 	where := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
+	tenantClaims := middleware.CurrentUser(r)
+	effectiveTenantID, ok := tenantFilter(tenantClaims)
+	if !ok {
+		respondError(w, http.StatusForbidden, "missing tenant")
+		return
+	}
+	if effectiveTenantID != "" {
+		where = append(where, "tenant_id = $"+itoa(argIdx))
+		args = append(args, effectiveTenantID)
+		argIdx++
+	}
 
 	if search != "" {
 		where = append(where, "(name ILIKE $"+itoa(argIdx)+" OR code ILIKE $"+itoa(argIdx)+")")

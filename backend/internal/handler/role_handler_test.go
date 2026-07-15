@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,8 +15,12 @@ func TestRole_Create(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	w := env.Do("POST", "/api/v1/roles", map[string]interface{}{
+	w := do("POST", "/api/v1/roles", map[string]interface{}{
 		"tenantId":    testhelper.TestTenantID,
 		"code":        "test-role",
 		"name":        "Test Role",
@@ -38,8 +43,12 @@ func TestRole_List(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	wc := env.Do("POST", "/api/v1/roles", map[string]interface{}{
+	wc := do("POST", "/api/v1/roles", map[string]interface{}{
 		"tenantId":    testhelper.TestTenantID,
 		"code":        "list-role",
 		"name":        "List Role",
@@ -51,7 +60,7 @@ func TestRole_List(t *testing.T) {
 	role, _ := testhelper.Unmarshal[domain.Role](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM roles WHERE id = $1", role.ID)
 
-	w := env.Do("GET", "/api/v1/roles?tenantId="+testhelper.TestTenantID, nil)
+	w := do("GET", "/api/v1/roles?tenantId="+testhelper.TestTenantID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -68,8 +77,12 @@ func TestRole_Get(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	wc := env.Do("POST", "/api/v1/roles", map[string]interface{}{
+	wc := do("POST", "/api/v1/roles", map[string]interface{}{
 		"tenantId":    testhelper.TestTenantID,
 		"code":        "get-role",
 		"name":        "Get Role",
@@ -81,7 +94,7 @@ func TestRole_Get(t *testing.T) {
 	created, _ := testhelper.Unmarshal[domain.Role](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM roles WHERE id = $1", created.ID)
 
-	w := env.Do("GET", "/api/v1/roles/"+created.ID, nil)
+	w := do("GET", "/api/v1/roles/"+created.ID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -98,8 +111,12 @@ func TestRole_Update(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	wc := env.Do("POST", "/api/v1/roles", map[string]interface{}{
+	wc := do("POST", "/api/v1/roles", map[string]interface{}{
 		"tenantId":    testhelper.TestTenantID,
 		"code":        "update-role",
 		"name":        "Old Role",
@@ -111,7 +128,7 @@ func TestRole_Update(t *testing.T) {
 	created, _ := testhelper.Unmarshal[domain.Role](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM roles WHERE id = $1", created.ID)
 
-	w := env.Do("PUT", "/api/v1/roles/"+created.ID, map[string]interface{}{
+	w := do("PUT", "/api/v1/roles/"+created.ID, map[string]interface{}{
 		"name":        "Updated Role",
 		"permissions": domain.JSONMap{"admin": true},
 	})
@@ -131,8 +148,12 @@ func TestRole_Delete(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	wc := env.Do("POST", "/api/v1/roles", map[string]interface{}{
+	wc := do("POST", "/api/v1/roles", map[string]interface{}{
 		"tenantId":    testhelper.TestTenantID,
 		"code":        "delete-role",
 		"name":        "Delete Role",
@@ -143,13 +164,13 @@ func TestRole_Delete(t *testing.T) {
 	}
 	created, _ := testhelper.Unmarshal[domain.Role](wc)
 
-	w := env.Do("DELETE", "/api/v1/roles/"+created.ID, nil)
+	w := do("DELETE", "/api/v1/roles/"+created.ID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
 
 	_ = ctx
-	wg := env.Do("GET", "/api/v1/roles/"+created.ID, nil)
+	wg := do("GET", "/api/v1/roles/"+created.ID, nil)
 	if wg.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 after delete, got %d", wg.Code)
 	}
@@ -159,8 +180,12 @@ func TestRole_Assign(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
-	wc := env.Do("POST", "/api/v1/roles", map[string]interface{}{
+	wc := do("POST", "/api/v1/roles", map[string]interface{}{
 		"tenantId":    testhelper.TestTenantID,
 		"code":        "assign-role",
 		"name":        "Assign Role",
@@ -183,7 +208,7 @@ func TestRole_Assign(t *testing.T) {
 	}
 	defer env.DB.Exec(ctx, "DELETE FROM users WHERE id = $1", userID)
 
-	w := env.Do("POST", "/api/v1/roles/"+role.ID+"/assign", map[string]string{
+	w := do("POST", "/api/v1/roles/"+role.ID+"/assign", map[string]string{
 		"userId": userID,
 	})
 	if w.Code != http.StatusOK {

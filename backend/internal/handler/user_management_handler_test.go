@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -32,10 +33,14 @@ func TestUser_Create(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	itID := createTestIdentityType(t, env)
 
-	w := env.Do("POST", "/api/v1/users", map[string]interface{}{
+	w := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "newtestuser",
 		"password":       "testpass",
@@ -59,10 +64,14 @@ func TestUser_List(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	itID := createTestIdentityType(t, env)
 
-	wc := env.Do("POST", "/api/v1/users", map[string]interface{}{
+	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "listuser",
 		"password":       "testpass",
@@ -75,7 +84,7 @@ func TestUser_List(t *testing.T) {
 	user, _ := testhelper.Unmarshal[domain.User](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM users WHERE id = $1", user.ID)
 
-	w := env.Do("GET", "/api/v1/users?tenantId="+testhelper.TestTenantID, nil)
+	w := do("GET", "/api/v1/users?tenantId="+testhelper.TestTenantID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -92,10 +101,14 @@ func TestUser_Get(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	itID := createTestIdentityType(t, env)
 
-	wc := env.Do("POST", "/api/v1/users", map[string]interface{}{
+	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "getuser",
 		"password":       "testpass",
@@ -108,7 +121,7 @@ func TestUser_Get(t *testing.T) {
 	created, _ := testhelper.Unmarshal[domain.User](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM users WHERE id = $1", created.ID)
 
-	w := env.Do("GET", "/api/v1/users/"+created.ID, nil)
+	w := do("GET", "/api/v1/users/"+created.ID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
@@ -125,10 +138,14 @@ func TestUser_Update(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	itID := createTestIdentityType(t, env)
 
-	wc := env.Do("POST", "/api/v1/users", map[string]interface{}{
+	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "updateuser",
 		"password":       "testpass",
@@ -141,7 +158,7 @@ func TestUser_Update(t *testing.T) {
 	created, _ := testhelper.Unmarshal[domain.User](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM users WHERE id = $1", created.ID)
 
-	w := env.Do("PUT", "/api/v1/users/"+created.ID, map[string]interface{}{
+	w := do("PUT", "/api/v1/users/"+created.ID, map[string]interface{}{
 		"username": "updateuser",
 		"name":     "Updated Name",
 	})
@@ -161,10 +178,14 @@ func TestUser_Delete(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	itID := createTestIdentityType(t, env)
 
-	wc := env.Do("POST", "/api/v1/users", map[string]interface{}{
+	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "deleteuser",
 		"password":       "testpass",
@@ -176,12 +197,12 @@ func TestUser_Delete(t *testing.T) {
 	}
 	created, _ := testhelper.Unmarshal[domain.User](wc)
 
-	w := env.Do("DELETE", "/api/v1/users/"+created.ID, nil)
+	w := do("DELETE", "/api/v1/users/"+created.ID, nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
 
-	wg := env.Do("GET", "/api/v1/users/"+created.ID, nil)
+	wg := do("GET", "/api/v1/users/"+created.ID, nil)
 	if wg.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 after delete, got %d", wg.Code)
 	}
@@ -193,10 +214,14 @@ func TestUser_UpdateStatus(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	itID := createTestIdentityType(t, env)
 
-	wc := env.Do("POST", "/api/v1/users", map[string]interface{}{
+	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "statususer",
 		"password":       "testpass",
@@ -209,7 +234,7 @@ func TestUser_UpdateStatus(t *testing.T) {
 	created, _ := testhelper.Unmarshal[domain.User](wc)
 	defer env.DB.Exec(ctx, "DELETE FROM users WHERE id = $1", created.ID)
 
-	w := env.Do("POST", "/api/v1/users/"+created.ID+"/status", map[string]string{
+	w := do("POST", "/api/v1/users/"+created.ID+"/status", map[string]string{
 		"status": "inactive",
 	})
 	if w.Code != http.StatusOK {
@@ -228,10 +253,14 @@ func TestUser_BatchCreate(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
 	ctx := context.Background()
+	schoolAdminToken := env.NewTokenWithIdentity("school-admin-001", testhelper.TestTenantID, domain.UserRoleSchool, nil, "school_admin")
+	do := func(method, path string, body interface{}) *httptest.ResponseRecorder {
+		return env.DoWithToken(method, path, body, schoolAdminToken)
+	}
 
 	itID := createTestIdentityType(t, env)
 
-	w := env.Do("POST", "/api/v1/users/batch", map[string]interface{}{
+	w := do("POST", "/api/v1/users/batch", map[string]interface{}{
 		"users": []map[string]interface{}{
 			{
 				"tenantId":       testhelper.TestTenantID,

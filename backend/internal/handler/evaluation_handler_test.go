@@ -654,11 +654,11 @@ func TestGraduation(t *testing.T) {
 	defer env.DB.Exec(ctx, "DELETE FROM career_positions WHERE id = $1", pos.ID)
 
 	w = env.Do("POST", "/api/v1/evaluation/graduation/topics", map[string]interface{}{
-		"name":              "Topic 1",
-		"careerPositionId":  pos.ID,
-		"college":           "CS",
-		"source":            "scene",
-		"capacity":          5,
+		"name":             "Topic 1",
+		"careerPositionId": pos.ID,
+		"college":          "CS",
+		"source":           "scene",
+		"capacity":         5,
 	})
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create topic: expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
@@ -680,11 +680,11 @@ func TestGraduation(t *testing.T) {
 	}
 
 	w = env.Do("PUT", "/api/v1/evaluation/graduation/topics/"+topic.ID, map[string]interface{}{
-		"name":              "Updated Topic",
-		"careerPositionId":  pos.ID,
-		"college":           "CS",
-		"source":            "scene",
-		"capacity":          10,
+		"name":             "Updated Topic",
+		"careerPositionId": pos.ID,
+		"college":          "CS",
+		"source":           "scene",
+		"capacity":         10,
 	})
 	if w.Code != http.StatusOK {
 		t.Fatalf("update topic: expected 200, got %d", w.Code)

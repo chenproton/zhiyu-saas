@@ -25,22 +25,22 @@ type UserListResponse struct {
 }
 
 type CreateUserRequest struct {
-	TenantID       string             `json:"tenantId"`
-	InstitutionID  *string            `json:"institutionId"`
-	IdentityTypeID *string            `json:"identityTypeId"`
-	OrgNodeID      *string            `json:"orgNodeId"`
-	MajorID        *string            `json:"majorId"`
-	Username       string             `json:"username"`
-	Password       string             `json:"password"`
-	Name           string             `json:"name"`
-	Email          string             `json:"email"`
-	Phone          *string            `json:"phone"`
-	AvatarURL      *string            `json:"avatarUrl"`
-	StudentNo      *string            `json:"studentNo"`
-	WorkID         *string            `json:"workId"`
-	IDCard         *string            `json:"idCard"`
-	TitleIDs       []string           `json:"titleIds"`
-	Role           *string            `json:"role"`
+	TenantID       string              `json:"tenantId"`
+	InstitutionID  *string             `json:"institutionId"`
+	IdentityTypeID *string             `json:"identityTypeId"`
+	OrgNodeID      *string             `json:"orgNodeId"`
+	MajorID        *string             `json:"majorId"`
+	Username       string              `json:"username"`
+	Password       string              `json:"password"`
+	Name           string              `json:"name"`
+	Email          string              `json:"email"`
+	Phone          *string             `json:"phone"`
+	AvatarURL      *string             `json:"avatarUrl"`
+	StudentNo      *string             `json:"studentNo"`
+	WorkID         *string             `json:"workId"`
+	IDCard         *string             `json:"idCard"`
+	TitleIDs       []string            `json:"titleIds"`
+	Role           *string             `json:"role"`
 	Platform       domain.UserPlatform `json:"platform"`
 }
 
@@ -88,7 +88,7 @@ func (h *UserManagementHandler) canManageUsers(r *http.Request) bool {
 	if claims == nil {
 		return false
 	}
-	if claims.Role == domain.UserRoleOperator {
+	if canManagePortal(claims) {
 		return true
 	}
 	return claims.Platform == domain.UserPlatformPortal && h.currentIdentityCode(r) == "school_admin"
@@ -116,6 +116,17 @@ func (h *UserManagementHandler) List(w http.ResponseWriter, r *http.Request) {
 	where := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
+	tenantClaims := middleware.CurrentUser(r)
+	effectiveTenantID, ok := tenantFilter(tenantClaims)
+	if !ok {
+		respondError(w, http.StatusForbidden, "missing tenant")
+		return
+	}
+	if effectiveTenantID != "" {
+		where = append(where, "tenant_id = $"+itoa(argIdx))
+		args = append(args, effectiveTenantID)
+		argIdx++
+	}
 
 	if tenantID != "" {
 		where = append(where, "tenant_id = $"+itoa(argIdx))
