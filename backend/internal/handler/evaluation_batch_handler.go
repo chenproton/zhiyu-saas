@@ -21,6 +21,7 @@ func NewEvaluationBatchHandler(db *pgxpool.Pool) *EvaluationBatchHandler {
 			StatusOpen:    "open",
 			StatusClosed:  "closed",
 			SearchColumns: []string{"name"},
+			TenantScoped:  true,
 			ScanRow:       scanEvaluationBatchRow,
 			ScanRows:      scanEvaluationBatchRows,
 		}),

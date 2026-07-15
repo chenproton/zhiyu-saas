@@ -22,6 +22,7 @@ func NewCourseBatchHandler(db *pgxpool.Pool) *CourseBatchHandler {
 			StatusOpen:    string(domain.LessonBatchStatusOpen),
 			StatusClosed:  string(domain.LessonBatchStatusClosed),
 			SearchColumns: []string{"name", "code"},
+			TenantScoped:  true,
 			ExtraListFilters: func(r *http.Request, argIdx int) (clauses []string, args []any) {
 				major := r.URL.Query().Get("major")
 				if major == "" {

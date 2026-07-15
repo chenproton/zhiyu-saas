@@ -95,7 +95,7 @@ func (h *ScenarioTaskHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT id, scenario_id, name, code, sort_order, description, detailed_description,
-			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id
+			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id, tenant_id
 		FROM scenario_tasks
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY sort_order
@@ -149,12 +149,15 @@ func (h *ScenarioTaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var tenantID *string
+	_ = h.DB.QueryRow(r.Context(), `SELECT tenant_id FROM scenarios WHERE id = $1`, req.ScenarioID).Scan(&tenantID)
+
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO scenario_tasks (scenario_id, name, code, sort_order, description, detailed_description,
-			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id, tenant_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`, req.ScenarioID, req.Name, req.Code, req.SortOrder, req.Description, req.DetailedDescription,
-		req.EstimatedHours, req.TaskType, req.Difficulty, req.Background, coalesceStringSlice(req.DependencyIDs), req.IsReferenced, req.SourceScenarioID)
+		req.EstimatedHours, req.TaskType, req.Difficulty, req.Background, coalesceStringSlice(req.DependencyIDs), req.IsReferenced, req.SourceScenarioID, tenantID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create task")
 		return
@@ -262,11 +265,11 @@ func (h *ScenarioTaskHandler) fetchTask(ctx context.Context, id string) (*domain
 	var t domain.ScenarioTask
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, scenario_id, name, code, sort_order, description, detailed_description,
-			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id
+			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id, tenant_id
 		FROM scenario_tasks WHERE id = $1
 	`, id).Scan(
 		&t.ID, &t.ScenarioID, &t.Name, &t.Code, &t.SortOrder, &t.Description, &t.DetailedDescription,
-		&t.EstimatedHours, &t.TaskType, &t.Difficulty, &t.Background, &t.DependencyIDs, &t.IsReferenced, &t.SourceScenarioID,
+		&t.EstimatedHours, &t.TaskType, &t.Difficulty, &t.Background, &t.DependencyIDs, &t.IsReferenced, &t.SourceScenarioID, &t.TenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -278,11 +281,11 @@ func (h *ScenarioTaskHandler) fetchTaskByCode(ctx context.Context, code string) 
 	var t domain.ScenarioTask
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, scenario_id, name, code, sort_order, description, detailed_description,
-			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id
+			estimated_hours, task_type, difficulty, background, dependency_ids, is_referenced, source_scenario_id, tenant_id
 		FROM scenario_tasks WHERE code = $1
 	`, code).Scan(
 		&t.ID, &t.ScenarioID, &t.Name, &t.Code, &t.SortOrder, &t.Description, &t.DetailedDescription,
-		&t.EstimatedHours, &t.TaskType, &t.Difficulty, &t.Background, &t.DependencyIDs, &t.IsReferenced, &t.SourceScenarioID,
+		&t.EstimatedHours, &t.TaskType, &t.Difficulty, &t.Background, &t.DependencyIDs, &t.IsReferenced, &t.SourceScenarioID, &t.TenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -296,7 +299,7 @@ func (h *ScenarioTaskHandler) scanTaskRows(rows pgx.Rows) ([]domain.ScenarioTask
 		var t domain.ScenarioTask
 		if err := rows.Scan(
 			&t.ID, &t.ScenarioID, &t.Name, &t.Code, &t.SortOrder, &t.Description, &t.DetailedDescription,
-			&t.EstimatedHours, &t.TaskType, &t.Difficulty, &t.Background, &t.DependencyIDs, &t.IsReferenced, &t.SourceScenarioID,
+			&t.EstimatedHours, &t.TaskType, &t.Difficulty, &t.Background, &t.DependencyIDs, &t.IsReferenced, &t.SourceScenarioID, &t.TenantID,
 		); err != nil {
 			return nil, err
 		}

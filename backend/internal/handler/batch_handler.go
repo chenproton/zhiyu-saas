@@ -49,6 +49,8 @@ type BatchTableConfig struct {
 	CreateExtraCols []string
 	CreateExtraVals []any
 
+	TenantScoped     bool
+
 	CreateWithStatus bool
 	UpdateWithStatus bool
 
@@ -95,7 +97,7 @@ func (h *BatchHandler) List(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "missing tenant")
 		return
 	}
-	if effectiveTenantID != "" {
+	if h.Config.TenantScoped && effectiveTenantID != "" {
 		where = append(where, "tenant_id = $"+itoa(argIdx))
 		args = append(args, effectiveTenantID)
 		argIdx++
@@ -174,7 +176,8 @@ func (h *BatchHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BatchHandler) Create(w http.ResponseWriter, r *http.Request) {
-	if middleware.CurrentUser(r) == nil {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
 	}
@@ -195,8 +198,17 @@ func (h *BatchHandler) Create(w http.ResponseWriter, r *http.Request) {
 		status = req.Status
 	}
 
+	var tenantID *string
+	if claims.TenantID != nil && *claims.TenantID != "" {
+		tenantID = claims.TenantID
+	}
+
 	cols := []string{"id", "name", "code", "org_node_id", "major", "workflow_id", "status"}
 	vals := []any{id, req.Name, req.Code, req.OrgNodeID, req.Major, req.WorkflowID, status}
+	if h.Config.TenantScoped {
+		cols = append(cols, "tenant_id")
+		vals = append(vals, tenantID)
+	}
 	cols = append(cols, h.Config.CreateExtraCols...)
 	vals = append(vals, h.Config.CreateExtraVals...)
 

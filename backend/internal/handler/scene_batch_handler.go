@@ -21,6 +21,7 @@ func NewSceneBatchHandler(db *pgxpool.Pool) *SceneBatchHandler {
 			StatusOpen:    string(domain.SceneBatchStatusOpen),
 			StatusClosed:  string(domain.SceneBatchStatusClosed),
 			SearchColumns: []string{"name"},
+			TenantScoped:  true,
 			ScanRow:       scanSceneBatchRow,
 			ScanRows:      scanSceneBatchRows,
 		}),

@@ -31,6 +31,7 @@ type Scenario struct {
 	DeliveryGoal     *string        `json:"deliveryGoal,omitempty"`
 	CreatorID        string         `json:"creatorId"`
 	CoBuilderIDs     []string       `json:"coBuilderIds,omitempty"`
+	TenantID         *string        `json:"tenantId,omitempty"`
 	CreatedAt        time.Time      `json:"createdAt"`
 	UpdatedAt        time.Time      `json:"updatedAt"`
 	PublishTime      *time.Time     `json:"publishTime,omitempty"`
@@ -52,6 +53,7 @@ type ScenarioTask struct {
 	DependencyIDs       []string `json:"dependencyIds,omitempty"`
 	IsReferenced        bool     `json:"isReferenced"`
 	SourceScenarioID    *string  `json:"sourceScenarioId,omitempty"`
+	TenantID            *string  `json:"tenantId,omitempty"`
 }
 
 type TaskEvaluationConfig struct {

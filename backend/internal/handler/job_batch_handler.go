@@ -21,6 +21,7 @@ func NewJobBatchHandler(db *pgxpool.Pool) *JobBatchHandler {
 			StatusOpen:    string(domain.BatchStatusOpen),
 			StatusClosed:  string(domain.BatchStatusClosed),
 			SearchColumns: []string{"name"},
+			TenantScoped:  true,
 			ScanRow:       scanJobBatchRow,
 			ScanRows:      scanJobBatchRows,
 		}),

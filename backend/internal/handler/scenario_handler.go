@@ -104,7 +104,7 @@ func (h *ScenarioHandler) List(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT id, name, code, cover_image, career_position_id, industry_id, industry_name,
 			profession_id, profession_name, batch_id, difficulty, version, status, background,
-			delivery_goal, creator_id, co_builder_ids, created_at, updated_at, publish_time, view_count
+			delivery_goal, creator_id, co_builder_ids, tenant_id, created_at, updated_at, publish_time, view_count
 		FROM scenarios
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -165,14 +165,19 @@ func (h *ScenarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	id := uuid.NewString()
 
+	var tenantID *string
+	if claims.TenantID != nil && *claims.TenantID != "" {
+		tenantID = claims.TenantID
+	}
+
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO scenarios (id, name, code, cover_image, career_position_id, industry_id, industry_name,
 			profession_id, profession_name, batch_id, difficulty, version, status, background,
-			delivery_goal, creator_id, co_builder_ids)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft', $13, $14, $15, $16)
+			delivery_goal, creator_id, co_builder_ids, tenant_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft', $13, $14, $15, $16, $17)
 	`, id, req.Name, req.Code, req.CoverImage, req.CareerPositionID, req.IndustryID, req.IndustryName,
 		req.ProfessionID, req.ProfessionName, req.BatchID, req.Difficulty, req.Version, req.Background,
-		req.DeliveryGoal, claims.UserID, coalesceStringSlice(req.CoBuilderIDs))
+		req.DeliveryGoal, claims.UserID, coalesceStringSlice(req.CoBuilderIDs), tenantID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create scenario")
 		return
@@ -363,12 +368,12 @@ func (h *ScenarioHandler) fetchScenario(ctx context.Context, id string) (*domain
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, name, code, cover_image, career_position_id, industry_id, industry_name,
 			profession_id, profession_name, batch_id, difficulty, version, status, background,
-			delivery_goal, creator_id, co_builder_ids, created_at, updated_at, publish_time, view_count
+			delivery_goal, creator_id, co_builder_ids, tenant_id, created_at, updated_at, publish_time, view_count
 		FROM scenarios WHERE id = $1
 	`, id).Scan(
 		&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &s.IndustryName,
 		&s.ProfessionID, &s.ProfessionName, &s.BatchID, &s.Difficulty, &s.Version, &s.Status, &s.Background,
-		&s.DeliveryGoal, &s.CreatorID, &s.CoBuilderIDs, &s.CreatedAt, &s.UpdatedAt, &s.PublishTime, &s.ViewCount,
+		&s.DeliveryGoal, &s.CreatorID, &s.CoBuilderIDs, &s.TenantID, &s.CreatedAt, &s.UpdatedAt, &s.PublishTime, &s.ViewCount,
 	)
 	if err != nil {
 		return nil, err
@@ -383,7 +388,7 @@ func (h *ScenarioHandler) scanScenarioRows(rows pgx.Rows) ([]domain.Scenario, er
 		if err := rows.Scan(
 			&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &s.IndustryName,
 			&s.ProfessionID, &s.ProfessionName, &s.BatchID, &s.Difficulty, &s.Version, &s.Status, &s.Background,
-			&s.DeliveryGoal, &s.CreatorID, &s.CoBuilderIDs, &s.CreatedAt, &s.UpdatedAt, &s.PublishTime, &s.ViewCount,
+			&s.DeliveryGoal, &s.CreatorID, &s.CoBuilderIDs, &s.TenantID, &s.CreatedAt, &s.UpdatedAt, &s.PublishTime, &s.ViewCount,
 		); err != nil {
 			return nil, err
 		}
