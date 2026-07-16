@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
@@ -102,22 +102,28 @@ function TreeNode({
   level = 0,
   onToggle,
   onAction,
+  highlightedId,
+  registerRef,
 }: {
   node: OrgNode
   level?: number
   onToggle: (id: string) => void
   onAction: (action: string, node: OrgNode) => void
+  highlightedId?: string | null
+  registerRef?: (id: string, el: HTMLDivElement | null) => void
 }) {
   const hasChildren = node.children && node.children.length > 0
   const meta = typeMetaFor(node.type)
   const Icon = meta.icon
+  const isHighlighted = highlightedId === node.id
 
   return (
-    <div>
+    <div ref={(el) => registerRef?.(node.id, el)}>
       <div
         className={cn(
           "flex items-center gap-2 py-2 px-3 hover:bg-muted rounded-lg group transition-colors",
-          level > 0 && "ml-6"
+          level > 0 && "ml-6",
+          isHighlighted && "bg-yellow-100 ring-1 ring-yellow-300"
         )}
       >
         <button
@@ -197,6 +203,8 @@ function TreeNode({
               level={level + 1}
               onToggle={onToggle}
               onAction={onAction}
+              highlightedId={highlightedId}
+              registerRef={registerRef}
             />
           ))}
         </div>
@@ -221,6 +229,9 @@ export default function OrgStructurePage() {
   const [formSortOrder, setFormSortOrder] = useState<string>("1")
   const [saving, setSaving] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
     setMounted(true)
@@ -235,6 +246,9 @@ export default function OrgStructurePage() {
   }
 
   const mapToOrgNode = (node: Organization & { children?: (Organization & { children?: any[] })[] }): OrgNode => {
+    const sortedChildren = node.children
+      ? [...node.children].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(mapToOrgNode)
+      : undefined
     return {
       id: node.id,
       name: node.name,
@@ -244,7 +258,7 @@ export default function OrgStructurePage() {
       order: node.sortOrder,
       memberCount: node.memberCount,
       expanded: true,
-      children: node.children?.map(mapToOrgNode),
+      children: sortedChildren,
     }
   }
 
@@ -301,9 +315,24 @@ export default function OrgStructurePage() {
     setOrgData(toggle(orgData))
   }
 
+  const registerNodeRef = (id: string, el: HTMLDivElement | null) => {
+    nodeRefs.current[id] = el
+  }
+
+  useEffect(() => {
+    if (!highlightedId) return
+    const el = nodeRefs.current[highlightedId]
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+      const timer = setTimeout(() => setHighlightedId(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [highlightedId, orgData])
+
   const openDialog = (mode: typeof dialogMode, node: OrgNode | null = null) => {
     setDialogMode(mode)
     setSelectedNode(node)
+    setFormError(null)
     if (mode === "edit" && node) {
       setFormName(node.name)
       setFormTypeId(node.typeId)
@@ -341,11 +370,16 @@ export default function OrgStructurePage() {
   const handleSave = async () => {
     if (!tenantId) return
     if (!formName.trim() || !formTypeId) {
-      toast({ variant: "destructive", title: "请填写节点名称并选择类型" })
+      setFormError("请填写节点名称并选择类型")
       return
     }
     setSaving(true)
+    setFormError(null)
     try {
+      let targetId: string | null = null
+      let toastTitle = ""
+      let toastDescription = ""
+
       if (dialogMode === "edit" && selectedNode) {
         await orgApi.update(selectedNode.id, {
           tenantId,
@@ -353,7 +387,9 @@ export default function OrgStructurePage() {
           typeId: formTypeId,
           sortOrder: Number(formSortOrder) || 0,
         })
-        toast({ title: "保存成功" })
+        targetId = selectedNode.id
+        toastTitle = "保存成功"
+        toastDescription = `组织节点「${formName.trim()}」已更新`
       } else {
         let parentId: string | undefined
         if (dialogMode === "addChild" && selectedNode) {
@@ -369,15 +405,30 @@ export default function OrgStructurePage() {
           sortOrder: Number(formSortOrder) || 0,
           memberCount: 0,
         })
+        targetId = newNode.id
         if (dialogMode === "addParent" && selectedNode) {
           await orgApi.update(selectedNode.id, { parentId: newNode.id })
         }
-        toast({ title: "创建成功" })
+        if (dialogMode === "addChild" && selectedNode) {
+          toastTitle = "创建成功"
+          toastDescription = `已在「${selectedNode.name}」下添加「${newNode.name}」`
+        } else if (dialogMode === "addParent" && selectedNode) {
+          toastTitle = "创建成功"
+          toastDescription = `已为「${selectedNode.name}」添加父节点「${newNode.name}」`
+        } else {
+          toastTitle = "创建成功"
+          toastDescription = `已添加根节点「${newNode.name}」`
+        }
+      }
+
+      await fetchData()
+      if (targetId) {
+        setHighlightedId(targetId)
       }
       setIsDialogOpen(false)
-      await fetchData()
+      toast({ title: toastTitle, description: toastDescription })
     } catch (err) {
-      toast({ variant: "destructive", title: "保存失败", description: err instanceof Error ? err.message : "未知错误" })
+      setFormError(err instanceof Error ? err.message : "保存失败，请重试")
     } finally {
       setSaving(false)
     }
@@ -485,6 +536,8 @@ export default function OrgStructurePage() {
                     node={node}
                     onToggle={toggleNode}
                     onAction={handleAction}
+                    highlightedId={highlightedId}
+                    registerRef={registerNodeRef}
                   />
                 ))
               )}
@@ -553,6 +606,13 @@ export default function OrgStructurePage() {
                     onChange={(e) => setFormSortOrder(e.target.value)}
                   />
                 </div>
+                {formError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>保存失败</AlertTitle>
+                    <AlertDescription>{formError}</AlertDescription>
+                  </Alert>
+                )}
               </div>
             ) : (
               <div className="py-4">
