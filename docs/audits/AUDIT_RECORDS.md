@@ -34,6 +34,7 @@
   - `/job/batches`、`/scene/batches`、`/lesson/admin/batches` 新建/编辑批次改为选择真实二级学院与专业。
   - 共建人弹窗按 `user.orgNodeId` 对应的真实组织节点分组。
   - 本地验证通过：`go vet ./...`、`go test ./...`、`go build ./cmd/server/main.go`、`pnpm exec tsc --noEmit`、`pnpm lint`（0 errors）、`pnpm test`。
+  - 部署验证通过：`./deploy.sh` 成功完成前后端构建、数据库迁移、PM2 启动与健康检查。
   - 已变更模块需回归审查，确认数据一致性与权限隔离。
 
 ### 2026-07-15 前端基础设施审查
