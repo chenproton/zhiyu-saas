@@ -5,6 +5,7 @@ export interface CareerPosition {
   shortName?: string
   industryId?: string
   majorIds: string[]
+  majorNames?: string[]
   positionType: "enterprise" | "teaching"
   salaryMin?: number
   salaryMax?: number

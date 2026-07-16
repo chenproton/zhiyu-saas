@@ -98,11 +98,14 @@ func (h *CourseNodeHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, course_id, parent_id, name, sort_order, ref_type, source_id, source_name,
-			teaching_goals, duration, knowledge_point_ids, resource_ids, status, created_at, updated_at
-		FROM system_course_nodes
+		SELECT n.id, n.course_id, n.parent_id, n.name, n.sort_order, n.ref_type, n.source_id, n.source_name,
+			n.teaching_goals, n.duration,
+			(SELECT COALESCE(array_agg(kp.knowledge_point_id), '{}') FROM node_knowledge_point_bindings kp WHERE kp.node_id = n.id) AS knowledge_point_ids,
+			(SELECT COALESCE(array_agg(rb.resource_id), '{}') FROM node_resource_bindings rb WHERE rb.node_id = n.id) AS resource_ids,
+			n.status, n.created_at, n.updated_at
+		FROM system_course_nodes n
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY sort_order ASC, created_at ASC
+		ORDER BY n.sort_order ASC, n.created_at ASC
 	`
 
 	rows, err := h.DB.Query(r.Context(), query, args...)
@@ -153,20 +156,49 @@ func (h *CourseNodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := uuid.NewString()
-	if req.KnowledgePointIds == nil {
-		req.KnowledgePointIds = domain.JSONSlice{}
+	tx, err := h.DB.Begin(r.Context())
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
 	}
-	if req.ResourceIds == nil {
-		req.ResourceIds = domain.JSONSlice{}
-	}
-	_, err := h.DB.Exec(r.Context(), `
+	defer tx.Rollback(r.Context())
+
+	_, err = tx.Exec(r.Context(), `
 		INSERT INTO system_course_nodes (id, course_id, parent_id, name, sort_order, ref_type, source_id, source_name,
-			teaching_goals, duration, knowledge_point_ids, resource_ids, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			teaching_goals, duration, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`, id, req.CourseID, req.ParentID, req.Name, req.SortOrder, req.RefType, req.SourceID, req.SourceName,
-		req.TeachingGoals, req.Duration, req.KnowledgePointIds, req.ResourceIds, req.Status)
+		req.TeachingGoals, req.Duration, req.Status)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create course node")
+		return
+	}
+
+	for _, v := range req.KnowledgePointIds {
+		kpID, ok := v.(string)
+		if !ok || kpID == "" {
+			continue
+		}
+		_, err = tx.Exec(r.Context(), `INSERT INTO node_knowledge_point_bindings (node_id, knowledge_point_id) VALUES ($1, $2)`, id, kpID)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to insert knowledge point binding")
+			return
+		}
+	}
+	for _, v := range req.ResourceIds {
+		resID, ok := v.(string)
+		if !ok || resID == "" {
+			continue
+		}
+		_, err = tx.Exec(r.Context(), `INSERT INTO node_resource_bindings (node_id, resource_id) VALUES ($1, $2)`, id, resID)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to insert resource binding")
+			return
+		}
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to commit")
 		return
 	}
 
@@ -203,15 +235,61 @@ func (h *CourseNodeHandler) Update(w http.ResponseWriter, r *http.Request) {
 		req.ResourceIds = domain.JSONSlice{}
 	}
 
-	_, err := h.DB.Exec(r.Context(), `
+	tx, err := h.DB.Begin(r.Context())
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	_, err = tx.Exec(r.Context(), `
 		UPDATE system_course_nodes SET name = $1, sort_order = $2, ref_type = $3, source_id = $4,
-			source_name = $5, teaching_goals = $6, duration = $7, knowledge_point_ids = $8,
-			resource_ids = $9, status = $10, updated_at = NOW()
-		WHERE id = $11
+			source_name = $5, teaching_goals = $6, duration = $7,
+			status = $8, updated_at = NOW()
+		WHERE id = $9
 	`, req.Name, req.SortOrder, req.RefType, req.SourceID, req.SourceName, req.TeachingGoals,
-		req.Duration, req.KnowledgePointIds, req.ResourceIds, req.Status, id)
+		req.Duration, req.Status, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update course node")
+		return
+	}
+
+	_, err = tx.Exec(r.Context(), `DELETE FROM node_knowledge_point_bindings WHERE node_id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to clear knowledge point bindings")
+		return
+	}
+	_, err = tx.Exec(r.Context(), `DELETE FROM node_resource_bindings WHERE node_id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to clear resource bindings")
+		return
+	}
+
+	for _, v := range req.KnowledgePointIds {
+		kpID, ok := v.(string)
+		if !ok || kpID == "" {
+			continue
+		}
+		_, err = tx.Exec(r.Context(), `INSERT INTO node_knowledge_point_bindings (node_id, knowledge_point_id) VALUES ($1, $2)`, id, kpID)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to insert knowledge point binding")
+			return
+		}
+	}
+	for _, v := range req.ResourceIds {
+		resID, ok := v.(string)
+		if !ok || resID == "" {
+			continue
+		}
+		_, err = tx.Exec(r.Context(), `INSERT INTO node_resource_bindings (node_id, resource_id) VALUES ($1, $2)`, id, resID)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to insert resource binding")
+			return
+		}
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to commit")
 		return
 	}
 
@@ -284,9 +362,12 @@ func (h *CourseNodeHandler) Reorder(w http.ResponseWriter, r *http.Request) {
 func (h *CourseNodeHandler) fetchCourseNode(ctx context.Context, id string) (*domain.SystemCourseNode, error) {
 	var n domain.SystemCourseNode
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, course_id, parent_id, name, sort_order, ref_type, source_id, source_name,
-			teaching_goals, duration, knowledge_point_ids, resource_ids, status, created_at, updated_at
-		FROM system_course_nodes WHERE id = $1
+		SELECT n.id, n.course_id, n.parent_id, n.name, n.sort_order, n.ref_type, n.source_id, n.source_name,
+			n.teaching_goals, n.duration,
+			(SELECT COALESCE(array_agg(kp.knowledge_point_id), '{}') FROM node_knowledge_point_bindings kp WHERE kp.node_id = n.id) AS knowledge_point_ids,
+			(SELECT COALESCE(array_agg(rb.resource_id), '{}') FROM node_resource_bindings rb WHERE rb.node_id = n.id) AS resource_ids,
+			n.status, n.created_at, n.updated_at
+		FROM system_course_nodes n WHERE n.id = $1
 	`, id).Scan(
 		&n.ID, &n.CourseID, &n.ParentID, &n.Name, &n.SortOrder, &n.RefType, &n.SourceID, &n.SourceName,
 		&n.TeachingGoals, &n.Duration, &n.KnowledgePointIds, &n.ResourceIds, &n.Status, &n.CreatedAt, &n.UpdatedAt,

@@ -49,6 +49,7 @@ type CareerPosition struct {
 	ShortName     *string              `json:"shortName,omitempty"`
 	IndustryID    *string              `json:"industryId,omitempty"`
 	MajorIDs      []string             `json:"majorIds"`
+	MajorNames    []string             `json:"majorNames,omitempty"`
 	PositionType  PositionType         `json:"positionType"`
 	SalaryMin     *int                 `json:"salaryMin,omitempty"`
 	SalaryMax     *int                 `json:"salaryMax,omitempty"`

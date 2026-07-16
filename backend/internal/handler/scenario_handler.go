@@ -29,7 +29,6 @@ type CreateScenarioRequest struct {
 	CoverImage       *string  `json:"coverImage"`
 	CareerPositionID *string  `json:"careerPositionId"`
 	IndustryID       *string  `json:"industryId"`
-	IndustryName     *string  `json:"industryName"`
 	ProfessionID     *string  `json:"professionId"`
 	ProfessionName   *string  `json:"professionName"`
 	BatchID          *string  `json:"batchId"`
@@ -102,12 +101,13 @@ func (h *ScenarioHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, name, code, cover_image, career_position_id, industry_id, industry_name,
-			profession_id, profession_name, batch_id, difficulty, version, status, background,
-			delivery_goal, creator_id, co_builder_ids, tenant_id, created_at, updated_at, publish_time, view_count
-		FROM scenarios
+		SELECT s.id, s.name, s.code, s.cover_image, s.career_position_id, s.industry_id, COALESCE(i.name, '') AS industry_name,
+			s.profession_id, s.profession_name, s.batch_id, s.difficulty, s.version, s.status, s.background,
+			s.delivery_goal, s.creator_id, s.co_builder_ids, s.tenant_id, s.created_at, s.updated_at, s.publish_time, s.view_count
+		FROM scenarios s
+		LEFT JOIN industries i ON i.id = s.industry_id
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY s.created_at DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -171,11 +171,11 @@ func (h *ScenarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO scenarios (id, name, code, cover_image, career_position_id, industry_id, industry_name,
+		INSERT INTO scenarios (id, name, code, cover_image, career_position_id, industry_id,
 			profession_id, profession_name, batch_id, difficulty, version, status, background,
 			delivery_goal, creator_id, co_builder_ids, tenant_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft', $13, $14, $15, $16, $17)
-	`, id, req.Name, req.Code, req.CoverImage, req.CareerPositionID, req.IndustryID, req.IndustryName,
+	`, id, req.Name, req.Code, req.CoverImage, req.CareerPositionID, req.IndustryID,
 		req.ProfessionID, req.ProfessionName, req.BatchID, req.Difficulty, req.Version, req.Background,
 		req.DeliveryGoal, claims.UserID, coalesceStringSlice(req.CoBuilderIDs), tenantID)
 	if err != nil {
@@ -213,11 +213,11 @@ func (h *ScenarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	_, err = h.DB.Exec(r.Context(), `
 		UPDATE scenarios SET name = $1, code = $2, cover_image = $3, career_position_id = $4,
-			industry_id = $5, industry_name = $6, profession_id = $7, profession_name = $8,
-			batch_id = $9, difficulty = $10, version = $11, background = $12, delivery_goal = $13,
-			co_builder_ids = $14, updated_at = NOW()
-		WHERE id = $15
-	`, req.Name, req.Code, req.CoverImage, req.CareerPositionID, req.IndustryID, req.IndustryName,
+			industry_id = $5, profession_id = $6, profession_name = $7,
+			batch_id = $8, difficulty = $9, version = $10, background = $11, delivery_goal = $12,
+			co_builder_ids = $13, updated_at = NOW()
+		WHERE id = $14
+	`, req.Name, req.Code, req.CoverImage, req.CareerPositionID, req.IndustryID,
 		req.ProfessionID, req.ProfessionName, req.BatchID, req.Difficulty, req.Version, req.Background,
 		req.DeliveryGoal, coBuilderIDs, id)
 	if err != nil {
@@ -365,13 +365,16 @@ func (h *ScenarioHandler) transitionStatus(w http.ResponseWriter, r *http.Reques
 
 func (h *ScenarioHandler) fetchScenario(ctx context.Context, id string) (*domain.Scenario, error) {
 	var s domain.Scenario
+	var dummyIndustryName string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, name, code, cover_image, career_position_id, industry_id, industry_name,
-			profession_id, profession_name, batch_id, difficulty, version, status, background,
-			delivery_goal, creator_id, co_builder_ids, tenant_id, created_at, updated_at, publish_time, view_count
-		FROM scenarios WHERE id = $1
+		SELECT s.id, s.name, s.code, s.cover_image, s.career_position_id, s.industry_id, COALESCE(i.name, '') AS industry_name,
+			s.profession_id, s.profession_name, s.batch_id, s.difficulty, s.version, s.status, s.background,
+			s.delivery_goal, s.creator_id, s.co_builder_ids, s.tenant_id, s.created_at, s.updated_at, s.publish_time, s.view_count
+		FROM scenarios s
+		LEFT JOIN industries i ON i.id = s.industry_id
+		WHERE s.id = $1
 	`, id).Scan(
-		&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &s.IndustryName,
+		&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &dummyIndustryName,
 		&s.ProfessionID, &s.ProfessionName, &s.BatchID, &s.Difficulty, &s.Version, &s.Status, &s.Background,
 		&s.DeliveryGoal, &s.CreatorID, &s.CoBuilderIDs, &s.TenantID, &s.CreatedAt, &s.UpdatedAt, &s.PublishTime, &s.ViewCount,
 	)
@@ -385,8 +388,9 @@ func (h *ScenarioHandler) scanScenarioRows(rows pgx.Rows) ([]domain.Scenario, er
 	items := make([]domain.Scenario, 0)
 	for rows.Next() {
 		var s domain.Scenario
+		var dummyIndustryName string
 		if err := rows.Scan(
-			&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &s.IndustryName,
+			&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &dummyIndustryName,
 			&s.ProfessionID, &s.ProfessionName, &s.BatchID, &s.Difficulty, &s.Version, &s.Status, &s.Background,
 			&s.DeliveryGoal, &s.CreatorID, &s.CoBuilderIDs, &s.TenantID, &s.CreatedAt, &s.UpdatedAt, &s.PublishTime, &s.ViewCount,
 		); err != nil {

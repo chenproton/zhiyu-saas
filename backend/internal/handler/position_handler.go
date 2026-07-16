@@ -125,12 +125,15 @@ func (h *PositionHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, batch_id, name, short_name, industry_id, major_ids, position_type,
-			salary_min, salary_max, cover_image, description, requirements, career_path,
-			version, status, created_by, collaborators, created_at, updated_at
-		FROM career_positions
+		SELECT cp.id, cp.batch_id, cp.name, cp.short_name, cp.industry_id,
+			COALESCE((SELECT array_agg(cpm.major_id) FROM career_position_majors cpm WHERE cpm.career_position_id = cp.id), '{}') AS major_ids,
+			COALESCE((SELECT array_agg(m.name) FROM career_position_majors cpm JOIN majors m ON m.id = cpm.major_id WHERE cpm.career_position_id = cp.id), '{}') AS major_names,
+			cp.position_type, cp.salary_min, cp.salary_max, cp.cover_image, cp.description,
+			cp.requirements, cp.career_path, cp.version, cp.status, cp.created_by,
+			cp.collaborators, cp.created_at, cp.updated_at
+		FROM career_positions cp
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY cp.created_at DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -189,18 +192,40 @@ func (h *PositionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
 	status := domain.CareerPositionStatusDraft
 
-	_, err := h.DB.Exec(r.Context(), `
+	tx, err := h.DB.Begin(r.Context())
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to start transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	_, err = tx.Exec(r.Context(), `
 		INSERT INTO career_positions (
-			id, batch_id, name, short_name, industry_id, major_ids, position_type,
+			id, batch_id, name, short_name, industry_id, position_type,
 			salary_min, salary_max, cover_image, description, requirements, career_path,
 			version, status, created_by, collaborators
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-	`, id, req.BatchID, req.Name, req.ShortName, req.IndustryID, coalesceStringSlice(req.MajorIDs),
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+	`, id, req.BatchID, req.Name, req.ShortName, req.IndustryID,
 		req.PositionType, req.SalaryMin, req.SalaryMax, req.CoverImage, req.Description,
 		coalesceStringSlice(req.Requirements), req.CareerPath, req.Version, status, claims.UserID,
 		coalesceStringSlice(req.Collaborators))
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create position")
+		return
+	}
+
+	for _, majorID := range req.MajorIDs {
+		_, err = tx.Exec(r.Context(), `
+			INSERT INTO career_position_majors (career_position_id, major_id) VALUES ($1, $2)
+		`, id, majorID)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to insert position majors")
+			return
+		}
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to commit transaction")
 		return
 	}
 
@@ -246,18 +271,46 @@ func (h *PositionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		collaborators = existing.Collaborators
 	}
 
-	_, err = h.DB.Exec(r.Context(), `
+	tx, err := h.DB.Begin(r.Context())
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to start transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	_, err = tx.Exec(r.Context(), `
 		UPDATE career_positions SET
-			batch_id = $1, name = $2, short_name = $3, industry_id = $4, major_ids = $5,
-			position_type = $6, salary_min = $7, salary_max = $8, cover_image = $9,
-			description = $10, requirements = $11, career_path = $12, version = $13,
-			collaborators = $14, updated_at = NOW()
-		WHERE id = $15
-	`, req.BatchID, req.Name, req.ShortName, req.IndustryID, majorIDs, req.PositionType,
+			batch_id = $1, name = $2, short_name = $3, industry_id = $4,
+			position_type = $5, salary_min = $6, salary_max = $7, cover_image = $8,
+			description = $9, requirements = $10, career_path = $11, version = $12,
+			collaborators = $13, updated_at = NOW()
+		WHERE id = $14
+	`, req.BatchID, req.Name, req.ShortName, req.IndustryID, req.PositionType,
 		req.SalaryMin, req.SalaryMax, req.CoverImage, req.Description, requirements,
 		req.CareerPath, req.Version, collaborators, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update position")
+		return
+	}
+
+	_, err = tx.Exec(r.Context(), `DELETE FROM career_position_majors WHERE career_position_id = $1`, id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update position majors")
+		return
+	}
+
+	for _, majorID := range majorIDs {
+		_, err = tx.Exec(r.Context(), `
+			INSERT INTO career_position_majors (career_position_id, major_id) VALUES ($1, $2)
+		`, id, majorID)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to insert position majors")
+			return
+		}
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to commit transaction")
 		return
 	}
 
@@ -399,15 +452,18 @@ func (h *PositionHandler) fetchPosition(ctx context.Context, id string) (domain.
 	var p domain.CareerPosition
 	var batchID, shortName, industryID, coverImage, description, careerPath *string
 	var salaryMin, salaryMax *int
-	var majorIDs, requirements, collaborators []string
+	var majorIDs, majorNames, requirements, collaborators []string
 
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, batch_id, name, short_name, industry_id, major_ids, position_type,
-			salary_min, salary_max, cover_image, description, requirements, career_path,
-			version, status, created_by, collaborators, created_at, updated_at
-		FROM career_positions WHERE id = $1
+		SELECT cp.id, cp.batch_id, cp.name, cp.short_name, cp.industry_id,
+			COALESCE((SELECT array_agg(cpm.major_id) FROM career_position_majors cpm WHERE cpm.career_position_id = cp.id), '{}') AS major_ids,
+			COALESCE((SELECT array_agg(m.name) FROM career_position_majors cpm JOIN majors m ON m.id = cpm.major_id WHERE cpm.career_position_id = cp.id), '{}') AS major_names,
+			cp.position_type, cp.salary_min, cp.salary_max, cp.cover_image, cp.description,
+			cp.requirements, cp.career_path, cp.version, cp.status, cp.created_by,
+			cp.collaborators, cp.created_at, cp.updated_at
+		FROM career_positions cp WHERE cp.id = $1
 	`, id).Scan(
-		&p.ID, &batchID, &p.Name, &shortName, &industryID, &majorIDs, &p.PositionType,
+		&p.ID, &batchID, &p.Name, &shortName, &industryID, &majorIDs, &majorNames, &p.PositionType,
 		&salaryMin, &salaryMax, &coverImage, &description, &requirements, &careerPath,
 		&p.Version, &p.Status, &p.CreatedBy, &collaborators, &p.CreatedAt, &p.UpdatedAt,
 	)
@@ -418,6 +474,7 @@ func (h *PositionHandler) fetchPosition(ctx context.Context, id string) (domain.
 	p.ShortName = shortName
 	p.IndustryID = industryID
 	p.MajorIDs = majorIDs
+	p.MajorNames = majorNames
 	p.SalaryMin = salaryMin
 	p.SalaryMax = salaryMax
 	p.CoverImage = coverImage
@@ -434,10 +491,10 @@ func (h *PositionHandler) scanPositionRows(rows pgx.Rows) ([]domain.CareerPositi
 		var p domain.CareerPosition
 		var batchID, shortName, industryID, coverImage, description, careerPath *string
 		var salaryMin, salaryMax *int
-		var majorIDs, requirements, collaborators []string
+		var majorIDs, majorNames, requirements, collaborators []string
 
 		if err := rows.Scan(
-			&p.ID, &batchID, &p.Name, &shortName, &industryID, &majorIDs, &p.PositionType,
+			&p.ID, &batchID, &p.Name, &shortName, &industryID, &majorIDs, &majorNames, &p.PositionType,
 			&salaryMin, &salaryMax, &coverImage, &description, &requirements, &careerPath,
 			&p.Version, &p.Status, &p.CreatedBy, &collaborators, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
@@ -447,6 +504,7 @@ func (h *PositionHandler) scanPositionRows(rows pgx.Rows) ([]domain.CareerPositi
 		p.ShortName = shortName
 		p.IndustryID = industryID
 		p.MajorIDs = majorIDs
+		p.MajorNames = majorNames
 		p.SalaryMin = salaryMin
 		p.SalaryMax = salaryMax
 		p.CoverImage = coverImage

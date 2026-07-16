@@ -39,6 +39,7 @@ type QuestionBank struct {
 	Version             string    `json:"version"`
 	OwnerType           string    `json:"ownerType"`
 	IsDraftPool         bool      `json:"isDraftPool"`
+	KnowledgePointIDs   []string  `json:"knowledgePointIds,omitempty"`
 	CreatedAt           time.Time `json:"createdAt"`
 	UpdatedAt           time.Time `json:"updatedAt"`
 }
