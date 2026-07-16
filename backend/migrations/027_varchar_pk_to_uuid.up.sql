@@ -59,91 +59,91 @@ UPDATE resources SET institution_id_new = '00000000-0000-0000-0000-000000000000'
 UPDATE resource_tags SET resource_id_new = '00000000-0000-0000-0000-000000000000' WHERE resource_id_new IS NULL;
 
 -- PART 4: 删除旧 PK，设新 PK
-ALTER TABLE institutions DROP CONSTRAINT institutions_pkey;
+ALTER TABLE institutions DROP CONSTRAINT IF EXISTS institutions_pkey;
 ALTER TABLE institutions ADD PRIMARY KEY (new_id);
-ALTER TABLE resources DROP CONSTRAINT resources_pkey;
+ALTER TABLE resources DROP CONSTRAINT IF EXISTS resources_pkey;
 ALTER TABLE resources ADD PRIMARY KEY (new_id);
-ALTER TABLE orders DROP CONSTRAINT orders_pkey;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_pkey;
 ALTER TABLE orders ADD PRIMARY KEY (new_id);
-ALTER TABLE authorizations DROP CONSTRAINT authorizations_pkey;
+ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS authorizations_pkey;
 ALTER TABLE authorizations ADD PRIMARY KEY (new_id);
-ALTER TABLE withdrawals DROP CONSTRAINT withdrawals_pkey;
+ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_pkey;
 ALTER TABLE withdrawals ADD PRIMARY KEY (new_id);
-ALTER TABLE banners DROP CONSTRAINT banners_pkey;
+ALTER TABLE banners DROP CONSTRAINT IF EXISTS banners_pkey;
 ALTER TABLE banners ADD PRIMARY KEY (new_id);
 
 -- PART 5: 删除旧 FK，设新 FK
 -- institutions.institution_expertise_tags
-ALTER TABLE institution_expertise_tags DROP CONSTRAINT IF EXISTS institution_expertise_tags_institution_id_fkey;
+ALTER TABLE institution_expertise_tags DROP CONSTRAINT IF EXISTS IF EXISTS institution_expertise_tags_institution_id_fkey;
 ALTER TABLE institution_expertise_tags ADD FOREIGN KEY (institution_id_new) REFERENCES institutions(new_id) ON DELETE CASCADE;
 
 -- resources.institution_id
-ALTER TABLE resources DROP CONSTRAINT IF EXISTS resources_institution_id_fkey;
+ALTER TABLE resources DROP CONSTRAINT IF EXISTS IF EXISTS resources_institution_id_fkey;
 ALTER TABLE resources ADD FOREIGN KEY (institution_id_new) REFERENCES institutions(new_id) ON DELETE SET NULL;
 
 -- resource_tags.resource_id
-ALTER TABLE resource_tags DROP CONSTRAINT IF EXISTS resource_tags_resource_id_fkey;
+ALTER TABLE resource_tags DROP CONSTRAINT IF EXISTS IF EXISTS resource_tags_resource_id_fkey;
 ALTER TABLE resource_tags ADD FOREIGN KEY (resource_id_new) REFERENCES resources(new_id) ON DELETE CASCADE;
 
 -- orders FKs
-ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_resource_id_fkey;
-ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_buyer_id_fkey;
-ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_seller_id_fkey;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS IF EXISTS orders_resource_id_fkey;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS IF EXISTS orders_buyer_id_fkey;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS IF EXISTS orders_seller_id_fkey;
 ALTER TABLE orders ADD FOREIGN KEY (resource_id_new) REFERENCES resources(new_id);
 ALTER TABLE orders ADD FOREIGN KEY (buyer_id_new) REFERENCES institutions(new_id);
 ALTER TABLE orders ADD FOREIGN KEY (seller_id_new) REFERENCES institutions(new_id);
 
 -- authorizations FKs
-ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS authorizations_order_id_fkey;
-ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS authorizations_buyer_id_fkey;
-ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS authorizations_resource_id_fkey;
+ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS IF EXISTS authorizations_order_id_fkey;
+ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS IF EXISTS authorizations_buyer_id_fkey;
+ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS IF EXISTS authorizations_resource_id_fkey;
 ALTER TABLE authorizations ADD FOREIGN KEY (order_id_new) REFERENCES orders(new_id) ON DELETE CASCADE;
 ALTER TABLE authorizations ADD FOREIGN KEY (buyer_id_new) REFERENCES institutions(new_id);
 ALTER TABLE authorizations ADD FOREIGN KEY (resource_id_new) REFERENCES resources(new_id);
 
 -- withdrawals.institution_id
-ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_institution_id_fkey;
+ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS IF EXISTS withdrawals_institution_id_fkey;
 ALTER TABLE withdrawals ADD FOREIGN KEY (institution_id_new) REFERENCES institutions(new_id);
 
 -- users.institution_id
-ALTER TABLE users DROP CONSTRAINT IF EXISTS users_institution_id_fkey;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS IF EXISTS users_institution_id_fkey;
 ALTER TABLE users ADD FOREIGN KEY (institution_id_new) REFERENCES institutions(new_id) ON DELETE SET NULL;
 
 -- PART 6: 交换列名
-ALTER TABLE institutions DROP COLUMN id;
+ALTER TABLE institutions DROP COLUMN IF EXISTS id;
 ALTER TABLE institutions RENAME COLUMN new_id TO id;
-ALTER TABLE resources DROP COLUMN id;
+ALTER TABLE resources DROP COLUMN IF EXISTS id;
 ALTER TABLE resources RENAME COLUMN new_id TO id;
-ALTER TABLE orders DROP COLUMN id;
+ALTER TABLE orders DROP COLUMN IF EXISTS id;
 ALTER TABLE orders RENAME COLUMN new_id TO id;
-ALTER TABLE authorizations DROP COLUMN id;
+ALTER TABLE authorizations DROP COLUMN IF EXISTS id;
 ALTER TABLE authorizations RENAME COLUMN new_id TO id;
-ALTER TABLE withdrawals DROP COLUMN id;
+ALTER TABLE withdrawals DROP COLUMN IF EXISTS id;
 ALTER TABLE withdrawals RENAME COLUMN new_id TO id;
-ALTER TABLE banners DROP COLUMN id;
+ALTER TABLE banners DROP COLUMN IF EXISTS id;
 ALTER TABLE banners RENAME COLUMN new_id TO id;
 
-ALTER TABLE resources DROP COLUMN institution_id;
+ALTER TABLE resources DROP COLUMN IF EXISTS institution_id;
 ALTER TABLE resources RENAME COLUMN institution_id_new TO institution_id;
-ALTER TABLE institution_expertise_tags DROP COLUMN institution_id;
+ALTER TABLE institution_expertise_tags DROP COLUMN IF EXISTS institution_id;
 ALTER TABLE institution_expertise_tags RENAME COLUMN institution_id_new TO institution_id;
-ALTER TABLE resource_tags DROP COLUMN resource_id;
+ALTER TABLE resource_tags DROP COLUMN IF EXISTS resource_id;
 ALTER TABLE resource_tags RENAME COLUMN resource_id_new TO resource_id;
-ALTER TABLE orders DROP COLUMN resource_id;
+ALTER TABLE orders DROP COLUMN IF EXISTS resource_id;
 ALTER TABLE orders RENAME COLUMN resource_id_new TO resource_id;
-ALTER TABLE orders DROP COLUMN buyer_id;
+ALTER TABLE orders DROP COLUMN IF EXISTS buyer_id;
 ALTER TABLE orders RENAME COLUMN buyer_id_new TO buyer_id;
-ALTER TABLE orders DROP COLUMN seller_id;
+ALTER TABLE orders DROP COLUMN IF EXISTS seller_id;
 ALTER TABLE orders RENAME COLUMN seller_id_new TO seller_id;
-ALTER TABLE authorizations DROP COLUMN order_id;
+ALTER TABLE authorizations DROP COLUMN IF EXISTS order_id;
 ALTER TABLE authorizations RENAME COLUMN order_id_new TO order_id;
-ALTER TABLE authorizations DROP COLUMN buyer_id;
+ALTER TABLE authorizations DROP COLUMN IF EXISTS buyer_id;
 ALTER TABLE authorizations RENAME COLUMN buyer_id_new TO buyer_id;
-ALTER TABLE authorizations DROP COLUMN resource_id;
+ALTER TABLE authorizations DROP COLUMN IF EXISTS resource_id;
 ALTER TABLE authorizations RENAME COLUMN resource_id_new TO resource_id;
-ALTER TABLE withdrawals DROP COLUMN institution_id;
+ALTER TABLE withdrawals DROP COLUMN IF EXISTS institution_id;
 ALTER TABLE withdrawals RENAME COLUMN institution_id_new TO institution_id;
-ALTER TABLE users DROP COLUMN institution_id;
+ALTER TABLE users DROP COLUMN IF EXISTS institution_id;
 ALTER TABLE users RENAME COLUMN institution_id_new TO institution_id;
 
 -- PART 7: 重建索引
