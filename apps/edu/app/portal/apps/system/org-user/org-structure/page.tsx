@@ -5,14 +5,7 @@ export const dynamic = "force-dynamic"
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -500,96 +493,103 @@ export default function OrgStructurePage() {
         </>
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>
-              {dialogMode === "addRoot"
-                ? "新增节点"
-                : dialogMode === "addChild"
-                ? `添加子节点：${selectedNode?.name}`
-                : dialogMode === "addParent"
-                ? `为 ${selectedNode?.name} 添加父节点`
-                : dialogMode === "edit"
-                ? "编辑节点"
-                : "成员管理"}
-            </DialogTitle>
-            <DialogDescription>
-              {dialogMode === "members"
-                ? `管理 ${selectedNode?.name} 的组织成员`
-                : "配置组织节点信息"}
-            </DialogDescription>
-          </DialogHeader>
-          {dialogMode !== "members" ? (
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label>节点名称</Label>
-                <Input
-                  placeholder="如：信息学院"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>节点类型</Label>
-                <Select value={formTypeId} onValueChange={setFormTypeId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择类型" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {orgTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>排序序号</Label>
-                <Input
-                  type="number"
-                  placeholder="1"
-                  value={formSortOrder}
-                  onChange={(e) => setFormSortOrder(e.target.value)}
-                />
-              </div>
+      {isDialogOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsDialogOpen(false)
+          }}
+        >
+          <div className="bg-background w-full max-w-[500px] rounded-lg border p-6 shadow-lg">
+            <div className="flex flex-col gap-2 text-center sm:text-left mb-4">
+              <h2 className="text-lg font-semibold">
+                {dialogMode === "addRoot"
+                  ? "新增节点"
+                  : dialogMode === "addChild"
+                  ? `添加子节点：${selectedNode?.name}`
+                  : dialogMode === "addParent"
+                  ? `为 ${selectedNode?.name} 添加父节点`
+                  : dialogMode === "edit"
+                  ? "编辑节点"
+                  : "成员管理"}
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                {dialogMode === "members"
+                  ? `管理 ${selectedNode?.name} 的组织成员`
+                  : "配置组织节点信息"}
+              </p>
             </div>
-          ) : (
-            <div className="py-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <span className="text-sm">主归属成员</span>
-                  <Badge>{selectedNode?.memberCount || 0} 人</Badge>
+            {dialogMode !== "members" ? (
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label>节点名称</Label>
+                  <Input
+                    placeholder="如：信息学院"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                  />
                 </div>
-                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <span className="text-sm">兼职归属成员</span>
-                  <Badge variant="outline">5 人</Badge>
+                <div className="grid gap-2">
+                  <Label>节点类型</Label>
+                  <Select value={formTypeId} onValueChange={setFormTypeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择类型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {orgTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <span className="text-sm">教学归属成员</span>
-                  <Badge variant="outline">8 人</Badge>
+                <div className="grid gap-2">
+                  <Label>排序序号</Label>
+                  <Input
+                    type="number"
+                    placeholder="1"
+                    value={formSortOrder}
+                    onChange={(e) => setFormSortOrder(e.target.value)}
+                  />
                 </div>
               </div>
-              <Button variant="outline" className="w-full mt-4">
-                <Users className="h-4 w-4 mr-1" />
-                管理成员
-              </Button>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>
-              取消
-            </Button>
-            {dialogMode !== "members" && (
-              <Button onClick={handleSave} disabled={saving || !formName.trim() || !formTypeId}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                保存
-              </Button>
+            ) : (
+              <div className="py-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <span className="text-sm">主归属成员</span>
+                    <Badge>{selectedNode?.memberCount || 0} 人</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <span className="text-sm">兼职归属成员</span>
+                    <Badge variant="outline">5 人</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <span className="text-sm">教学归属成员</span>
+                    <Badge variant="outline">8 人</Badge>
+                  </div>
+                </div>
+                <Button variant="outline" className="w-full mt-4">
+                  <Users className="h-4 w-4 mr-1" />
+                  管理成员
+                </Button>
+              </div>
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end mt-4">
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>
+                取消
+              </Button>
+              {dialogMode !== "members" && (
+                <Button onClick={handleSave} disabled={saving || !formName.trim() || !formTypeId}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  保存
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
