@@ -259,11 +259,8 @@ const INTERNAL_ROUTES: Record<string, string> = {
 }
 
 function resolveTileUrl(id: string, configuredUrl: string): string {
-  const route = INTERNAL_ROUTES[id]
-  if (route) {
-    if (!configuredUrl || /^https?:\/\//i.test(configuredUrl)) {
-      return route
-    }
+  if (INTERNAL_ROUTES[id]) {
+    return INTERNAL_ROUTES[id]
   }
   return configuredUrl
 }
