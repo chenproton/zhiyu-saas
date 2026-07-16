@@ -140,21 +140,14 @@ func (h *ExamResultHandler) submit(ctx context.Context, userID, usageID string, 
 	// user profile
 	var studentName string
 	var className, grade, majorName string
+	var majorID *string
 	_ = h.DB.QueryRow(ctx, `SELECT name FROM users WHERE id = $1`, userID).Scan(&studentName)
 	_ = h.DB.QueryRow(ctx, `
-		SELECT g.class_name, COALESCE(m.name, '') AS major_name, CAST(g.enroll_year AS VARCHAR)
+		SELECT g.class_name, COALESCE(m.name, '') AS major_name, CAST(g.enroll_year AS VARCHAR), g.major_id
 		FROM graduates g
 		LEFT JOIN majors m ON m.id = g.major_id
 		WHERE g.user_id = $1 ORDER BY g.created_at DESC LIMIT 1
-	`, userID).Scan(&className, &majorName, &grade)
-
-	var majorID *string
-	if majorName != "" {
-		var id string
-		if err := h.DB.QueryRow(ctx, `SELECT id FROM majors WHERE name = $1`, majorName).Scan(&id); err == nil {
-			majorID = &id
-		}
-	}
+	`, userID).Scan(&className, &majorName, &grade, &majorID)
 
 	var majorNamePtr *string
 	if majorName != "" {

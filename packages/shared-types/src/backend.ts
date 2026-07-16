@@ -82,6 +82,7 @@ export interface Graduate {
   idCard?: string
   enrollYear?: number
   graduateYear?: number
+  majorId?: string
   majorName?: string
   className?: string
   createdAt: string

@@ -298,13 +298,14 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 // 岗位推荐配置（按专业配置前台推荐岗位及顺序）
 export interface PositionRecommendation {
   id: string
-  major: string           // 专业名称
-  positionId: string      // 岗位ID
+  majorId?: string          // 专业ID (UUID FK)
+  major: string             // 专业名称（显示用）
+  positionId: string        // 岗位ID
   positionType: PositionType
-  reason?: string         // 推荐原因
-  order: number           // 展示顺序，越小越靠前
-  isEnabled: boolean      // 是否在前台展示
-  createdBy: string       // 配置人（老师）ID
+  reason?: string           // 推荐原因
+  order: number             // 展示顺序，越小越靠前
+  isEnabled: boolean        // 是否在前台展示
+  createdBy: string         // 配置人（老师）ID
   createdAt: string
   updatedAt: string
 }

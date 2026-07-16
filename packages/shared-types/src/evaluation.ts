@@ -441,9 +441,11 @@ export interface JobAbilityResult {
   department?: string
   totalAbilityPoints: number
   achievedAbilityPoints: number
-  achievementRate: number // 0-100
+  achievementRate: number
   grade?: string
-  evaluationTime: Date
+  evaluationTime: string | Date
+  createdAt?: string
+  updatedAt?: string
 }
 
 // 审批类型
@@ -918,7 +920,8 @@ export interface ExamResult {
   studentName: string
   className: string
   grade: string
-  major: string
+  majorId?: string
+  majorName?: string
   score: number
   totalScore: number
   isPass: boolean

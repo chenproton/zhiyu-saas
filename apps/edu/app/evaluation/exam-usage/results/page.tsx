@@ -74,7 +74,7 @@ function ExamResultsContent() {
             studentId: r.userId,
             className: r.className || "-",
             grade: r.grade || "-",
-            majorId: r.major || "-",
+            majorId: r.majorName || "-",
             score: r.score,
             totalScore: r.totalScore,
             submitTime: new Date(r.submitTime),

@@ -84,7 +84,7 @@ export default function JobAbilityResultsPage() {
       )
     }
 
-    return results.sort((a, b) => b.evaluationTime.getTime() - a.evaluationTime.getTime())
+    return results.sort((a, b) => new Date(b.evaluationTime).getTime() - new Date(a.evaluationTime).getTime())
   }, [jobAbilityResults, selectedPositionId, rateFilter, search])
 
   const getGradeLabel = (grade?: string) => {
@@ -100,14 +100,15 @@ export default function JobAbilityResultsPage() {
     return Math.abs(hash) % 101
   }
 
-  const formatDateTime = (date: Date) => {
+  const formatDateTime = (date: string | Date) => {
+    const d = typeof date === "string" ? new Date(date) : date
     return new Intl.DateTimeFormat("zh-CN", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
-    }).format(date)
+    }).format(d)
   }
 
   // 计算每个岗位的结果数量
