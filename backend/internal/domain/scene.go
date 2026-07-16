@@ -20,6 +20,7 @@ type Scenario struct {
 	CoverImage       *string        `json:"coverImage,omitempty"`
 	CareerPositionID *string        `json:"careerPositionId,omitempty"`
 	IndustryID       *string        `json:"industryId,omitempty"`
+	IndustryName     *string        `json:"industryName,omitempty"`
 	ProfessionID     *string        `json:"professionId,omitempty"`
 	ProfessionName   *string        `json:"professionName,omitempty"`
 	BatchID          *string        `json:"batchId,omitempty"`

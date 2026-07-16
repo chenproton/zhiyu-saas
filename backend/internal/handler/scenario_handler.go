@@ -365,7 +365,6 @@ func (h *ScenarioHandler) transitionStatus(w http.ResponseWriter, r *http.Reques
 
 func (h *ScenarioHandler) fetchScenario(ctx context.Context, id string) (*domain.Scenario, error) {
 	var s domain.Scenario
-	var dummyIndustryName string
 	err := h.DB.QueryRow(ctx, `
 		SELECT s.id, s.name, s.code, s.cover_image, s.career_position_id, s.industry_id, COALESCE(i.name, '') AS industry_name,
 			s.profession_id, s.profession_name, s.batch_id, s.difficulty, s.version, s.status, s.background,
@@ -374,7 +373,7 @@ func (h *ScenarioHandler) fetchScenario(ctx context.Context, id string) (*domain
 		LEFT JOIN industries i ON i.id = s.industry_id
 		WHERE s.id = $1
 	`, id).Scan(
-		&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &dummyIndustryName,
+		&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &s.IndustryName,
 		&s.ProfessionID, &s.ProfessionName, &s.BatchID, &s.Difficulty, &s.Version, &s.Status, &s.Background,
 		&s.DeliveryGoal, &s.CreatorID, &s.CoBuilderIDs, &s.TenantID, &s.CreatedAt, &s.UpdatedAt, &s.PublishTime, &s.ViewCount,
 	)
@@ -388,9 +387,8 @@ func (h *ScenarioHandler) scanScenarioRows(rows pgx.Rows) ([]domain.Scenario, er
 	items := make([]domain.Scenario, 0)
 	for rows.Next() {
 		var s domain.Scenario
-		var dummyIndustryName string
 		if err := rows.Scan(
-			&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &dummyIndustryName,
+			&s.ID, &s.Name, &s.Code, &s.CoverImage, &s.CareerPositionID, &s.IndustryID, &s.IndustryName,
 			&s.ProfessionID, &s.ProfessionName, &s.BatchID, &s.Difficulty, &s.Version, &s.Status, &s.Background,
 			&s.DeliveryGoal, &s.CreatorID, &s.CoBuilderIDs, &s.TenantID, &s.CreatedAt, &s.UpdatedAt, &s.PublishTime, &s.ViewCount,
 		); err != nil {
