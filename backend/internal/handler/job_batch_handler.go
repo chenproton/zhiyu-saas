@@ -15,15 +15,16 @@ type JobBatchHandler struct {
 func NewJobBatchHandler(db *pgxpool.Pool) *JobBatchHandler {
 	return &JobBatchHandler{
 		BatchHandler: NewBatchHandler(db, BatchTableConfig{
-			TableName:     "batches b LEFT JOIN majors m ON m.id = b.major_id",
-			SelectColumns: "b.id, b.name, b.code, b.org_node_id, b.major_id, COALESCE(m.name, '') AS major_name, b.workflow_id, b.status, b.position_count, b.published_count, b.pending_count, b.created_at, b.updated_at",
-			EntityName:    "batch",
-			StatusOpen:    string(domain.BatchStatusOpen),
-			StatusClosed:  string(domain.BatchStatusClosed),
-			SearchColumns: []string{"name"},
-			TenantScoped:  true,
-			ScanRow:       scanJobBatchRow,
-			ScanRows:      scanJobBatchRows,
+			TableName:          "batches b LEFT JOIN majors m ON m.id = b.major_id",
+			SelectColumns:      "b.id, b.name, b.code, b.org_node_id, b.major_id, COALESCE(m.name, '') AS major_name, b.workflow_id, b.status, b.position_count, b.published_count, b.pending_count, b.created_at, b.updated_at",
+			EntityName:         "batch",
+			StatusOpen:         string(domain.BatchStatusOpen),
+			StatusClosed:       string(domain.BatchStatusClosed),
+			SearchColumns:      []string{"name"},
+			TenantScoped:       true,
+			TenantFilterColumn: "b.tenant_id",
+			ScanRow:            scanJobBatchRow,
+			ScanRows:           scanJobBatchRows,
 		}),
 	}
 }

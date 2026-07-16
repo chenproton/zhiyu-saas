@@ -50,6 +50,7 @@ type BatchTableConfig struct {
 	CreateExtraVals []any
 
 	TenantScoped     bool
+	TenantFilterColumn string
 
 	CreateWithStatus bool
 	UpdateWithStatus bool
@@ -98,7 +99,11 @@ func (h *BatchHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Config.TenantScoped && effectiveTenantID != "" {
-		where = append(where, "tenant_id = $"+itoa(argIdx))
+		tc := h.Config.TenantFilterColumn
+		if tc == "" {
+			tc = "tenant_id"
+		}
+		where = append(where, tc+" = $"+itoa(argIdx))
 		args = append(args, effectiveTenantID)
 		argIdx++
 	}

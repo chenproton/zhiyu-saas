@@ -502,15 +502,16 @@ func (h *GraduationHandler) QueryResults(w http.ResponseWriter, r *http.Request)
 		offset = v
 	}
 
-	countQuery := "SELECT COUNT(*) FROM graduation_query_results"
+	countQuery := "SELECT COUNT(*) FROM graduation_query_results gr"
 	var total int
 	_ = h.DB.QueryRow(r.Context(), countQuery).Scan(&total)
 
 	query := `
-		SELECT id, user_id, class_name, major_name, credit_completed, credit_required,
-			scene_passed, scene_required, project_grade, graduation_status, ability_cert_status, rectification_count, updated_at
-		FROM graduation_query_results
-		ORDER BY updated_at DESC
+		SELECT gr.id, gr.user_id, gr.class_name, COALESCE(m.name, '') AS major_name, gr.credit_completed, gr.credit_required,
+			gr.scene_passed, gr.scene_required, gr.project_grade, gr.graduation_status, gr.ability_cert_status, gr.rectification_count, gr.updated_at
+		FROM graduation_query_results gr
+		LEFT JOIN majors m ON m.id = gr.major_id
+		ORDER BY gr.updated_at DESC
 		LIMIT $1 OFFSET $2`
 
 	rows, err := h.DB.Query(r.Context(), query, limit, offset)

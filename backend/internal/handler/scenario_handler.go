@@ -75,7 +75,7 @@ func (h *ScenarioHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if effectiveTenantID != "" {
-		where = append(where, "tenant_id = $"+itoa(argIdx))
+		where = append(where, "s.tenant_id = $"+itoa(argIdx))
 		args = append(args, effectiveTenantID)
 		argIdx++
 	}
@@ -96,7 +96,7 @@ func (h *ScenarioHandler) List(w http.ResponseWriter, r *http.Request) {
 		argIdx++
 	}
 
-	countQuery := "SELECT COUNT(*) FROM scenarios WHERE " + strings.Join(where, " AND ")
+	countQuery := "SELECT COUNT(*) FROM scenarios s WHERE " + strings.Join(where, " AND ")
 	var total int
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
