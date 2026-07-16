@@ -98,6 +98,20 @@ cleanup() {
 
 trap 'cleanup' EXIT
 
+# ==================== Git 自动提交推送 ====================
+# 每次部署前自动提交所有未保存的修改，确保代码仓库与线上一致
+echo "==> 检查本地未提交修改..."
+cd "$PROJECT_ROOT"
+if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+  STAMP="$(date '+%Y-%m-%d_%H:%M:%S')"
+  git add -A
+  git commit -m "deploy(auto): $STAMP — 部署前自动提交未保存的修改" || true
+  git push 2>/dev/null || echo "  警告：git push 失败，继续部署..."
+  echo "  已自动提交并推送未保存的修改 ($STAMP)"
+else
+  echo "  无未提交修改，跳过"
+fi
+
 # ==================== 必需变量校验 ====================
 if [[ "$FRONTEND_ONLY" != "true" ]]; then
   REQUIRED_VARS=(DATABASE_URL JWT_SECRET)
