@@ -866,7 +866,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         auditStatus: 'pending',
         convertedCredit: 0,
         direction: data.direction || 'positive',
-        isVisible: true,
+        isEnabled: true,
       } as Partial<StudentAbilityArchive>)
       await loadStudentAbilityArchives()
       return parseStudentArchive(created)

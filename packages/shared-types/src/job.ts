@@ -93,7 +93,7 @@ export interface PositionRecommendation {
   positionType: string
   reason?: string
   sortOrder: number
-  isVisible: boolean
+  isEnabled: boolean
   createdBy: string
   createdAt: string
   updatedAt: string
@@ -105,7 +105,7 @@ export interface BannerConfig {
   imageUrl: string
   linkUrl?: string
   sortOrder: number
-  isActive: boolean
+  isEnabled: boolean
   createdAt: string
   updatedAt: string
 }

@@ -167,9 +167,9 @@ function BankCard({ item }: { item: QuestionBank }) {
   return (
     <Link href="#" className="group block">
       <Card className="overflow-hidden border-slate-200 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-md h-full flex flex-col">
-        {item.coverUrl ? (
+        {item.coverImage ? (
           <img
-            src={item.coverUrl}
+            src={item.coverImage}
             alt={item.name}
             className="h-40 w-full object-cover"
           />
@@ -201,9 +201,9 @@ function ExamCard({ item }: { item: Exam }) {
   return (
     <Link href="#" className="group block">
       <Card className="overflow-hidden border-slate-200 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-md h-full flex flex-col">
-        {item.coverUrl ? (
+        {item.coverImage ? (
           <img
-            src={item.coverUrl}
+            src={item.coverImage}
             alt={item.name}
             className="h-40 w-full object-cover"
           />

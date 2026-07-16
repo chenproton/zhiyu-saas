@@ -1204,12 +1204,12 @@ func seedJobData(ctx context.Context, tx pgx.Tx) error {
 	}
 	for _, r := range recommendations {
 		_, err := tx.Exec(ctx, `
-			INSERT INTO position_recommendations (id, major, career_position_id, position_type, reason, sort_order, is_visible, created_by, created_at, updated_at)
+			INSERT INTO position_recommendations (id, major, career_position_id, position_type, reason, sort_order, is_enabled, created_by, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, true, $7, NOW(), NOW())
 			ON CONFLICT (id) DO UPDATE SET
 				major = EXCLUDED.major, career_position_id = EXCLUDED.career_position_id,
 				position_type = EXCLUDED.position_type, reason = EXCLUDED.reason, sort_order = EXCLUDED.sort_order,
-				is_visible = EXCLUDED.is_visible, created_by = EXCLUDED.created_by, updated_at = NOW()
+				is_enabled = EXCLUDED.is_enabled, created_by = EXCLUDED.created_by, updated_at = NOW()
 		`, r.id, r.major, r.position, r.posType, r.reason, r.sort, teacherID)
 		if err != nil {
 			return fmt.Errorf("seed recommendation %s: %w", r.major, err)
@@ -1285,11 +1285,11 @@ func seedJobData(ctx context.Context, tx pgx.Tx) error {
 	}
 	for _, b := range banners {
 		_, err := tx.Exec(ctx, `
-			INSERT INTO banner_configs (id, title, image_url, link_url, sort_order, is_active, created_at, updated_at)
+			INSERT INTO banner_configs (id, title, image_url, link_url, sort_order, is_enabled, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 			ON CONFLICT (id) DO UPDATE SET
 				title = EXCLUDED.title, image_url = EXCLUDED.image_url, link_url = EXCLUDED.link_url,
-				sort_order = EXCLUDED.sort_order, is_active = EXCLUDED.is_active, updated_at = NOW()
+				sort_order = EXCLUDED.sort_order, is_enabled = EXCLUDED.is_enabled, updated_at = NOW()
 		`, b.id, b.title, b.image, b.link, b.sort, b.active)
 		if err != nil {
 			return fmt.Errorf("seed banner config %s: %w", b.title, err)

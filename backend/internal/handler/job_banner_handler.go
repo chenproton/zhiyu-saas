@@ -24,7 +24,7 @@ type JobBannerConfig struct {
 	ImageURL  string    `json:"imageUrl"`
 	LinkURL   *string   `json:"linkUrl,omitempty"`
 	SortOrder int       `json:"sortOrder"`
-	IsActive  bool      `json:"isActive"`
+	IsEnabled  bool      `json:"isEnabled"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
@@ -39,7 +39,7 @@ type CreateJobBannerRequest struct {
 	ImageURL  string  `json:"imageUrl"`
 	LinkURL   *string `json:"linkUrl"`
 	SortOrder int     `json:"sortOrder"`
-	IsActive  bool    `json:"isActive"`
+	IsEnabled  bool    `json:"isEnabled"`
 }
 
 type UpdateJobBannerRequest struct {
@@ -47,7 +47,7 @@ type UpdateJobBannerRequest struct {
 	ImageURL  string  `json:"imageUrl"`
 	LinkURL   *string `json:"linkUrl"`
 	SortOrder int     `json:"sortOrder"`
-	IsActive  bool    `json:"isActive"`
+	IsEnabled  bool    `json:"isEnabled"`
 }
 
 func (h *JobBannerHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +56,7 @@ func (h *JobBannerHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isActiveStr := r.URL.Query().Get("isActive")
+	isActiveStr := r.URL.Query().Get("isEnabled")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
@@ -85,7 +85,7 @@ func (h *JobBannerHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isActiveStr != "" {
-		where = append(where, "is_active = $"+itoa(argIdx))
+		where = append(where, "is_enabled = $"+itoa(argIdx))
 		args = append(args, isActiveStr == "true")
 		argIdx++
 	}
@@ -95,7 +95,7 @@ func (h *JobBannerHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, title, image_url, link_url, sort_order, is_active, created_at, updated_at
+		SELECT id, title, image_url, link_url, sort_order, is_enabled, created_at, updated_at
 		FROM banner_configs
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY sort_order ASC, created_at DESC
@@ -153,9 +153,9 @@ func (h *JobBannerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO banner_configs (id, title, image_url, link_url, sort_order, is_active)
+		INSERT INTO banner_configs (id, title, image_url, link_url, sort_order, is_enabled)
 		VALUES ($1, $2, $3, $4, $5, $6)
-	`, id, req.Title, req.ImageURL, req.LinkURL, req.SortOrder, req.IsActive)
+	`, id, req.Title, req.ImageURL, req.LinkURL, req.SortOrder, req.IsEnabled)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create banner")
 		return
@@ -190,9 +190,9 @@ func (h *JobBannerHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.DB.Exec(r.Context(), `
 		UPDATE banner_configs SET
-			title = $1, image_url = $2, link_url = $3, sort_order = $4, is_active = $5, updated_at = NOW()
+			title = $1, image_url = $2, link_url = $3, sort_order = $4, is_enabled = $5, updated_at = NOW()
 		WHERE id = $6
-	`, req.Title, req.ImageURL, req.LinkURL, req.SortOrder, req.IsActive, id)
+	`, req.Title, req.ImageURL, req.LinkURL, req.SortOrder, req.IsEnabled, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update banner")
 		return
@@ -227,10 +227,10 @@ func (h *JobBannerHandler) fetchBanner(ctx context.Context, id string) (JobBanne
 	var linkURL *string
 
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, title, image_url, link_url, sort_order, is_active, created_at, updated_at
+		SELECT id, title, image_url, link_url, sort_order, is_enabled, created_at, updated_at
 		FROM banner_configs WHERE id = $1
 	`, id).Scan(
-		&b.ID, &b.Title, &b.ImageURL, &linkURL, &b.SortOrder, &b.IsActive, &b.CreatedAt, &b.UpdatedAt,
+		&b.ID, &b.Title, &b.ImageURL, &linkURL, &b.SortOrder, &b.IsEnabled, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
 		return b, err
@@ -245,7 +245,7 @@ func (h *JobBannerHandler) scanBannerRows(rows pgx.Rows) ([]JobBannerConfig, err
 		var b JobBannerConfig
 		var linkURL *string
 		if err := rows.Scan(
-			&b.ID, &b.Title, &b.ImageURL, &linkURL, &b.SortOrder, &b.IsActive, &b.CreatedAt, &b.UpdatedAt,
+			&b.ID, &b.Title, &b.ImageURL, &linkURL, &b.SortOrder, &b.IsEnabled, &b.CreatedAt, &b.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

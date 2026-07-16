@@ -29,7 +29,7 @@ type CreateMicroCertTemplateRequest struct {
 	CertTypeID   string  `json:"certTypeId"`
 	CertTypeName string  `json:"certTypeName"`
 	Content      string  `json:"content"`
-	CoverURL     *string `json:"coverUrl"`
+	CoverImage   *string `json:"coverImage"`
 }
 
 type IssueCertsRequest struct {
@@ -87,7 +87,7 @@ func (h *MicroCertHandler) ListTemplates(w http.ResponseWriter, r *http.Request)
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, title, cert_type_id, cert_type_name, content, cover_url, created_at, updated_at
+		SELECT id, title, cert_type_id, cert_type_name, content, cover_image, created_at, updated_at
 		FROM micro_cert_templates
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -133,9 +133,9 @@ func (h *MicroCertHandler) CreateTemplate(w http.ResponseWriter, r *http.Request
 		certTypeUUID = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(req.CertTypeID))
 	}
 	_, err = h.DB.Exec(r.Context(), `
-		INSERT INTO micro_cert_templates (id, title, cert_type_id, cert_type_name, content, cover_url)
+		INSERT INTO micro_cert_templates (id, title, cert_type_id, cert_type_name, content, cover_image)
 		VALUES ($1, $2, $3, $4, $5, $6)
-	`, id, req.Title, certTypeUUID.String(), req.CertTypeName, req.Content, req.CoverURL)
+	`, id, req.Title, certTypeUUID.String(), req.CertTypeName, req.Content, req.CoverImage)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create micro cert template")
 		return
@@ -174,9 +174,9 @@ func (h *MicroCertHandler) UpdateTemplate(w http.ResponseWriter, r *http.Request
 	}
 
 	_, err = h.DB.Exec(r.Context(), `
-		UPDATE micro_cert_templates SET title = $1, cert_type_id = $2, cert_type_name = $3, content = $4, cover_url = $5, updated_at = NOW()
+		UPDATE micro_cert_templates SET title = $1, cert_type_id = $2, cert_type_name = $3, content = $4, cover_image = $5, updated_at = NOW()
 		WHERE id = $6
-	`, req.Title, certTypeUUID.String(), req.CertTypeName, req.Content, req.CoverURL, id)
+	`, req.Title, certTypeUUID.String(), req.CertTypeName, req.Content, req.CoverImage, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update micro cert template")
 		return
@@ -327,15 +327,15 @@ func (h *MicroCertHandler) ListHistory(w http.ResponseWriter, r *http.Request) {
 
 func (h *MicroCertHandler) fetchTemplate(ctx context.Context, id string) (domain.MicroCertTemplate, error) {
 	var t domain.MicroCertTemplate
-	var coverURL *string
+	var coverImage *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, title, cert_type_id, cert_type_name, content, cover_url, created_at, updated_at
+		SELECT id, title, cert_type_id, cert_type_name, content, cover_image, created_at, updated_at
 		FROM micro_cert_templates WHERE id = $1
-	`, id).Scan(&t.ID, &t.Title, &t.CertTypeID, &t.CertTypeName, &t.Content, &coverURL, &t.CreatedAt, &t.UpdatedAt)
+	`, id).Scan(&t.ID, &t.Title, &t.CertTypeID, &t.CertTypeName, &t.Content, &coverImage, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return t, err
 	}
-	t.CoverURL = coverURL
+	t.CoverImage = coverImage
 	return t, nil
 }
 
@@ -343,11 +343,11 @@ func (h *MicroCertHandler) scanTemplateRows(rows pgx.Rows) ([]domain.MicroCertTe
 	items := make([]domain.MicroCertTemplate, 0)
 	for rows.Next() {
 		var t domain.MicroCertTemplate
-		var coverURL *string
-		if err := rows.Scan(&t.ID, &t.Title, &t.CertTypeID, &t.CertTypeName, &t.Content, &coverURL, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		var coverImage *string
+		if err := rows.Scan(&t.ID, &t.Title, &t.CertTypeID, &t.CertTypeName, &t.Content, &coverImage, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
-		t.CoverURL = coverURL
+		t.CoverImage = coverImage
 		items = append(items, t)
 	}
 	return items, nil

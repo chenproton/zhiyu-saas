@@ -119,7 +119,7 @@ export function convertApiRecommendationToLocal(rec: ApiPositionRecommendation):
     positionType: rec.positionType as PositionType,
     reason: rec.reason ?? undefined,
     order: rec.sortOrder,
-    isVisible: rec.isVisible,
+    isEnabled: rec.isEnabled,
     createdBy: rec.createdBy,
     createdAt: rec.createdAt,
     updatedAt: rec.updatedAt,

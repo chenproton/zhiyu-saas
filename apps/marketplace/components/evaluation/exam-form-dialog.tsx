@@ -91,7 +91,7 @@ export function ExamFormDialog({
       setDescription(exam.description)
       setCollaboratorIds(exam.collaboratorIds || [])
       setBatchId(exam.batchId || "")
-      setCoverUrl(exam.coverUrl || "")
+      setCoverUrl(exam.coverImage || "")
     } else {
       setName("")
       setDescription("")
@@ -108,7 +108,7 @@ export function ExamFormDialog({
       name: name.trim(),
       description: description.trim(),
       duration: 60,
-      coverUrl: coverUrl || undefined,
+      coverImage: coverUrl || undefined,
       collaboratorIds: collaboratorIds.length > 0 ? collaboratorIds : undefined,
       batchId: batchId || undefined,
     })

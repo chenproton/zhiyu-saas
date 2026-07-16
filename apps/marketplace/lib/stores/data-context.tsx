@@ -170,7 +170,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       positionType: rec.positionType as PositionType,
       reason: rec.reason ?? undefined,
       order: rec.sortOrder,
-      isVisible: rec.isVisible,
+          isEnabled: rec.isEnabled,
       createdBy: rec.createdBy,
       createdAt: rec.createdAt,
       updatedAt: rec.updatedAt,
@@ -538,7 +538,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       positionType: data.positionType,
       reason: data.reason,
       sortOrder: majorRecs.length + 1,
-      isVisible: data.isVisible,
+      isEnabled: data.isEnabled,
       createdBy: data.createdBy || '',
     } as Omit<ApiPositionRecommendation, 'id' | 'createdAt' | 'updatedAt'>)
     await loadRecommendations()
@@ -553,7 +553,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       positionType: data.positionType ?? existing.positionType,
       reason: data.reason ?? existing.reason,
       sortOrder: data.order ?? existing.order,
-      isVisible: data.isVisible ?? existing.isVisible,
+      isEnabled: data.isEnabled ?? existing.isEnabled,
       createdBy: existing.createdBy,
     } as ApiPositionRecommendation)
     await loadRecommendations()
@@ -580,7 +580,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           positionType: rec.positionType,
           reason: rec.reason,
           sortOrder: newOrder,
-          isVisible: rec.isVisible,
+      isEnabled: rec.isEnabled,
           createdBy: rec.createdBy,
         } as ApiPositionRecommendation)
       })

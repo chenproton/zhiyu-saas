@@ -26,7 +26,7 @@ type QuestionBankListResponse struct {
 type CreateQuestionBankRequest struct {
 	Name                string   `json:"name"`
 	Description         string   `json:"description"`
-	CoverURL            *string  `json:"coverUrl"`
+	CoverImage          *string  `json:"coverImage"`
 	CollaboratorIDs     []string `json:"collaboratorIds"`
 	CollaboratorDeptIDs []string `json:"collaboratorDeptIds"`
 	KnowledgePointIds   []string `json:"knowledgePointIds"`
@@ -90,7 +90,7 @@ func (h *QuestionBankHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT qb.id, qb.name, qb.description, qb.cover_url, qb.status, qb.question_count, qb.creator_id,
+		SELECT qb.id, qb.name, qb.description, qb.cover_image, qb.status, qb.question_count, qb.creator_id,
 			qb.collaborator_ids, qb.collaborator_dept_ids, qb.batch_id, qb.version, qb.owner_type, qb.is_draft_pool,
 			(SELECT COALESCE(array_agg(kp.knowledge_point_id), '{}') FROM question_bank_knowledge_points kp WHERE kp.question_bank_id = qb.id) AS knowledge_point_ids,
 			qb.created_at, qb.updated_at
@@ -159,10 +159,10 @@ func (h *QuestionBankHandler) Create(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 
 	_, err = tx.Exec(r.Context(), `
-		INSERT INTO question_banks (id, name, description, cover_url, status, question_count, creator_id,
+		INSERT INTO question_banks (id, name, description, cover_image, status, question_count, creator_id,
 			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, is_draft_pool)
 		VALUES ($1, $2, $3, $4, 'draft', 0, $5, $6, $7, $8, 'v1.0', 'mine', false)
-	`, id, req.Name, req.Description, req.CoverURL, creatorID, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID)
+	`, id, req.Name, req.Description, req.CoverImage, creatorID, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create question bank")
 		return
@@ -232,10 +232,10 @@ func (h *QuestionBankHandler) Update(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 
 	_, err = tx.Exec(r.Context(), `
-		UPDATE question_banks SET name = $1, description = $2, cover_url = $3,
+		UPDATE question_banks SET name = $1, description = $2, cover_image = $3,
 			collaborator_ids = $4, collaborator_dept_ids = $5, batch_id = $6, updated_at = NOW()
 		WHERE id = $7
-	`, req.Name, req.Description, req.CoverURL, collaboratorIDs, collaboratorDeptIDs, req.BatchID, id)
+	`, req.Name, req.Description, req.CoverImage, collaboratorIDs, collaboratorDeptIDs, req.BatchID, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update question bank")
 		return
@@ -407,22 +407,22 @@ func (h *QuestionBankHandler) transitionStatus(w http.ResponseWriter, r *http.Re
 
 func (h *QuestionBankHandler) fetchQuestionBank(ctx context.Context, id string) (domain.QuestionBank, error) {
 	var b domain.QuestionBank
-	var coverURL, creatorID, batchID *string
+	var coverImage, creatorID, batchID *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT qb.id, qb.name, qb.description, qb.cover_url, qb.status, qb.question_count, qb.creator_id,
+		SELECT qb.id, qb.name, qb.description, qb.cover_image, qb.status, qb.question_count, qb.creator_id,
 			qb.collaborator_ids, qb.collaborator_dept_ids, qb.batch_id, qb.version, qb.owner_type, qb.is_draft_pool,
 			(SELECT COALESCE(array_agg(kp.knowledge_point_id), '{}') FROM question_bank_knowledge_points kp WHERE kp.question_bank_id = qb.id) AS knowledge_point_ids,
 			qb.created_at, qb.updated_at
 		FROM question_banks qb WHERE qb.id = $1
 	`, id).Scan(
-		&b.ID, &b.Name, &b.Description, &coverURL, &b.Status, &b.QuestionCount, &creatorID,
+		&b.ID, &b.Name, &b.Description, &coverImage, &b.Status, &b.QuestionCount, &creatorID,
 		&b.CollaboratorIDs, &b.CollaboratorDeptIDs, &batchID, &b.Version, &b.OwnerType, &b.IsDraftPool,
 		&b.KnowledgePointIDs, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
 		return b, err
 	}
-	b.CoverURL = coverURL
+	b.CoverImage = coverImage
 	b.CreatorID = creatorID
 	b.BatchID = batchID
 	return b, nil
@@ -432,15 +432,15 @@ func (h *QuestionBankHandler) scanQuestionBankRows(rows pgx.Rows) ([]domain.Ques
 	items := make([]domain.QuestionBank, 0)
 	for rows.Next() {
 		var b domain.QuestionBank
-		var coverURL, creatorID, batchID *string
+		var coverImage, creatorID, batchID *string
 		if err := rows.Scan(
-			&b.ID, &b.Name, &b.Description, &coverURL, &b.Status, &b.QuestionCount, &creatorID,
+			&b.ID, &b.Name, &b.Description, &coverImage, &b.Status, &b.QuestionCount, &creatorID,
 			&b.CollaboratorIDs, &b.CollaboratorDeptIDs, &batchID, &b.Version, &b.OwnerType, &b.IsDraftPool,
 			&b.KnowledgePointIDs, &b.CreatedAt, &b.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
-		b.CoverURL = coverURL
+		b.CoverImage = coverImage
 		b.CreatorID = creatorID
 		b.BatchID = batchID
 		items = append(items, b)

@@ -89,7 +89,7 @@ export function BankFormDialog({
     if (bank) {
       setName(bank.name)
       setDescription(bank.description)
-      setCoverUrl(bank.coverUrl || "")
+      setCoverUrl(bank.coverImage || "")
       setCollaboratorIds(bank.collaboratorIds || [])
       setBatchId(bank.batchId || "")
     } else {
@@ -107,7 +107,7 @@ export function BankFormDialog({
     onSubmit({
       name: name.trim(),
       description: description.trim(),
-      coverUrl: coverUrl || undefined,
+      coverImage: coverUrl || undefined,
       collaboratorIds: collaboratorIds.length > 0 ? collaboratorIds : undefined,
       batchId: batchId || undefined,
     })

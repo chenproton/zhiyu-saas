@@ -303,7 +303,7 @@ export interface PositionRecommendation {
   positionType: PositionType
   reason?: string         // 推荐原因
   order: number           // 展示顺序，越小越靠前
-  isVisible: boolean      // 是否在前台展示
+  isEnabled: boolean      // 是否在前台展示
   createdBy: string       // 配置人（老师）ID
   createdAt: string
   updatedAt: string

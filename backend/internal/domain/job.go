@@ -123,7 +123,7 @@ type PositionRecommendation struct {
 	PositionType     string    `json:"positionType"`
 	Reason           *string   `json:"reason,omitempty"`
 	SortOrder        int       `json:"sortOrder"`
-	IsVisible        bool      `json:"isVisible"`
+	IsEnabled        bool      `json:"isEnabled"`
 	CreatedBy        string    `json:"createdBy"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`

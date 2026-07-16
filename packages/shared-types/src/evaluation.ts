@@ -73,7 +73,7 @@ export interface QuestionBank {
   id: string
   name: string
   description: string
-  coverUrl?: string
+  coverImage?: string
   status: Status
   questionCount: number
   creatorId?: string
@@ -127,7 +127,7 @@ export interface Exam {
   totalScore: number
   duration: number // 分钟
   questions: ExamQuestion[]
-  coverUrl?: string
+  coverImage?: string
   collaboratorIds?: string[]
   collaboratorDeptIds?: string[]
   batchId?: string
@@ -142,7 +142,7 @@ export interface Exam {
 export interface QuestionBankFormData {
   name: string
   description: string
-  coverUrl?: string
+  coverImage?: string
   collaboratorIds?: string[]
   collaboratorDeptIds?: string[]
   batchId?: string
@@ -174,7 +174,7 @@ export interface ExamFormData {
   name: string
   description: string
   duration: number
-  coverUrl?: string
+  coverImage?: string
   collaboratorIds?: string[]
   collaboratorDeptIds?: string[]
   batchId?: string
@@ -571,7 +571,7 @@ export interface StudentAbilityArchive {
   auditRemark?: string
   convertedCredit: number
   direction: ArchiveDirection
-  isVisible: boolean
+  isEnabled: boolean
   createdAt: Date
   level?: string
 }
@@ -858,7 +858,7 @@ export interface MicroCertTemplate {
   certTypeId: string
   certTypeName: string
   content: string
-  coverUrl?: string
+  coverImage?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -890,7 +890,7 @@ export interface MicroCertTemplateFormData {
   title: string
   certTypeId: string
   content: string
-  coverUrl?: string
+  coverImage?: string
 }
 
 

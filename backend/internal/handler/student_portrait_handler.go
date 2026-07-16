@@ -190,7 +190,7 @@ func (h *StudentPortraitHandler) ListArchives(w http.ResponseWriter, r *http.Req
 
 	query := `
 		SELECT id, user_id, material_type, material_name, issuing_org, obtain_date,
-			level, audit_status, audit_remark, converted_credit, direction, is_visible, created_at
+			level, audit_status, audit_remark, converted_credit, direction, is_enabled, created_at
 		FROM student_ability_archives
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -209,7 +209,7 @@ func (h *StudentPortraitHandler) ListArchives(w http.ResponseWriter, r *http.Req
 		var a domain.StudentAbilityArchive
 		var issuingOrg, obtainDate, level, remark *string
 		if err := rows.Scan(&a.ID, &a.UserID, &a.MaterialType, &a.MaterialName, &issuingOrg, &obtainDate,
-			&level, &a.AuditStatus, &remark, &a.ConvertedCredit, &a.Direction, &a.IsVisible, &a.CreatedAt); err != nil {
+			&level, &a.AuditStatus, &remark, &a.ConvertedCredit, &a.Direction, &a.IsEnabled, &a.CreatedAt); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan student archives")
 			return
 		}
@@ -247,7 +247,7 @@ func (h *StudentPortraitHandler) CreateArchive(w http.ResponseWriter, r *http.Re
 	}
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO student_ability_archives (id, user_id, material_type, material_name, issuing_org, obtain_date,
-			audit_status, converted_credit, direction, is_visible)
+			audit_status, converted_credit, direction, is_enabled)
 		VALUES ($1, $2, $3, $4, $5, $6, 'pending', 0, $7, true)
 	`, id, req.UserID, req.MaterialType, req.MaterialName, req.IssuingOrg, req.ObtainDate, *direction)
 	if err != nil {
@@ -325,11 +325,11 @@ func (h *StudentPortraitHandler) fetchArchive(ctx context.Context, id string) (d
 	var issuingOrg, obtainDate, level, remark *string
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, user_id, material_type, material_name, issuing_org, obtain_date,
-			level, audit_status, audit_remark, converted_credit, direction, is_visible, created_at
+			level, audit_status, audit_remark, converted_credit, direction, is_enabled, created_at
 		FROM student_ability_archives WHERE id = $1
 	`, id).Scan(
 		&a.ID, &a.UserID, &a.MaterialType, &a.MaterialName, &issuingOrg, &obtainDate,
-		&level, &a.AuditStatus, &remark, &a.ConvertedCredit, &a.Direction, &a.IsVisible, &a.CreatedAt,
+		&level, &a.AuditStatus, &remark, &a.ConvertedCredit, &a.Direction, &a.IsEnabled, &a.CreatedAt,
 	)
 	if err != nil {
 		return a, err

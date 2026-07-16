@@ -27,7 +27,7 @@ type CreateExamRequest struct {
 	Name                string   `json:"name"`
 	Description         string   `json:"description"`
 	Duration            int      `json:"duration"`
-	CoverURL            *string  `json:"coverUrl"`
+	CoverImage          *string  `json:"coverImage"`
 	CollaboratorIDs     []string `json:"collaboratorIds"`
 	CollaboratorDeptIDs []string `json:"collaboratorDeptIds"`
 	BatchID             *string  `json:"batchId"`
@@ -95,7 +95,7 @@ func (h *ExamHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, name, description, status, total_score, duration, cover_url,
+		SELECT id, name, description, status, total_score, duration, cover_image,
 			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, creator_id, created_at, updated_at
 		FROM exams
 		WHERE ` + strings.Join(where, " AND ") + `
@@ -154,10 +154,10 @@ func (h *ExamHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO exams (id, name, description, status, total_score, duration, cover_url,
+		INSERT INTO exams (id, name, description, status, total_score, duration, cover_image,
 			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, creator_id)
 		VALUES ($1, $2, $3, 'draft', 0, $4, $5, $6, $7, $8, 'v1.0', 'mine', $9)
-	`, id, req.Name, req.Description, req.Duration, req.CoverURL, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID, claims.UserID)
+	`, id, req.Name, req.Description, req.Duration, req.CoverImage, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID, claims.UserID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create exam")
 		return
@@ -201,10 +201,10 @@ func (h *ExamHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = h.DB.Exec(r.Context(), `
-		UPDATE exams SET name = $1, description = $2, duration = $3, cover_url = $4,
+		UPDATE exams SET name = $1, description = $2, duration = $3, cover_image = $4,
 			collaborator_ids = $5, collaborator_dept_ids = $6, batch_id = $7, updated_at = NOW()
 		WHERE id = $8
-	`, req.Name, req.Description, req.Duration, req.CoverURL, collaboratorIDs, collaboratorDeptIDs, req.BatchID, id)
+	`, req.Name, req.Description, req.Duration, req.CoverImage, collaboratorIDs, collaboratorDeptIDs, req.BatchID, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update exam")
 		return
@@ -450,19 +450,19 @@ func (h *ExamHandler) recalcExamTotal(ctx context.Context, examID string) error 
 
 func (h *ExamHandler) fetchExam(ctx context.Context, id string) (domain.Exam, error) {
 	var e domain.Exam
-	var coverURL, creatorID, batchID *string
+	var coverImage, creatorID, batchID *string
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, name, description, status, total_score, duration, cover_url,
+		SELECT id, name, description, status, total_score, duration, cover_image,
 			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, creator_id, created_at, updated_at
 		FROM exams WHERE id = $1
 	`, id).Scan(
-		&e.ID, &e.Name, &e.Description, &e.Status, &e.TotalScore, &e.Duration, &coverURL,
+		&e.ID, &e.Name, &e.Description, &e.Status, &e.TotalScore, &e.Duration, &coverImage,
 		&e.CollaboratorIDs, &e.CollaboratorDeptIDs, &batchID, &e.Version, &e.OwnerType, &creatorID, &e.CreatedAt, &e.UpdatedAt,
 	)
 	if err != nil {
 		return e, err
 	}
-	e.CoverURL = coverURL
+	e.CoverImage = coverImage
 	e.CreatorID = creatorID
 	e.BatchID = batchID
 	e.Questions, _ = h.fetchExamQuestions(ctx, id)
@@ -505,14 +505,14 @@ func (h *ExamHandler) scanExamRows(ctx context.Context, rows pgx.Rows) ([]domain
 	items := make([]domain.Exam, 0)
 	for rows.Next() {
 		var e domain.Exam
-		var coverURL, creatorID, batchID *string
+		var coverImage, creatorID, batchID *string
 		if err := rows.Scan(
-			&e.ID, &e.Name, &e.Description, &e.Status, &e.TotalScore, &e.Duration, &coverURL,
+			&e.ID, &e.Name, &e.Description, &e.Status, &e.TotalScore, &e.Duration, &coverImage,
 			&e.CollaboratorIDs, &e.CollaboratorDeptIDs, &batchID, &e.Version, &e.OwnerType, &creatorID, &e.CreatedAt, &e.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
-		e.CoverURL = coverURL
+		e.CoverImage = coverImage
 		e.CreatorID = creatorID
 		e.BatchID = batchID
 		e.Questions, _ = h.fetchExamQuestions(ctx, e.ID)

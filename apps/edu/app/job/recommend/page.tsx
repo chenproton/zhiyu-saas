@@ -158,7 +158,7 @@ export default function PostRecommendPage() {
             positionType: rec.positionType,
             reason: rec.reason,
             sortOrder: newOrder,
-            isVisible: rec.isVisible,
+            isEnabled: rec.isEnabled,
             createdBy: rec.createdBy,
           } as ApiPositionRecommendation)
         })
@@ -178,7 +178,7 @@ export default function PostRecommendPage() {
     }
   }
 
-  const handleToggleVisible = async (id: string, isVisible: boolean) => {
+  const handleToggleVisible = async (id: string, isEnabled: boolean) => {
     const rec = recommendations.find((r) => r.id === id)
     if (!rec) return
     try {
@@ -188,7 +188,7 @@ export default function PostRecommendPage() {
         positionType: rec.positionType,
         reason: rec.reason,
         sortOrder: rec.order,
-        isVisible,
+        isEnabled,
         createdBy: rec.createdBy,
       } as ApiPositionRecommendation)
       await loadData()
@@ -209,7 +209,7 @@ export default function PostRecommendPage() {
         positionType: position.positionType,
         reason: reason.trim() || undefined,
         sortOrder: majorRecs.length + 1,
-        isVisible: isVisibleNew,
+        isEnabled: isVisibleNew,
         createdBy: user.id,
       } as Omit<ApiPositionRecommendation, 'id' | 'createdAt' | 'updatedAt'>)
       await loadData()
@@ -445,7 +445,7 @@ export default function PostRecommendPage() {
                   majorRecommendations.map((rec, index) => {
                     const position = positions.find((p) => p.id === rec.positionId)
                     return (
-                      <TableRow key={rec.id} className={cn("group", !rec.isVisible && "opacity-60")}>
+                      <TableRow key={rec.id} className={cn("group", !rec.isEnabled && "opacity-60")}>
                         <TableCell>
                           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
                             {rec.order}
@@ -481,9 +481,9 @@ export default function PostRecommendPage() {
                         </TableCell>
                         <TableCell className="text-center">
                           <Switch
-                            checked={rec.isVisible}
+                            checked={rec.isEnabled}
                             onCheckedChange={(checked) => handleToggleVisible(rec.id, checked)}
-                            aria-label={rec.isVisible ? '已展示' : '已隐藏'}
+                            aria-label={rec.isEnabled ? '已展示' : '已隐藏'}
                           />
                         </TableCell>
                         <TableCell className="text-right">

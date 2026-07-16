@@ -95,7 +95,7 @@ export default function MicroCertTemplatesPage() {
     setFormTitle(template.title)
     setFormCertTypeId(template.certTypeId)
     setFormContent(template.content)
-    setFormCoverUrl(template.coverUrl || "")
+    setFormCoverUrl(template.coverImage || "")
     setFormOpen(true)
   }
 
@@ -172,7 +172,7 @@ export default function MicroCertTemplatesPage() {
       title: formTitle.trim(),
       certTypeId: formCertTypeId,
       content: formContent.trim(),
-      coverUrl: formCoverUrl || undefined,
+      coverImage: formCoverUrl || undefined,
     }
 
     if (editingTemplate) {

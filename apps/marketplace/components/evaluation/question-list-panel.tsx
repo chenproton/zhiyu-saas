@@ -320,9 +320,9 @@ export function QuestionListPanel({ bankId }: QuestionListPanelProps) {
                   <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-gray-100">
                     <Edit className="size-5 text-gray-400" />
                   </div>
-                ) : bank.coverUrl ? (
+                ) : bank.coverImage ? (
                   <div className="shrink-0 overflow-hidden rounded-lg">
-                    <img src={bank.coverUrl} alt={bank.name} className="size-12 object-cover" />
+                    <img src={bank.coverImage} alt={bank.name} className="size-12 object-cover" />
                   </div>
                 ) : (
                   <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted">

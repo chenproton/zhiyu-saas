@@ -235,10 +235,10 @@ export default function QuestionBankDetailPage() {
           <div className="flex items-start justify-between">
             <div className="flex gap-4">
               {/* 封面 */}
-              {bank.coverUrl ? (
+              {bank.coverImage ? (
                 <div className="shrink-0 overflow-hidden rounded-lg">
                   <img
-                    src={bank.coverUrl}
+                    src={bank.coverImage}
                     alt={bank.name}
                     className="size-24 object-cover"
                   />

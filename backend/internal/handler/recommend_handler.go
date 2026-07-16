@@ -29,7 +29,7 @@ type CreateRecommendRequest struct {
 	PositionType     string  `json:"positionType"`
 	Reason           *string `json:"reason"`
 	SortOrder        int     `json:"sortOrder"`
-	IsVisible        bool    `json:"isVisible"`
+	IsEnabled        bool    `json:"isEnabled"`
 }
 
 type UpdateRecommendRequest struct {
@@ -38,7 +38,7 @@ type UpdateRecommendRequest struct {
 	PositionType     string  `json:"positionType"`
 	Reason           *string `json:"reason"`
 	SortOrder        int     `json:"sortOrder"`
-	IsVisible        bool    `json:"isVisible"`
+	IsEnabled        bool    `json:"isEnabled"`
 }
 
 func (h *RecommendHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +94,7 @@ func (h *RecommendHandler) List(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT pr.id, pr.major_id, COALESCE(m.name, '') AS major_name,
 			pr.career_position_id, pr.position_type, pr.reason, pr.sort_order,
-			pr.is_visible, pr.created_by, pr.created_at, pr.updated_at
+			pr.is_enabled, pr.created_by, pr.created_at, pr.updated_at
 		FROM position_recommendations pr
 		LEFT JOIN majors m ON m.id = pr.major_id
 		WHERE ` + strings.Join(where, " AND ") + `
@@ -139,9 +139,9 @@ func (h *RecommendHandler) Create(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO position_recommendations (
-			id, major_id, career_position_id, position_type, reason, sort_order, is_visible, created_by
+			id, major_id, career_position_id, position_type, reason, sort_order, is_enabled, created_by
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, id, req.MajorID, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsVisible, claims.UserID)
+	`, id, req.MajorID, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsEnabled, claims.UserID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create recommendation")
 		return
@@ -177,9 +177,9 @@ func (h *RecommendHandler) Update(w http.ResponseWriter, r *http.Request) {
 	_, err := h.DB.Exec(r.Context(), `
 		UPDATE position_recommendations SET
 			major_id = $1, career_position_id = $2, position_type = $3, reason = $4,
-			sort_order = $5, is_visible = $6, updated_at = NOW()
+			sort_order = $5, is_enabled = $6, updated_at = NOW()
 		WHERE id = $7
-	`, req.MajorID, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsVisible, id)
+	`, req.MajorID, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsEnabled, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update recommendation")
 		return
@@ -216,13 +216,13 @@ func (h *RecommendHandler) fetchRecommend(ctx context.Context, id string) (domai
 	err := h.DB.QueryRow(ctx, `
 		SELECT pr.id, pr.major_id, COALESCE(m.name, '') AS major_name,
 			pr.career_position_id, pr.position_type, pr.reason, pr.sort_order,
-			pr.is_visible, pr.created_by, pr.created_at, pr.updated_at
+			pr.is_enabled, pr.created_by, pr.created_at, pr.updated_at
 		FROM position_recommendations pr
 		LEFT JOIN majors m ON m.id = pr.major_id
 		WHERE pr.id = $1
 	`, id).Scan(
 		&rec.ID, &rec.MajorID, &rec.MajorName, &rec.CareerPositionID, &rec.PositionType, &reason, &rec.SortOrder,
-		&rec.IsVisible, &rec.CreatedBy, &rec.CreatedAt, &rec.UpdatedAt,
+		&rec.IsEnabled, &rec.CreatedBy, &rec.CreatedAt, &rec.UpdatedAt,
 	)
 	if err != nil {
 		return rec, err
@@ -238,7 +238,7 @@ func (h *RecommendHandler) scanRecommendRows(rows pgx.Rows) ([]domain.PositionRe
 		var reason *string
 		if err := rows.Scan(
 			&rec.ID, &rec.MajorID, &rec.MajorName, &rec.CareerPositionID, &rec.PositionType, &reason, &rec.SortOrder,
-			&rec.IsVisible, &rec.CreatedBy, &rec.CreatedAt, &rec.UpdatedAt,
+			&rec.IsEnabled, &rec.CreatedBy, &rec.CreatedAt, &rec.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

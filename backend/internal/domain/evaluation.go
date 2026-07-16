@@ -9,7 +9,7 @@ type QuestionBank struct {
 	ID                  string    `json:"id"`
 	Name                string    `json:"name"`
 	Description         string    `json:"description"`
-	CoverURL            *string   `json:"coverUrl,omitempty"`
+	CoverImage          *string   `json:"coverImage,omitempty"`
 	Status              string    `json:"status"`
 	QuestionCount       int       `json:"questionCount"`
 	CreatorID           *string   `json:"creatorId,omitempty"`
@@ -77,7 +77,7 @@ type Exam struct {
 	TotalScore          float64        `json:"totalScore"`
 	Duration            int            `json:"duration"`
 	Questions           []ExamQuestion `json:"questions,omitempty"`
-	CoverURL            *string        `json:"coverUrl,omitempty"`
+	CoverImage          *string        `json:"coverImage,omitempty"`
 	CollaboratorIDs     []string       `json:"collaboratorIds,omitempty"`
 	CollaboratorDeptIDs []string       `json:"collaboratorDeptIds,omitempty"`
 	BatchID             *string        `json:"batchId,omitempty"`
@@ -252,7 +252,7 @@ type StudentAbilityArchive struct {
 	AuditRemark     *string   `json:"auditRemark,omitempty"`
 	ConvertedCredit float64   `json:"convertedCredit"`
 	Direction       string    `json:"direction"`
-	IsVisible       bool      `json:"isVisible"`
+	IsEnabled       bool      `json:"isEnabled"`
 	CreatedAt       time.Time `json:"createdAt"`
 }
 
@@ -324,7 +324,7 @@ type MicroCertTemplate struct {
 	CertTypeID   string    `json:"certTypeId"`
 	CertTypeName string    `json:"certTypeName"`
 	Content      string    `json:"content"`
-	CoverURL     *string   `json:"coverUrl,omitempty"`
+	CoverImage   *string   `json:"coverImage,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }

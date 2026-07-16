@@ -59,7 +59,7 @@ function formatDate(dateStr: string) {
 function toLocalBanner(b: BannerConfig): Banner {
   return {
     ...b,
-    status: b.isActive ? "visible" : "hidden",
+    status: b.isEnabled ? "visible" : "hidden",
   }
 }
 
@@ -100,9 +100,9 @@ export default function BannerManagementPage() {
   const filteredBanners = useMemo(() => {
     let result = [...banners]
     if (activeTab === "展示中") {
-      result = result.filter((b) => b.isActive)
+      result = result.filter((b) => b.isEnabled)
     } else if (activeTab === "已隐藏") {
-      result = result.filter((b) => !b.isActive)
+      result = result.filter((b) => !b.isEnabled)
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
@@ -116,11 +116,11 @@ export default function BannerManagementPage() {
   }, [banners, activeTab, searchQuery])
 
   const visibleCount = useMemo(
-    () => banners.filter((b) => b.isActive).length,
+    () => banners.filter((b) => b.isEnabled).length,
     [banners]
   )
   const hiddenCount = useMemo(
-    () => banners.filter((b) => !b.isActive).length,
+    () => banners.filter((b) => !b.isEnabled).length,
     [banners]
   )
 
@@ -144,7 +144,7 @@ export default function BannerManagementPage() {
     setTitle(banner.title)
     setLinkUrl(banner.linkUrl || "")
     setSortOrder(banner.sortOrder)
-    setIsActive(banner.isActive)
+    setIsActive(banner.isEnabled)
     setIsDialogOpen(true)
   }
 
@@ -181,7 +181,7 @@ export default function BannerManagementPage() {
       imageUrl,
       linkUrl: linkUrl.trim() || undefined,
       sortOrder,
-      isActive,
+      isEnabled: isActive,
     }
 
     try {
@@ -217,10 +217,10 @@ export default function BannerManagementPage() {
         imageUrl: banner.imageUrl,
         linkUrl: banner.linkUrl,
         sortOrder: banner.sortOrder,
-        isActive: !banner.isActive,
+        isEnabled: !banner.isEnabled,
       })
       await loadBanners()
-      toast({ title: !banner.isActive ? "已启用展示" : "已隐藏" })
+      toast({ title: !banner.isEnabled ? "已启用展示" : "已隐藏" })
     } catch (err: any) {
       toast({ variant: "destructive", title: "操作失败", description: err.message || "请稍后重试" })
     }
@@ -369,9 +369,9 @@ export default function BannerManagementPage() {
 
                     <div className="col-span-1 text-center">
                       <Switch
-                        checked={banner.isActive}
+                        checked={banner.isEnabled}
                         onCheckedChange={() => handleToggleStatus(banner)}
-                        aria-label={banner.isActive ? "展示中" : "已隐藏"}
+                        aria-label={banner.isEnabled ? "展示中" : "已隐藏"}
                       />
                     </div>
 
