@@ -174,7 +174,7 @@ function AddGranularPageInner() {
         await courseApi.update(editId, payload)
         toast.success("颗粒课已保存")
       } else {
-        const c = await courseApi.create(payload as Omit<Course, "id" | "nodeCount" | "resourceCount" | "viewCount" | "studyCount" | "createdAt" | "updatedAt">)
+        const c = await courseApi.create(payload as Omit<Course, "id" | "nodeCount" | "resourceCount" | "studyCount" | "createdAt" | "updatedAt">)
         router.replace(`/lesson/admin/granular/add?id=${c.id}`)
         toast.success("颗粒课已创建")
       }

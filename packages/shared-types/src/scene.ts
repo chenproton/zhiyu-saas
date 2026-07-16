@@ -19,7 +19,6 @@ export interface Scenario {
   createdAt: string
   updatedAt: string
   publishTime?: string
-  viewCount: number
 }
 
 export interface ScenarioTask {

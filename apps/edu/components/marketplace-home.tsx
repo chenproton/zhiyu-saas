@@ -26,7 +26,6 @@ import {
   ShoppingCart,
   Building2,
   TrendingUp,
-  Star,
   Layers,
   BookOpen,
   Briefcase,
@@ -450,10 +449,6 @@ function ResourceCard({
               <span className="flex items-center gap-1">
                 <TrendingUp className="h-3 w-3" />
                 {resource.salesCount}
-              </span>
-              <span className="flex items-center gap-1">
-                <Star className="h-3 w-3" />
-                {resource.viewCount}
               </span>
             </div>
           </div>

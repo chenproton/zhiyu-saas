@@ -220,7 +220,6 @@ export interface Resource {
   status: "draft" | "reviewing" | "rejected" | "pending_publish" | "published" | "offlined"
   rejectReason?: string
   salesCount: number
-  viewCount: number
   tags?: ResourceTag[]
   createdAt: string
   updatedAt: string
@@ -726,7 +725,7 @@ export const jobBannerApi = createCrudApi<BannerConfig, Omit<BannerConfig, "id" 
 
 // ==================== Phase 3.3: Scene APIs ====================
 
-export const scenarioApi = createContentApi<Scenario, Omit<Scenario, "id" | "viewCount" | "createdAt" | "updatedAt">, Partial<Omit<Scenario, "id" | "createdAt" | "updatedAt">>>("/scene/scenarios")
+export const scenarioApi = createContentApi<Scenario, Omit<Scenario, "id" | "createdAt" | "updatedAt">, Partial<Omit<Scenario, "id" | "createdAt" | "updatedAt">>>("/scene/scenarios")
 
 export const taskApi = {
   list: (params?: { scenarioId?: string; search?: string; limit?: number; offset?: number }) =>
@@ -745,7 +744,7 @@ export const sceneBatchApi = createCrudApi<SceneBatch, Omit<SceneBatch, "id" | "
 
 // ==================== Phase 3.4: Lesson APIs ====================
 
-export const courseApi = createContentApi<Course, Omit<Course, "id" | "nodeCount" | "resourceCount" | "viewCount" | "studyCount" | "createdAt" | "updatedAt">, Partial<Omit<Course, "id" | "createdAt" | "updatedAt">>>("/lesson/courses")
+export const courseApi = createContentApi<Course, Omit<Course, "id" | "nodeCount" | "resourceCount" | "studyCount" | "createdAt" | "updatedAt">, Partial<Omit<Course, "id" | "createdAt" | "updatedAt">>>("/lesson/courses")
 
 export const knowledgeApi = createCrudApi<KnowledgePoint, Omit<KnowledgePoint, "id" | "createdAt" | "updatedAt">, Partial<Omit<KnowledgePoint, "id" | "createdAt" | "updatedAt">>>("/lesson/knowledge-points")
 

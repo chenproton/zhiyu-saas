@@ -407,7 +407,7 @@ function HybridCourseAddForm() {
     setShareDialogOpen(false)
   }
 
-  const buildCoursePayload = (): Omit<Course, "id" | "nodeCount" | "resourceCount" | "viewCount" | "studyCount" | "createdAt" | "updatedAt"> => ({
+  const buildCoursePayload = (): Omit<Course, "id" | "nodeCount" | "resourceCount" | "studyCount" | "createdAt" | "updatedAt"> => ({
     code: rootForm.code || "",
     name: rootForm.name || "",
     type: "hybrid",

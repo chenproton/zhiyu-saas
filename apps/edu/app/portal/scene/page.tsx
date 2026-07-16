@@ -179,7 +179,6 @@ export default function ScenePortalPage() {
                       <span className="flex items-center gap-1">
                         难度：<DifficultyStars level={item.difficulty} />
                       </span>
-                      <span>浏览：{item.viewCount || 0}</span>
                     </div>
                   </CardContent>
                 </Card>

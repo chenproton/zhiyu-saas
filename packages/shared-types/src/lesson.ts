@@ -27,7 +27,6 @@ export interface Course {
   batchName?: string
   nodeCount: number
   resourceCount: number
-  viewCount: number
   studyCount: number
   createdAt: string
   updatedAt: string

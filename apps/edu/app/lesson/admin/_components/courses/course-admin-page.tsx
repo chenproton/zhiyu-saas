@@ -81,7 +81,6 @@ function convertBackendCourse(c: BackendCourse): Course {
     nodeCount: c.nodeCount,
     lessonCount: 0,
     resourceCount: c.resourceCount,
-    viewCount: c.viewCount,
     studyCount: c.studyCount,
     status: c.status as CourseStatus,
     coverColor: c.coverColor || undefined,

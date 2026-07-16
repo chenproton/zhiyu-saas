@@ -107,7 +107,9 @@ func (h *ResourceHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT r.id, r.institution_id, r.name, r.intro, r.category, r.cover_image, r.attachment, r.attachment_name,
-			r.price, r.version, r.status, r.reject_reason, r.sales_count, r.view_count, r.created_at, r.updated_at
+			r.price, r.version, r.status, r.reject_reason, r.sales_count,
+			(SELECT COUNT(*) FROM view_logs WHERE target_type = 'resource' AND target_id = r.id) AS view_count,
+			r.created_at, r.updated_at
 		FROM resources r
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY r.created_at DESC
@@ -176,8 +178,8 @@ func (h *ResourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(r.Context(), `
 		INSERT INTO resources (id, institution_id, name, intro, category, cover_image, attachment, attachment_name,
-			price, version, status, sales_count, view_count)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'draft', 0, 0)
+			price, version, status, sales_count)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'draft', 0)
 	`, id, *claims.InstitutionID, req.Name, req.Intro, req.Category, req.CoverImage, req.Attachment, req.AttachmentName,
 		req.Price, req.Version)
 	if err != nil {
@@ -354,7 +356,18 @@ func (h *ResourceHandler) transitionStatus(w http.ResponseWriter, r *http.Reques
 
 func (h *ResourceHandler) IncrementView(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	_, err := h.DB.Exec(r.Context(), `UPDATE resources SET view_count = view_count + 1 WHERE id = $1`, id)
+	claims := middleware.CurrentUser(r)
+
+	var userID, tenantID any
+	if claims != nil {
+		userID = claims.UserID
+		tenantID = claims.TenantID
+	} else {
+		userID = nil
+		tenantID = nil
+	}
+
+	_, err := h.DB.Exec(r.Context(), `INSERT INTO view_logs (target_type, target_id, user_id, tenant_id) VALUES ('resource', $1, $2, $3)`, id, userID, tenantID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to increment view")
 		return
@@ -366,7 +379,9 @@ func (h *ResourceHandler) fetchResource(ctx context.Context, id string) (*domain
 	var res domain.Resource
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, institution_id, name, intro, category, cover_image, attachment, attachment_name,
-			price, version, status, reject_reason, sales_count, view_count, created_at, updated_at
+			price, version, status, reject_reason, sales_count,
+			(SELECT COUNT(*) FROM view_logs WHERE target_type = 'resource' AND target_id = id) AS view_count,
+			created_at, updated_at
 		FROM resources WHERE id = $1
 	`, id).Scan(
 		&res.ID, &res.InstitutionID, &res.Name, &res.Intro, &res.Category, &res.CoverImage, &res.Attachment,

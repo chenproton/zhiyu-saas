@@ -31,7 +31,6 @@ import {
   Building2,
   CheckCircle,
   TrendingUp,
-  Eye,
   Lock,
   GraduationCap,
   Tag,
@@ -322,10 +321,6 @@ export default function ResourceDetailPage() {
                   <span className="flex items-center gap-1">
                     <TrendingUp className="h-4 w-4" />
                     销量 {resource.salesCount}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Eye className="h-4 w-4" />
-                    浏览 {resource.viewCount}
                   </span>
                 </div>
 

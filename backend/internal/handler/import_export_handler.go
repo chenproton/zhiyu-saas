@@ -38,8 +38,8 @@ var importExportEntities = map[string]importExportEntity{
 	"courses": {
 		displayName: "课程",
 		insertSQL: `
-			INSERT INTO courses (id, code, name, type, category, status, creator_id, co_creator_ids, node_count, resource_count, view_count, study_count)
-			VALUES ($1, $2, $3, 'system', '导入', 'draft', $4, '{}', 0, 0, 0, 0)
+			INSERT INTO courses (id, code, name, type, category, status, creator_id, co_creator_ids, node_count, resource_count, study_count)
+			VALUES ($1, $2, $3, 'system', '导入', 'draft', $4, '{}', 0, 0, 0)
 		`,
 		defaultCols: []string{"id", "code", "name", "status", "created_at"},
 	},

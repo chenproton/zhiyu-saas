@@ -15,7 +15,6 @@ export interface Course {
   nodeCount: number
   lessonCount: number
   resourceCount: number
-  viewCount: number
   studyCount: number
   status: CourseStatus
   coverColor?: string

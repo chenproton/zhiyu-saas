@@ -139,7 +139,7 @@ export function ScenarioForm({ scenarioId, defaultBatchId, defaultPositionId }: 
           ...payload,
           status: "draft",
           creatorId: "",
-        } as Omit<Scenario, "id" | "viewCount" | "createdAt" | "updatedAt">)
+        } as Omit<Scenario, "id" | "createdAt" | "updatedAt">)
         id = created.id
       }
       toast({ title: isEdit ? "保存成功" : "创建成功" })

@@ -144,7 +144,9 @@ func (h *CourseHandler) List(w http.ResponseWriter, r *http.Request) {
 		SELECT c.id, c.code, c.name, c.type, c.category, c.major_id, m.name AS major_name, c.teacher_id, c.industry_id, i.name AS industry_name, c.version,
 			c.online_hours, c.offline_hours, c.online_weight, c.offline_weight, c.semester, c.class_name,
 			c.status, c.cover_color, c.cover_image, c.course_tag, c.creator_id, c.co_creator_ids, c.batch_id, lb.name AS batch_name,
-			c.node_count, c.resource_count, c.view_count, c.study_count, c.created_at, c.updated_at
+			c.node_count, c.resource_count,
+			(SELECT COUNT(*) FROM view_logs WHERE target_type = 'course' AND target_id = c.id) AS view_count,
+			c.study_count, c.created_at, c.updated_at
 		FROM courses c
 		LEFT JOIN majors m ON m.id = c.major_id
 		LEFT JOIN industries i ON i.id = c.industry_id
@@ -215,8 +217,8 @@ func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO courses (id, code, name, type, category, major_id, teacher_id, industry_id, version,
 			online_hours, offline_hours, online_weight, offline_weight, semester, class_name,
 			status, cover_color, cover_image, course_tag, creator_id, co_creator_ids, batch_id,
-			node_count, resource_count, view_count, study_count)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'draft', $16, $17, $18, $19, $20, $21, 0, 0, 0, 0)
+			node_count, resource_count, study_count)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'draft', $16, $17, $18, $19, $20, $21, 0, 0, 0)
 	`, id, req.Code, req.Name, req.Type, req.Category, req.MajorID, req.TeacherID, req.IndustryID, req.Version,
 		req.OnlineHours, req.OfflineHours, req.OnlineWeight, req.OfflineWeight, req.Semester, req.ClassName,
 		req.CoverColor, req.CoverImage, req.CourseTag, claims.UserID, req.CoCreatorIds, req.BatchID)
@@ -418,7 +420,9 @@ func (h *CourseHandler) fetchCourse(ctx context.Context, id string) (*domain.Cou
 		SELECT c.id, c.code, c.name, c.type, c.category, c.major_id, m.name AS major_name, c.teacher_id, c.industry_id, i.name AS industry_name, c.version,
 			c.online_hours, c.offline_hours, c.online_weight, c.offline_weight, c.semester, c.class_name,
 			c.status, c.cover_color, c.cover_image, c.course_tag, c.creator_id, c.co_creator_ids, c.batch_id, lb.name AS batch_name,
-			c.node_count, c.resource_count, c.view_count, c.study_count, c.created_at, c.updated_at
+			c.node_count, c.resource_count,
+			(SELECT COUNT(*) FROM view_logs WHERE target_type = 'course' AND target_id = c.id) AS view_count,
+			c.study_count, c.created_at, c.updated_at
 		FROM courses c
 		LEFT JOIN majors m ON m.id = c.major_id
 		LEFT JOIN industries i ON i.id = c.industry_id

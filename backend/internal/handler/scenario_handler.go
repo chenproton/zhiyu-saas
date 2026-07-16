@@ -103,7 +103,8 @@ func (h *ScenarioHandler) List(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT s.id, s.name, s.code, s.cover_image, s.career_position_id, s.industry_id, COALESCE(i.name, '') AS industry_name,
 			s.profession_id, s.profession_name, s.batch_id, s.difficulty, s.version, s.status, s.background,
-			s.delivery_goal, s.creator_id, s.co_builder_ids, s.tenant_id, s.created_at, s.updated_at, s.publish_time, s.view_count
+			s.delivery_goal, s.creator_id, s.co_builder_ids, s.tenant_id, s.created_at, s.updated_at, s.publish_time,
+			(SELECT COUNT(*) FROM view_logs WHERE target_type = 'scenario' AND target_id = s.id) AS view_count
 		FROM scenarios s
 		LEFT JOIN industries i ON i.id = s.industry_id
 		WHERE ` + strings.Join(where, " AND ") + `
@@ -368,7 +369,8 @@ func (h *ScenarioHandler) fetchScenario(ctx context.Context, id string) (*domain
 	err := h.DB.QueryRow(ctx, `
 		SELECT s.id, s.name, s.code, s.cover_image, s.career_position_id, s.industry_id, COALESCE(i.name, '') AS industry_name,
 			s.profession_id, s.profession_name, s.batch_id, s.difficulty, s.version, s.status, s.background,
-			s.delivery_goal, s.creator_id, s.co_builder_ids, s.tenant_id, s.created_at, s.updated_at, s.publish_time, s.view_count
+			s.delivery_goal, s.creator_id, s.co_builder_ids, s.tenant_id, s.created_at, s.updated_at, s.publish_time,
+			(SELECT COUNT(*) FROM view_logs WHERE target_type = 'scenario' AND target_id = s.id) AS view_count
 		FROM scenarios s
 		LEFT JOIN industries i ON i.id = s.industry_id
 		WHERE s.id = $1

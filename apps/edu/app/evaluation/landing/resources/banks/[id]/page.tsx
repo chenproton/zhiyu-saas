@@ -7,7 +7,7 @@ import { useParams } from "next/navigation"
 import {
   ArrowLeft, BookOpen, ListOrdered, User, Clock, Search,
   FileText, ChevronRight, Star, CheckCircle2, AlertCircle,
-  Heart, Plus, Database, Eye,
+  Heart, Plus, Database,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -52,9 +52,6 @@ export default function QuestionBankDetailPage() {
     fill: "填空题", essay: "论述题", short_answer: "简答题",
   }
 
-  // 浏览次数待后端统计接口支持
-  const viewCount = 0
-
   return (
     <PrdAnnotation data={getAnnotation("lb-page")}>
     <div style={{ maxWidth: 1400, margin: "0 auto", padding: 24 }}>
@@ -91,13 +88,12 @@ export default function QuestionBankDetailPage() {
             {/* status tag removed */}
           </div>
         </div>
-        <div style={{ padding: "24px 32px", display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 24 }}>
+        <div style={{ padding: "24px 32px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }}>
           {[
             { icon: <ListOrdered style={{ width: 18, height: 18 }} />, label: "题目数量", value: `${bank.questionCount} 题`, aid: "lb-question-count" as const },
             { icon: <User style={{ width: 18, height: 18 }} />, label: "创建者", value: bank.creatorId || "系统", aid: "lb-creator" as const },
             { icon: <Clock style={{ width: 18, height: 18 }} />, label: "版本", value: bank.version, aid: "lb-version" as const },
             { icon: <Database style={{ width: 18, height: 18 }} />, label: "共建人", value: bank.creatorId || "-" },
-            { icon: <Eye style={{ width: 18, height: 18 }} />, label: "浏览次数", value: `${viewCount} 次`, aid: "lb-view-count" as const },
           ].map((item, i) => {
             const inner = (
               <>

@@ -281,7 +281,7 @@ export default function MyResourcesPage() {
                             <div>
                               <p className="font-medium text-foreground">{resource.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                销量 {resource.salesCount} · 浏览 {resource.viewCount}
+                                销量 {resource.salesCount}
                               </p>
                             </div>
                           </div>
