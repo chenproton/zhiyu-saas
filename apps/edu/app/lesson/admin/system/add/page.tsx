@@ -64,109 +64,7 @@ import CourseNodeTree from "./_components/CourseNodeTree"
 import PublishCheckPanel from "./_components/PublishCheckPanel"
 
 import type { KnowledgePointItem } from "@/lib/types/lesson"
-import { courseApi, knowledgeApi } from "@/lib/api"
-
-/* ---------- data loaded from APIs ---------- */
-
-const INITIAL_NODES: SystemCourseNode[] = [
-  {
-    id: "node-1",
-    courseId: "course-1",
-    parentId: null,
-    name: "数据分析概述",
-    order: 1,
-    type: "normal",
-    status: "draft",
-    teachingGoals: "掌握数据分析的基本概念与流程",
-    duration: 4,
-    knowledgePoints: [{ name: "数据分析概念", linked: true }, { name: "数据预处理", linked: true }],
-    resources: [{ id: "res-a1", name: "第一章课件.pptx", type: "document", size: 2400, url: "/r/1.pptx" }],
-    quizzes: [{ id: "qz-1", title: "入门测验", type: "question_bank", questions: [] }],
-    homeworks: [],
-  },
-  {
-    id: "node-2",
-    courseId: "course-1",
-    parentId: null,
-    name: "假设检验",
-    order: 2,
-    type: "original",
-    status: "draft",
-    teachingGoals: "掌握假设检验的基本原理与应用",
-    duration: 6,
-    knowledgePoints: [{ name: "假设检验", linked: true }, { name: "P值", linked: true }],
-    resources: [
-      { id: "res-b1", name: "假设检验案例.pdf", type: "document", size: 5100, url: "/r/2.pdf" },
-      { id: "res-b2", name: "实验数据集.xlsx", type: "spreadsheet", size: 1200, url: "/r/3.xlsx" },
-    ],
-    quizzes: [{ id: "qz-2", title: "假设检验测验", type: "question_bank", questions: [] }],
-    homeworks: [{ id: "hw-1", title: "T检验实战作业", requirement: "完成课后习题", needAttachment: true }],
-  },
-  {
-    id: "node-2-1",
-    courseId: "course-1",
-    parentId: "node-2",
-    name: "P值与显著性",
-    order: 1,
-    type: "normal",
-    sourceId: "grain-1",
-    sourceName: "P值与显著性",
-    status: "draft",
-    duration: 2,
-    teachingGoals: "理解P值的含义与显著性水平",
-    knowledgePoints: [{ name: "P值", linked: true }],
-    resources: [{ id: "res-c1", name: "P值讲解视频.mp4", type: "video", size: 8500, url: "/r/4.mp4" }],
-    quizzes: [],
-    homeworks: [],
-  },
-  {
-    id: "node-2-2",
-    courseId: "course-1",
-    parentId: "node-2",
-    name: "T检验实战",
-    order: 2,
-    type: "normal",
-    sourceId: "grain-2",
-    sourceName: "T检验实战",
-    status: "draft",
-    duration: 4,
-    teachingGoals: "掌握T检验的实际应用方法",
-    knowledgePoints: [{ name: "T检验", linked: true }],
-    resources: [],
-    quizzes: [{ id: "qz-3", title: "T检验测验", type: "paper", questions: [] }],
-    homeworks: [],
-  },
-  {
-    id: "node-3",
-    courseId: "course-1",
-    parentId: null,
-    name: "回归分析",
-    order: 3,
-    type: "normal",
-    status: "draft",
-    duration: 5,
-    teachingGoals: "掌握线性回归与非线性回归方法",
-    knowledgePoints: [],
-    resources: [],
-    quizzes: [],
-    homeworks: [],
-  },
-  {
-    id: "node-4",
-    courseId: "course-1",
-    parentId: null,
-    name: "数据可视化",
-    order: 4,
-    type: "original",
-    status: "draft",
-    duration: 3,
-    teachingGoals: "掌握常用数据可视化图表的制作",
-    knowledgePoints: [{ name: "图表设计", linked: true }],
-    resources: [{ id: "res-d1", name: "可视化工具介绍", type: "link", size: 0, url: "https://viz.tools" }],
-    quizzes: [],
-    homeworks: [],
-  },
-]
+import { courseApi, courseNodeApi, knowledgeApi } from "@/lib/api"
 
 /* ---------- node editing mode ---------- */
 
@@ -260,20 +158,43 @@ function ConvertPreviewTree({
 
 function AddSystemPageInner() {
   const searchParams = useSearchParams()
-  const isEdit = searchParams.get("mode") === "edit"
+  const editId = searchParams.get("id")
+  const isEdit = !!editId
 
   /* ========== global config (collapsible) ========== */
   const [globalInfoOpen, setGlobalInfoOpen] = useState(true)
-  const [courseName, setCourseName] = useState(isEdit ? "数据分析基础" : "")
-  const [courseCode] = useState(isEdit ? "AB8G-A1-12345678" : `AB8G-A1-${Math.floor(10000000 + Math.random() * 90000000)}`)
-  const [major, setMajor] = useState(isEdit ? "岗位优化测试专业01" : "")
-  const [description, setDescription] = useState(isEdit ? "本课程系统介绍数据分析的基本方法与工具。" : "")
+  const [courseId, setCourseId] = useState(editId || "")
+  const [courseName, setCourseName] = useState("")
+  const [courseCode, setCourseCode] = useState(`AB8G-A1-${Math.floor(10000000 + Math.random() * 90000000)}`)
+  const [major, setMajor] = useState("")
+  const [courseDescription, setCourseDescription] = useState("")
   const [coverImage, setCoverImage] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [loadingEdit, setLoadingEdit] = useState(false)
 
   /* ========== course node tree ========== */
-  const [nodes, setNodes] = useState<SystemCourseNode[]>(isEdit ? INITIAL_NODES : [])
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(isEdit ? "node-2" : null)
+  const [nodes, setNodes] = useState<SystemCourseNode[]>([])
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!editId) return
+    setLoadingEdit(true)
+    Promise.all([
+      courseApi.get(editId),
+      courseNodeApi.list({ courseId: editId }),
+    ]).then(([course, nodeRes]) => {
+      setCourseId(course.id)
+      setCourseName(course.name || "")
+      if (course.code) setCourseCode(course.code)
+      if (course.description) setCourseDescription(course.description)
+      if (course.coverImage) setCoverImage(course.coverImage)
+      if (course.major) setMajor(course.major)
+      if (nodeRes.items?.length) {
+        setNodes(nodeRes.items as unknown as SystemCourseNode[])
+        setSelectedNodeId(nodeRes.items[0]?.id || null)
+      }
+    }).catch(() => {}).finally(() => setLoadingEdit(false))
+  }, [editId])
 
   const handleAddNode = useCallback((parentId: string | null, name: string, order: number, type?: NodeRefType, sourceId?: string, sourceName?: string) => {
     const newNode: SystemCourseNode = {
@@ -529,7 +450,39 @@ function AddSystemPageInner() {
     [selectedNodeId, selectedNode, learningGoal, hours, selectedResourceIds, selectedEvalMethods]
   )
 
-  const handleSubmit = useCallback(() => {
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = useCallback(async () => {
+    setSaving(true)
+    try {
+      const payload: any = {
+        name: courseName,
+        code: courseCode,
+        major: major || undefined,
+        description: courseDescription || undefined,
+        coverImage: coverImage || undefined,
+        type: "system",
+        status: "draft",
+        category: "system",
+        creatorId: "",
+        coCreatorIds: [],
+      }
+      if (isEdit && courseId) {
+        await courseApi.update(courseId, payload)
+        toast.success("草稿已更新")
+      } else {
+        const created = await courseApi.create(payload)
+        setCourseId(created.id)
+        toast.success("草稿已保存")
+      }
+    } catch {
+      toast.error("保存失败")
+    } finally {
+      setSaving(false)
+    }
+  }, [courseName, courseCode, major, courseDescription, coverImage, isEdit, courseId])
+
+  const handleSubmit = useCallback(async () => {
     const completeNodes = nodes.filter((n) => n.type !== "original" && checkNodeComplete(n))
     if (completeNodes.length > 0) {
       setConvertedNodeIds(new Set(completeNodes.map((n) => n.id)))
@@ -538,10 +491,22 @@ function AddSystemPageInner() {
         prev.map((n) => (completeNodes.some((c) => c.id === n.id) ? { ...n, type: "original" } : n))
       )
       setConvertDialogOpen(true)
-    } else {
-      toast.success("课程已提交审核")
+      return
     }
-  }, [nodes, checkNodeComplete])
+    if (!courseId) {
+      toast.error("请先保存草稿")
+      return
+    }
+    setSaving(true)
+    try {
+      await courseApi.submit(courseId)
+      toast.success("课程已提交审核")
+    } catch {
+      toast.error("提交失败")
+    } finally {
+      setSaving(false)
+    }
+  }, [nodes, checkNodeComplete, courseId])
 
   /* ---------- construct current node for publish check ---------- */
   const currentCheckNode: SystemCourseNode | undefined = useMemo(() => {
@@ -610,11 +575,11 @@ function AddSystemPageInner() {
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => toast.success("草稿已保存")}>
+              <Button variant="outline" size="sm" className="gap-1" onClick={handleSave} disabled={saving}>
                 <Save className="h-4 w-4" />
-                保存草稿
+                {saving ? "保存中..." : "保存草稿"}
               </Button>
-              <Button size="sm" className="gap-1 bg-[#1890ff] hover:bg-[#40a9ff]" onClick={handleSubmit}>
+              <Button size="sm" className="bg-[#1890ff] hover:bg-[#40a9ff]" onClick={handleSubmit} disabled={saving}>
                 <Send className="h-4 w-4" />
                 提交
               </Button>
@@ -654,8 +619,8 @@ function AddSystemPageInner() {
                       )}
                     </div>
                   </div>
-                  {!globalInfoOpen && description && (
-                    <p className="text-xs text-gray-400 mt-1 pl-6 text-left">{description}</p>
+                  {!globalInfoOpen && courseDescription && (
+                    <p className="text-xs text-gray-400 mt-1 pl-6 text-left">{courseDescription}</p>
                   )}
                 </CardHeader>
               </button>
@@ -729,8 +694,8 @@ function AddSystemPageInner() {
                   <div className="md:col-span-3 space-y-1.5">
                     <Label className="text-xs">课程简介</Label>
                     <RichTextEditor
-                      value={description}
-                      onChange={setDescription}
+                      value={courseDescription}
+                      onChange={setCourseDescription}
                       placeholder="请输入课程简介..."
                       minHeight={280}
                     />
@@ -1021,9 +986,15 @@ function AddSystemPageInner() {
           </div>
           <DialogFooter>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 setConvertDialogOpen(false)
-                toast.success("课程已提交审核")
+                if (!courseId) { toast.error("请先保存草稿"); return }
+                setSaving(true)
+                try {
+                  await courseApi.submit(courseId)
+                  toast.success("课程已提交审核")
+                } catch { toast.error("提交失败") }
+                setSaving(false)
               }}
             >
               确认

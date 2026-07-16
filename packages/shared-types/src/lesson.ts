@@ -5,6 +5,7 @@ export interface Course {
   type: "system" | "granular" | "hybrid"
   category: string
   major?: string
+  description?: string
   teacherId?: string
   industry?: string
   version?: string
