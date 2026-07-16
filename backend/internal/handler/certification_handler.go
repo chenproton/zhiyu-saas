@@ -419,6 +419,138 @@ func (h *CertificationHandler) scanRuleRows(rows pgx.Rows) ([]domain.Certificati
 	return items, nil
 }
 
+type CertificationFullItem struct {
+	ID          string                    `json:"id"`
+	Name        string                    `json:"name"`
+	SortOrder   int                       `json:"sortOrder"`
+	AbilityName string                    `json:"abilityName,omitempty"`
+	Points      []CertificationFullPoint  `json:"points"`
+}
+
+type CertificationFullPoint struct {
+	ID                 string                      `json:"id"`
+	Name               string                      `json:"name"`
+	Description        string                      `json:"description"`
+	MappingType        string                      `json:"mappingType"`
+	CustomLevelMapping domain.JSONSlice            `json:"customLevelMapping,omitempty"`
+	RequiredLevel      string                      `json:"requiredLevel"`
+	Weight             float64                     `json:"weight"`
+	Tasks              []domain.CertificationRelatedTask `json:"tasks,omitempty"`
+}
+
+func (h *CertificationHandler) GetFullRule(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	ruleID := chi.URLParam(r, "id")
+	rule, err := h.fetchRule(r.Context(), ruleID)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "certification rule not found")
+		return
+	}
+
+	itemRows, err := h.DB.Query(r.Context(), `
+		SELECT i.id, i.name, i.sort_order,
+			COALESCE((SELECT name FROM ability_points WHERE id = p.ability_point_id LIMIT 1), '')
+		FROM certification_ability_items i
+		LEFT JOIN certification_ability_points p ON p.item_id = i.id
+		WHERE i.rule_id = $1
+		GROUP BY i.id, i.name, i.sort_order
+		ORDER BY i.sort_order
+	`, ruleID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to list items")
+		return
+	}
+	defer itemRows.Close()
+
+	var items []CertificationFullItem
+	var itemIDs []string
+	for itemRows.Next() {
+		var item CertificationFullItem
+		if err := itemRows.Scan(&item.ID, &item.Name, &item.SortOrder, &item.AbilityName); err != nil {
+			continue
+		}
+		item.Points = []CertificationFullPoint{}
+		items = append(items, item)
+		itemIDs = append(itemIDs, item.ID)
+	}
+
+	if len(itemIDs) > 0 {
+		pointRows, err := h.DB.Query(r.Context(), `
+			SELECT p.id, p.item_id,
+				COALESCE((SELECT name FROM ability_points WHERE id = p.ability_point_id), ''),
+				COALESCE((SELECT description FROM ability_points WHERE id = p.ability_point_id), ''),
+				p.mapping_type, p.custom_level_mapping, p.required_level, p.weight
+			FROM certification_ability_points p
+			WHERE p.item_id = ANY($1)
+			ORDER BY p.item_id, p.id
+		`, itemIDs)
+		if err == nil {
+			defer pointRows.Close()
+			itemPointMap := make(map[string][]CertificationFullPoint)
+			for pointRows.Next() {
+				var p CertificationFullPoint
+				var itemID string
+				if err := pointRows.Scan(&p.ID, &itemID, &p.Name, &p.Description, &p.MappingType, &p.CustomLevelMapping, &p.RequiredLevel, &p.Weight); err != nil {
+					continue
+				}
+				p.Tasks = []domain.CertificationRelatedTask{}
+				itemPointMap[itemID] = append(itemPointMap[itemID], p)
+			}
+
+			var pointIDs []string
+			for _, pts := range itemPointMap {
+				for _, p := range pts {
+					pointIDs = append(pointIDs, p.ID)
+				}
+			}
+
+			if len(pointIDs) > 0 {
+				taskRows, err := h.DB.Query(r.Context(), `
+					SELECT id, cert_point_id, task_id, max_score, weight
+					FROM certification_related_tasks
+					WHERE cert_point_id = ANY($1)
+				`, pointIDs)
+				if err == nil {
+					defer taskRows.Close()
+					pointTaskMap := make(map[string][]domain.CertificationRelatedTask)
+					for taskRows.Next() {
+						var t domain.CertificationRelatedTask
+						if err := taskRows.Scan(&t.ID, &t.CertPointID, &t.TaskID, &t.MaxScore, &t.Weight); err == nil {
+							pointTaskMap[t.CertPointID] = append(pointTaskMap[t.CertPointID], t)
+						}
+					}
+					for i, item := range items {
+						if pts, ok := itemPointMap[item.ID]; ok {
+							for j, p := range pts {
+								if tasks, ok := pointTaskMap[p.ID]; ok {
+									items[i].Points[j].Tasks = tasks
+								}
+							}
+							items[i].Points = pts
+						}
+					}
+				}
+			} else {
+				for i, item := range items {
+					if pts, ok := itemPointMap[item.ID]; ok {
+						items[i].Points = pts
+					}
+				}
+			}
+		}
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"rule":  rule,
+		"items": items,
+	})
+}
+
 func (h *CertificationHandler) fetchItem(ctx context.Context, id string) (domain.CertificationAbilityItem, error) {
 	var item domain.CertificationAbilityItem
 	err := h.DB.QueryRow(ctx, `

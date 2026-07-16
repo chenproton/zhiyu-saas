@@ -60,6 +60,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	staffTitleHandler := &handler.StaffTitleHandler{DB: db}
 	graduateHandler := &handler.GraduateHandler{DB: db}
 	userExtensionFieldHandler := &handler.UserExtensionFieldHandler{DB: db}
+	userRelationHandler := &handler.UserRelationHandler{DB: db}
 
 	// Shared workflow & approval handlers
 	workflowHandler := &handler.WorkflowHandler{DB: db}
@@ -109,6 +110,8 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	appealHandler := &handler.AppealHandler{DB: db}
 	evaluationMethodHandler := &handler.EvaluationMethodHandler{DB: db}
 	evaluationBatchHandler := handler.NewEvaluationBatchHandler(db)
+	landingHandler := &handler.LandingHandler{DB: db}
+	certGradeHandler := &handler.CertGradeHandler{DB: db}
 
 	auth := authmw.JWT(jwtSecret)
 	platformAdmin := authmw.RequireIdentityType("platform_admin")
@@ -188,6 +191,10 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 				r.Get("/portal/workspace/dashboard", portalHandler.WorkspaceDashboard)
 			})
 
+			// Landing page routes
+			r.Get("/evaluation/landing/exams", landingHandler.ListExams)
+			r.Get("/evaluation/landing/certifications/{id}/grades", certGradeHandler.ListGrades)
+
 			r.Group(func(r chi.Router) {
 				r.Use(schoolAdmin)
 
@@ -246,6 +253,12 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 				r.Route("/user-extension-fields", func(r chi.Router) {
 					r.Get("/", userExtensionFieldHandler.List)
 					r.Put("/{id}", userExtensionFieldHandler.Update)
+				})
+
+				r.Route("/user-relations", func(r chi.Router) {
+					r.Get("/", userRelationHandler.List)
+					r.Post("/", userRelationHandler.Create)
+					r.Delete("/{id}", userRelationHandler.Delete)
 				})
 
 				r.Get("/roles", roleHandler.List)
@@ -528,6 +541,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 				r.Post("/evaluation/certifications/{id}/items", certificationHandler.ConfigItems)
 				r.Get("/evaluation/certifications/items/{id}/points", certificationHandler.ConfigPoints)
 				r.Post("/evaluation/certifications/items/{id}/points", certificationHandler.ConfigPoints)
+				r.Get("/evaluation/certifications/{id}/full", certificationHandler.GetFullRule)
 
 				r.Get("/evaluation/graduation/topics", graduationHandler.ListTopics)
 				r.Get("/evaluation/graduation/topics/{id}", graduationHandler.GetTopic)

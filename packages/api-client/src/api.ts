@@ -588,6 +588,26 @@ export const portalUserExtensionFieldApi = {
     portalRequest<UserExtensionField>(`/user-extension-fields/${id}`, { method: "PUT", body: JSON.stringify(req) }),
 }
 
+export interface UserRelationItem {
+  id: string
+  initiatorId: string
+  initiatorName: string
+  initiatorDept: string
+  targetId: string
+  targetName: string
+  targetDept: string
+  relationType: string
+  createdAt: string
+}
+
+export const portalUserRelationApi = {
+  list: (params?: { search?: string; limit?: number; offset?: number }) =>
+    portalRequest<ListResponse<UserRelationItem>>(`/user-relations${buildQuery(params || {})}`),
+  create: (req: { initiatorId: string; targetId: string; relationType: string; description?: string }) =>
+    portalRequest<{ id: string }>("/user-relations", { method: "POST", body: JSON.stringify(req) }),
+  delete: (id: string) => portalRequest<{ id: string }>(`/user-relations/${id}`, { method: "DELETE" }),
+}
+
 export const roleApi = {
   ...createCrudApi<Role, Omit<Role, "id" | "userCount" | "createdAt">, Partial<Omit<Role, "id" | "userCount" | "createdAt">>>("/roles"),
   assign: (id: string, userIds: string[]) =>
@@ -833,6 +853,30 @@ export const evaluationResultApi = {
     request<{ count: number }>("/evaluation/results/batch-grade", { method: "POST", body: JSON.stringify({ items }) }),
 }
 
+export interface CertificationFullRuleItem {
+  id: string
+  name: string
+  sortOrder: number
+  abilityName?: string
+  points: CertificationFullPoint[]
+}
+
+export interface CertificationFullPoint {
+  id: string
+  name: string
+  description: string
+  mappingType: string
+  customLevelMapping?: any[]
+  requiredLevel: string
+  weight: number
+  tasks?: CertificationRelatedTask[]
+}
+
+export interface CertificationFullRuleResponse {
+  rule: CertificationRule
+  items: CertificationFullRuleItem[]
+}
+
 export const certApi = {
   listRules: (params?: { careerPositionId?: string; status?: string; limit?: number; offset?: number }) =>
     request<ListResponse<CertificationRule>>(`/evaluation/certifications${buildQuery(params || {})}`),
@@ -846,6 +890,57 @@ export const certApi = {
   upsertItem: (ruleId: string, req: Partial<CertificationAbilityItem>) =>
     request<CertificationAbilityItem>(`/evaluation/certifications/${ruleId}/items`, { method: "POST", body: JSON.stringify(req) }),
   deleteItem: (id: string) => request<{ id: string }>(`/evaluation/certifications/items/${id}`, { method: "DELETE" }),
+  getFullRule: (id: string) => request<CertificationFullRuleResponse>(`/evaluation/certifications/${id}/full`),
+}
+
+export interface LandingExamItem {
+  id: string
+  name: string
+  status: string
+  type: string
+  time: string
+  duration: number
+  questionCount: number
+  description: string
+  college: string
+  major: string
+  targetAudience: string
+}
+
+export interface CompItem {
+  name: string
+  target: number
+  current: number
+  desc: string
+}
+
+export interface CompGroup {
+  duty: string
+  items: CompItem[]
+}
+
+export interface LeaderboardEntry {
+  id: string
+  studentName: string
+  className: string
+  major: string
+  achievementRate: number
+  grade: string
+}
+
+export interface CertGradeData {
+  totalPoints: number
+  avgRate: number
+  lastUpdated: string
+  compData: CompGroup[]
+  leaderboard: LeaderboardEntry[]
+}
+
+export const landingApi = {
+  listExams: (params?: { search?: string; limit?: number; offset?: number }) =>
+    request<ListResponse<LandingExamItem>>(`/evaluation/landing/exams${buildQuery(params || {})}`),
+  getCertGrades: (positionId: string) =>
+    request<{ grades: Record<string, CertGradeData> }>(`/evaluation/landing/certifications/${positionId}/grades`),
 }
 
 export const graduationApi = {
