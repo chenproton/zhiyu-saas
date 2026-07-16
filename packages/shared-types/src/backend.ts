@@ -23,6 +23,7 @@ export interface Organization {
   parentId?: string
   sortOrder: number
   memberCount: number
+  children?: Organization[]
   createdAt: string
   updatedAt: string
 }

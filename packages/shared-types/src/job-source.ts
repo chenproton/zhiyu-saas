@@ -18,7 +18,9 @@ export type BatchStatus = 'open' | 'closed'
 export interface Batch {
   id: string
   name: string
+  orgNodeId?: string
   department: string
+  majorId?: string
   major: string
   workflowId: string
   status: BatchStatus

@@ -62,10 +62,11 @@ SSH_PORT="${SSH_PORT:-22}"
 SITE_NAME="saas"
 FRONTEND_PORT="$DEMO_PORT"
 
-STANDALONE_DIR="$PROJECT_ROOT/.next/standalone"
-STATIC_DIR="$PROJECT_ROOT/.next/static"
-PUBLIC_DIR="$PROJECT_ROOT/public"
-SERVER_DIR="$PROJECT_ROOT/.next/server"
+EDU_DIR="$PROJECT_ROOT/apps/edu"
+STANDALONE_DIR="$EDU_DIR/.next/standalone/apps/edu"
+STATIC_DIR="$EDU_DIR/.next/static"
+PUBLIC_DIR="$EDU_DIR/public"
+SERVER_DIR="$EDU_DIR/.next/server"
 TMP_PKG_DIR="/dev/shm/zhiyu-saas-demo-pkg"
 
 # ==================== 加载环境变量 ====================
@@ -135,7 +136,7 @@ cd "$PROJECT_ROOT"
 if [[ "$SKIP_CHECKS" != "true" && "$SKIP_BUILD" != "true" ]]; then
   echo "==> 运行代码检查..."
   echo "  前端类型检查..."
-  pnpm exec tsc --noEmit || {
+  (cd "$PROJECT_ROOT" && pnpm --filter @zhiyu/edu typecheck) || {
     echo "错误：前端 TypeScript 类型检查未通过，拒绝部署" >&2
     exit 1
   }
@@ -166,7 +167,7 @@ if [[ "$SKIP_BUILD" != "true" ]]; then
   API_PROXY_URL="${DEMO_API_URL%/api/v1}"
   API_PROXY_URL="${API_PROXY_URL%/api}"
   export API_PROXY_URL
-  pnpm exec next build --webpack || {
+  pnpm --filter @zhiyu/edu build || {
     echo "错误：前端构建失败" >&2
     exit 1
   }

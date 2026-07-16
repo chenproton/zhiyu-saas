@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -14,6 +14,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { usePortalUsers } from "@/hooks/use-portal-users"
+import { useOrgTree } from "@/hooks/use-org-tree"
+import { OrgNodeSelect } from "@/components/shared/org-node-select"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -26,28 +28,13 @@ interface Teacher {
   name: string
   workNo: string
   department: string
+  orgNodeId?: string
   roles: string[]
   positions: string[]
   status: "在职" | "离职" | "外聘" | "禁用"
 }
 
-interface OrgMajorNode {
-  id: string
-  name: string
-}
-
-interface OrgDeptNode {
-  id: string
-  name: string
-  majors: OrgMajorNode[]
-}
-
-const orgTreeData: OrgDeptNode[] = [
-  { id: "dept-1", name: "信息学院", majors: [{ id: "major-1-1", name: "计算机系" }, { id: "major-1-2", name: "软件工程系" }] },
-  { id: "dept-2", name: "经济管理学院", majors: [{ id: "major-2-1", name: "会计系" }, { id: "major-2-2", name: "金融系" }] },
-  { id: "dept-3", name: "教务处", majors: [] },
-  { id: "dept-4", name: "学生处", majors: [] },
-]
+const TEACHER_ORG_TYPES = ["二级学院", "行政职能部门"]
 
 function mapTeacherStatus(status: string): Teacher["status"] {
   if (status === "active") return "在职"
@@ -71,45 +58,51 @@ export default function TeachersPage() {
     identityTypeCode: "teacher",
     search: searchTerm || undefined,
   })
+  const { orgTree, orgMap, orgTypeMap, loading: orgLoading } = useOrgTree(tenantId)
 
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null)
+  const [selectedOrgNodeId, setSelectedOrgNodeId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [formName, setFormName] = useState("")
   const [formUsername, setFormUsername] = useState("")
   const [formPassword, setFormPassword] = useState("")
   const [formWorkId, setFormWorkId] = useState("")
+  const [formOrgNodeId, setFormOrgNodeId] = useState<string>("")
+
+  const teacherOrgNodes = useMemo(() => {
+    return orgTree.filter((node) => {
+      const typeName = orgTypeMap.get(node.typeId)?.name
+      return typeName && TEACHER_ORG_TYPES.includes(typeName)
+    })
+  }, [orgTree, orgTypeMap])
 
   useEffect(() => {
     setTeachers(
       users.map((u) => {
         const idType = u.identityTypeId ? identityTypeMap.get(u.identityTypeId) : undefined
+        const orgNode = u.orgNodeId ? orgMap.get(u.orgNodeId) : undefined
         return {
           id: u.id,
           name: u.name,
           workNo: u.workId || u.username,
-          department: institution?.name || "—",
+          department: orgNode?.name || institution?.name || "—",
+          orgNodeId: u.orgNodeId,
           roles: idType ? [idType.name] : [],
           positions: u.titleIds ?? [],
           status: mapTeacherStatus(u.status),
         }
       })
     )
-  }, [users, identityTypeMap, institution])
+  }, [users, identityTypeMap, institution, orgMap])
 
   const filteredTeachers = teachers.filter((teacher) => {
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      if (!teacher.name.toLowerCase().includes(term) && !teacher.workNo.toLowerCase().includes(term)) return false
-    }
     if (statusFilter !== "all" && teacher.status !== statusFilter) return false
-    if (selectedDeptId) {
-      const dept = orgTreeData.find((d) => d.id === selectedDeptId)
-      if (dept && teacher.department !== dept.name) return false
+    if (selectedOrgNodeId) {
+      return teacher.orgNodeId === selectedOrgNodeId
     }
     return true
   })
@@ -119,6 +112,7 @@ export default function TeachersPage() {
     setFormUsername("")
     setFormPassword("")
     setFormWorkId("")
+    setFormOrgNodeId("")
   }
 
   const openCreateDialog = () => {
@@ -147,6 +141,7 @@ export default function TeachersPage() {
         password: formPassword.trim(),
         name: formName.trim(),
         workId: formWorkId.trim() || undefined,
+        orgNodeId: formOrgNodeId || undefined,
       })
       toast({ title: "创建成功" })
       setIsDialogOpen(false)
@@ -235,17 +230,33 @@ export default function TeachersPage() {
           <ScrollArea className="h-[500px]">
             <div className="space-y-1">
               <button
-                onClick={() => setSelectedDeptId(null)}
+                onClick={() => setSelectedOrgNodeId(null)}
                 className={cn(
                   "w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors",
-                  selectedDeptId === null ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                  selectedOrgNodeId === null ? "bg-primary text-primary-foreground" : "hover:bg-muted"
                 )}
               >
                 全部教职工
               </button>
-              {orgTreeData.map((dept) => (
-                <DeptTreeNode key={dept.id} dept={dept} selectedDeptId={selectedDeptId} onSelectDept={setSelectedDeptId} />
-              ))}
+              {orgLoading ? (
+                <div className="flex items-center gap-2 px-2 py-4 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> 加载中...
+                </div>
+              ) : (
+                teacherOrgNodes.map((node) => (
+                  <button
+                    key={node.id}
+                    onClick={() => setSelectedOrgNodeId(node.id)}
+                    className={cn(
+                      "w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors truncate",
+                      selectedOrgNodeId === node.id ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"
+                    )}
+                    style={{ paddingLeft: `${0.5 + node.depth * 0.75}rem` }}
+                  >
+                    {node.name}
+                  </button>
+                ))
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -393,6 +404,16 @@ export default function TeachersPage() {
               <Label>工号</Label>
               <Input placeholder="如：T001" value={formWorkId} onChange={(e) => setFormWorkId(e.target.value)} />
             </div>
+            <div className="grid gap-2">
+              <Label>所属院系/部门</Label>
+              <OrgNodeSelect
+                tenantId={tenantId}
+                value={formOrgNodeId}
+                onChange={(value) => setFormOrgNodeId(value || "")}
+                allowedTypes={TEACHER_ORG_TYPES}
+                placeholder="选择所属院系或部门"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
@@ -404,44 +425,5 @@ export default function TeachersPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-function DeptTreeNode({
-  dept,
-  selectedDeptId,
-  onSelectDept,
-}: {
-  dept: OrgDeptNode
-  selectedDeptId: string | null
-  onSelectDept: (id: string | null) => void
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger asChild>
-        <button className="flex items-center w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors">
-          {open ? <ChevronDown className="h-3.5 w-3.5 mr-1 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 mr-1 shrink-0" />}
-          <button
-            onClick={(e) => { e.stopPropagation(); onSelectDept(dept.id) }}
-            className={cn(
-              "flex-1 text-left truncate rounded px-1 -mx-1 transition-colors",
-              selectedDeptId === dept.id ? "bg-primary/10 text-primary font-medium" : ""
-            )}
-          >
-            {dept.name}
-          </button>
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="ml-4 space-y-1">
-          {dept.majors.map((major) => (
-            <div key={major.id} className="px-2 py-1 text-sm text-muted-foreground truncate">
-              {major.name}
-            </div>
-          ))}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
   )
 }

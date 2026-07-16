@@ -1,17 +1,4 @@
-import type { PlatformNavigationConfig, TopNavItem } from "@/components/platform-shell"
-
-const externalPortalUrl = "http://111.170.170.202:3001/portal"
-const externalWorkspaceUrl = "http://111.170.170.202:3001/portal/workspace"
-const externalAppsUrl = "http://111.170.170.202:3001/portal/apps"
-
-/* ============================================================
-   全局统一顶部导航（各子系统共用）
-   ============================================================ */
-export const portalTopNavItems: TopNavItem[] = [
-  { id: "portal", label: "门户首页", href: "/portal", icon: "home" },
-  { id: "workspace", label: "我的服务台", href: "/portal/workspace", icon: "briefcase" },
-  { id: "apps", label: "应用服务中心", href: "/portal/apps", icon: "layoutGrid" },
-]
+import type { PlatformNavigationConfig } from "@/components/platform-shell"
 
 /* ============================================================
    统一导航树（数字课程平台）
@@ -33,11 +20,6 @@ export const unifiedNavigationConfig: PlatformNavigationConfig = {
     { id: "profile", label: "个人中心", icon: "user" },
     { id: "account", label: "账号设置", icon: "settings" },
     { id: "logout", label: "退出登录", tone: "danger" },
-  ],
-  topNavItems: [
-    { id: "portal", label: "门户首页", href: externalPortalUrl, icon: "home" },
-    { id: "workspace", label: "我的服务台", href: externalWorkspaceUrl, icon: "briefcase" },
-    { id: "apps", label: "应用服务中心", href: externalAppsUrl, icon: "layoutGrid" },
   ],
   sideNavItems: [
     {
@@ -118,11 +100,6 @@ export const adminNavigationConfig: PlatformNavigationConfig = {
     { id: "account", label: "账号设置", icon: "settings" },
     { id: "logout", label: "退出登录", tone: "danger" },
   ],
-  topNavItems: [
-    { id: "portal", label: "门户首页", href: externalPortalUrl, icon: "home" },
-    { id: "workspace", label: "我的服务台", href: externalWorkspaceUrl, icon: "briefcase" },
-    { id: "apps", label: "应用服务中心", href: externalAppsUrl, icon: "layoutGrid" },
-  ],
   sideNavItems: [
     {
       id: "resource-center",
@@ -180,14 +157,6 @@ export const jobNavigationConfig: PlatformNavigationConfig = {
     { id: "account", label: "账号设置", icon: "settings" },
     { id: "logout", label: "退出登录", tone: "danger" },
   ],
-  topNavItems: [
-    { id: "positions", label: "岗位管理", href: "/job/positions", icon: "briefcase" },
-    { id: "batches", label: "批次管理", href: "/job/batches", icon: "calendar" },
-    { id: "workflows", label: "工作流", href: "/job/workflows", icon: "gitBranch" },
-    { id: "approvals", label: "审批管理", href: "/job/approvals", icon: "checkCircle" },
-    { id: "recommend", label: "岗位推荐", href: "/job/recommend", icon: "star" },
-    { id: "learn-roads", label: "学习路径", href: "/job/learn-roads", icon: "route" },
-  ],
   sideNavItems: [
     {
       id: "position-center",
@@ -244,13 +213,6 @@ export const sceneNavigationConfig: PlatformNavigationConfig = {
     { id: "account", label: "账号设置", icon: "settings" },
     { id: "logout", label: "退出登录", tone: "danger" },
   ],
-  topNavItems: [
-    { id: "scenarios", label: "场景管理", href: "/scene/", icon: "layers" },
-    { id: "batches", label: "批次管理", href: "/scene/batches", icon: "calendar" },
-    { id: "workflows", label: "工作流", href: "/scene/workflows", icon: "gitBranch" },
-    { id: "approvals", label: "审批管理", href: "/scene/approvals", icon: "checkCircle" },
-    { id: "archive", label: "归档库", href: "/scene/archive", icon: "archive" },
-  ],
   sideNavItems: [
     {
       id: "scenario-center",
@@ -297,17 +259,6 @@ export const evaluationNavigationConfig: PlatformNavigationConfig = {
     { id: "profile", label: "个人中心", icon: "user" },
     { id: "account", label: "账号设置", icon: "settings" },
     { id: "logout", label: "退出登录", tone: "danger" },
-  ],
-  topNavItems: [
-    { id: "question-banks", label: "题库", href: "/evaluation/question-banks", icon: "bookOpen" },
-    { id: "exams", label: "试卷", href: "/evaluation/exams", icon: "fileText" },
-    { id: "exam-usage", label: "考试", href: "/evaluation/exam-usage", icon: "checkCircle" },
-    { id: "methods", label: "测评方式", href: "/evaluation/methods", icon: "settings" },
-    { id: "scene-results", label: "场景结果", href: "/evaluation/scene-results", icon: "barChart" },
-    { id: "job-ability", label: "岗位能力", href: "/evaluation/job-ability", icon: "briefcase" },
-    { id: "certificates", label: "微证书", href: "/evaluation/certificates/templates", icon: "award" },
-    { id: "graduation", label: "毕业设计", href: "/evaluation/graduation/topics", icon: "graduationCap" },
-    { id: "portraits", label: "学生画像", href: "/evaluation/portraits", icon: "users" },
   ],
   sideNavItems: [
     {
@@ -366,11 +317,6 @@ export const portalNavigationConfig: PlatformNavigationConfig = {
     { id: "workspace", label: "我的服务台", href: "/portal/workspace", icon: "briefcase" },
     { id: "apps", label: "应用中心", href: "/portal/apps", icon: "layoutGrid" },
     { id: "logout", label: "退出登录", tone: "danger" },
-  ],
-  topNavItems: [
-    { id: "portal", label: "门户首页", href: "/portal", icon: "home" },
-    { id: "workspace", label: "我的服务台", href: "/portal/workspace", icon: "briefcase" },
-    { id: "apps", label: "应用服务中心", href: "/portal/apps", icon: "layoutGrid" },
   ],
   sideNavItems: [
     {

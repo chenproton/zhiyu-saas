@@ -38,9 +38,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { sceneBatchApi, workflowApi } from "@/lib/api"
+import { OrgNodeSelect } from "@/components/shared/org-node-select"
+import { MajorSelect } from "@/components/shared/major-select"
+import { useAuth } from "@/components/auth-provider"
+import { useOrgTree } from "@/hooks/use-org-tree"
+import { sceneBatchApi, workflowApi, majorApi } from "@/lib/api"
 import type { SceneBatch } from "@/lib/types/scene"
-import type { Workflow } from "@/lib/types/backend"
+import type { Workflow, Major } from "@/lib/types/backend"
 import { useToast } from "@/hooks/use-toast"
 
 interface BatchView extends SceneBatch {
@@ -49,14 +53,33 @@ interface BatchView extends SceneBatch {
 
 export default function BatchesPage() {
   const { toast } = useToast()
+  const { tenantId } = useAuth()
+  const { orgMap, orgTypeMap } = useOrgTree(tenantId)
   const [batches, setBatches] = useState<BatchView[]>([])
   const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [majorMap, setMajorMap] = useState<Map<string, Major>>(new Map())
   const [loading, setLoading] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingBatch, setEditingBatch] = useState<BatchView | null>(null)
   const [newBatchName, setNewBatchName] = useState("")
   const [newBatchWorkflow, setNewBatchWorkflow] = useState("")
+  const [newBatchDepartmentId, setNewBatchDepartmentId] = useState("")
+  const [newBatchMajorId, setNewBatchMajorId] = useState("")
+
+  useEffect(() => {
+    if (!tenantId) {
+      setMajorMap(new Map())
+      return
+    }
+    majorApi.list({ tenantId, limit: 1000 })
+      .then((res) => {
+        setMajorMap(new Map(res.items.map((m) => [m.id, m])))
+      })
+      .catch((err: any) => {
+        toast({ variant: "destructive", title: "加载专业失败", description: err.message || "请稍后重试" })
+      })
+  }, [tenantId, toast])
 
   const loadData = async () => {
     setLoading(true)
@@ -87,17 +110,21 @@ export default function BatchesPage() {
   const resetForm = () => {
     setNewBatchName("")
     setNewBatchWorkflow("")
+    setNewBatchDepartmentId("")
+    setNewBatchMajorId("")
     setEditingBatch(null)
   }
 
   const handleAddBatch = async () => {
-    if (!newBatchName || !newBatchWorkflow) return
+    if (!newBatchName || !newBatchWorkflow || !newBatchDepartmentId || !newBatchMajorId) return
     try {
       await sceneBatchApi.create({
         name: newBatchName,
         code: `BG-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
         workflowId: newBatchWorkflow,
         status: "open",
+        orgNodeId: newBatchDepartmentId,
+        majorId: newBatchMajorId,
       })
       await loadData()
       setIsCreateDialogOpen(false)
@@ -112,6 +139,8 @@ export default function BatchesPage() {
     setEditingBatch(batch)
     setNewBatchName(batch.name)
     setNewBatchWorkflow(batch.workflowId || "")
+    setNewBatchDepartmentId(batch.orgNodeId || "")
+    setNewBatchMajorId(batch.majorId || "")
     setIsEditDialogOpen(true)
   }
 
@@ -120,7 +149,11 @@ export default function BatchesPage() {
     try {
       await sceneBatchApi.update(editingBatch.id, {
         name: newBatchName,
+        code: editingBatch.code,
         workflowId: newBatchWorkflow,
+        status: editingBatch.status,
+        orgNodeId: newBatchDepartmentId || undefined,
+        majorId: newBatchMajorId || undefined,
       })
       await loadData()
       setIsEditDialogOpen(false)
@@ -151,6 +184,29 @@ export default function BatchesPage() {
           value={newBatchName}
           onChange={(e) => setNewBatchName(e.target.value)}
           placeholder="例如：2026春季电商实训场景开发"
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="department">所属院系 <span className="text-red-500">*</span></Label>
+        <OrgNodeSelect
+          tenantId={tenantId}
+          value={newBatchDepartmentId}
+          onChange={(value) => {
+            setNewBatchDepartmentId(value || "")
+            setNewBatchMajorId("")
+          }}
+          allowedTypes={["二级学院"]}
+          placeholder="选择院系"
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="major">所属专业 <span className="text-red-500">*</span></Label>
+        <MajorSelect
+          tenantId={tenantId}
+          orgNodeId={newBatchDepartmentId}
+          value={newBatchMajorId}
+          onChange={(value) => setNewBatchMajorId(value || "")}
+          placeholder="选择专业"
         />
       </div>
       <div className="grid gap-2">
@@ -199,7 +255,7 @@ export default function BatchesPage() {
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 取消
               </Button>
-              <Button onClick={handleAddBatch} disabled={!newBatchName || !newBatchWorkflow}>
+              <Button onClick={handleAddBatch} disabled={!newBatchName || !newBatchWorkflow || !newBatchDepartmentId || !newBatchMajorId}>
                 创建批次
               </Button>
             </DialogFooter>
@@ -240,6 +296,8 @@ export default function BatchesPage() {
                 <TableRow className="bg-slate-50">
                   <TableHead className="text-xs font-medium text-slate-500">分组名称</TableHead>
                   <TableHead className="text-xs font-medium text-slate-500">批次编号</TableHead>
+                  <TableHead className="text-xs font-medium text-slate-500">院系</TableHead>
+                  <TableHead className="text-xs font-medium text-slate-500">专业</TableHead>
                   <TableHead className="text-xs font-medium text-slate-500">审批流程</TableHead>
                   <TableHead className="text-xs font-medium text-slate-500">状态</TableHead>
                   <TableHead className="w-12"></TableHead>
@@ -248,13 +306,13 @@ export default function BatchesPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                       加载中...
                     </TableCell>
                   </TableRow>
                 ) : batches.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                       暂无批次数据
                     </TableCell>
                   </TableRow>
@@ -263,6 +321,8 @@ export default function BatchesPage() {
                     <TableRow key={batch.id}>
                       <TableCell className="font-medium">{batch.name}</TableCell>
                       <TableCell className="text-sm text-gray-600">{batch.code || "-"}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{orgMap.get(batch.orgNodeId || '')?.name || "—"}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{majorMap.get(batch.majorId || '')?.name || batch.major || "—"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
                           {batch.workflowName || "-"}

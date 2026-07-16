@@ -14,7 +14,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { userManagementApi, orgApi } from "@/lib/api"
+import { userManagementApi } from "@/lib/api"
+import { useAuth } from "@/components/auth-provider"
+import { useOrgTree } from "@/hooks/use-org-tree"
 import type { User } from "@/lib/types"
 
 interface CoBuilderDialogProps {
@@ -43,6 +45,8 @@ export function CoBuilderDialog({
   annotationContext = "co-builder",
 }: CoBuilderDialogProps) {
   const leftScrollRef = useRef<HTMLDivElement>(null)
+  const { tenantId } = useAuth()
+  const { orgTree, orgMap, orgTypeMap } = useOrgTree(tenantId)
   const [users, setUsers] = useState<User[]>([])
   const [departmentTree, setDepartmentTree] = useState<DepartmentNode[]>([])
   const [loading, setLoading] = useState(false)
@@ -50,34 +54,28 @@ export function CoBuilderDialog({
   const [search, setSearch] = useState("")
 
   useEffect(() => {
-    if (!open) return
+    if (!open || !tenantId) return
     let cancelled = false
     setLoading(true)
-    Promise.all([
-      userManagementApi.list({ limit: 1000 }),
-      orgApi.tree({}),
-    ])
-      .then(([usersRes, orgs]) => {
+    userManagementApi.list({ tenantId, limit: 1000 })
+      .then((usersRes) => {
         if (cancelled) return
         const loadedUsers = usersRes.items
-        const orgMap = new Map(orgs.map((o) => [o.name, o.id]))
         const usersByOrg = new Map<string, User[]>()
         loadedUsers.forEach((u) => {
-          const orgName = u.department || '未分配部门'
-          if (!usersByOrg.has(orgName)) usersByOrg.set(orgName, [])
-          usersByOrg.get(orgName)!.push(u)
+          const orgNodeId = u.orgNodeId || 'unassigned'
+          if (!usersByOrg.has(orgNodeId)) usersByOrg.set(orgNodeId, [])
+          usersByOrg.get(orgNodeId)!.push(u)
         })
-        const tree: DepartmentNode[] = orgs
-          .map((o) => ({ id: o.id, name: o.name, users: usersByOrg.get(o.name) || [] }))
-          .filter((d) => d.users.length > 0)
-        usersByOrg.forEach((deptUsers, name) => {
-          if (!orgMap.has(name)) {
-            tree.push({ id: name, name, users: deptUsers })
-          }
-        })
+        const tree: DepartmentNode[] = orgTree
+          .filter((o) => usersByOrg.has(o.id))
+          .map((o) => ({ id: o.id, name: o.name, users: usersByOrg.get(o.id)! }))
+        if (usersByOrg.has('unassigned')) {
+          tree.push({ id: 'unassigned', name: '未分配部门', users: usersByOrg.get('unassigned')! })
+        }
         setUsers(loadedUsers)
         setDepartmentTree(tree)
-        setExpandedDepts(tree.map((d) => d.name))
+        setExpandedDepts(tree.map((d) => d.id))
       })
       .catch((err) => {
         if (!cancelled) console.error('Failed to load co-builders', err)
@@ -86,16 +84,21 @@ export function CoBuilderDialog({
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [open])
+  }, [open, tenantId, orgTree])
 
   const filteredTeachers = useMemo(() => {
     if (!search) return users
-    return users.filter(
-      (t) =>
-        t.name.toLowerCase().includes(search.toLowerCase()) ||
-        (t.department?.toLowerCase() || '').includes(search.toLowerCase())
-    )
-  }, [search, users])
+    const term = search.toLowerCase()
+    return users.filter((t) => {
+      const orgNode = t.orgNodeId ? orgMap.get(t.orgNodeId) : undefined
+      const orgName = orgNode?.name || ''
+      return (
+        t.name.toLowerCase().includes(term) ||
+        orgName.toLowerCase().includes(term) ||
+        (t.department?.toLowerCase() || '').includes(term)
+      )
+    })
+  }, [search, users, orgMap])
 
   const selectedUsers = users.filter((t) => selectedIds.includes(t.id))
 
@@ -120,14 +123,15 @@ export function CoBuilderDialog({
 
   const treeContent = useMemo(() => {
     return departmentTree.map((dept) => {
-      const isExpanded = expandedDepts.includes(dept.name)
-      const deptUsers = filteredTeachers.filter((t) => t.department === dept.name)
+      const isExpanded = expandedDepts.includes(dept.id)
+      const deptUsers = filteredTeachers.filter((t) => (t.orgNodeId || 'unassigned') === dept.id)
       if (deptUsers.length === 0) return null
+      const orgTypeName = dept.id !== 'unassigned' ? orgTypeMap.get(dept.id)?.name : undefined
 
       return (
         <div key={dept.id}>
           <button
-            onClick={() => toggleDept(dept.name)}
+            onClick={() => toggleDept(dept.id)}
             className="flex items-center gap-1 w-full px-1 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded"
           >
             {isExpanded ? (
@@ -135,8 +139,11 @@ export function CoBuilderDialog({
             ) : (
               <ChevronRight className="h-4 w-4 text-gray-400" />
             )}
-            {dept.name}
-            <span className="ml-auto text-xs text-gray-400">
+            <span className="truncate">{dept.name}</span>
+            {orgTypeName && (
+              <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-gray-100 text-gray-500">{orgTypeName}</span>
+            )}
+            <span className="ml-auto text-xs text-gray-400 shrink-0">
               {deptUsers.length}
             </span>
           </button>
@@ -177,8 +184,8 @@ export function CoBuilderDialog({
                     )}
                   </div>
                   <span className="truncate">{user.name}</span>
-                  <span className="text-xs text-gray-400 ml-auto">
-                    {user.department}
+                  <span className="text-xs text-gray-400 ml-auto truncate max-w-[80px]">
+                    {orgMap.get(user.orgNodeId || '')?.name || user.department || '未分配'}
                   </span>
                 </div>
               ))}
@@ -187,7 +194,7 @@ export function CoBuilderDialog({
         </div>
       )
     })
-  }, [departmentTree, expandedDepts, filteredTeachers, selectedIds, toggle, toggleDept])
+  }, [departmentTree, expandedDepts, filteredTeachers, selectedIds, toggle, toggleDept, orgTypeMap, orgMap])
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -254,8 +261,8 @@ export function CoBuilderDialog({
                       className="flex items-center gap-2 px-2 py-2 rounded text-sm bg-primary/5 text-primary"
                     >
                       <span className="flex-1 truncate">{user.name}</span>
-                      <span className="text-xs text-gray-400">
-                        {user.department}
+                      <span className="text-xs text-gray-400 truncate max-w-[80px]">
+                        {orgMap.get(user.orgNodeId || '')?.name || user.department || '未分配'}
                       </span>
                       <button
                         onClick={() => toggle(user.id)}

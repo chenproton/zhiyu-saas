@@ -70,10 +70,12 @@ export interface AbilityDomain {
 
 export interface JobBatch {
   id: string
+  tenantId?: string
   name: string
   code?: string
   orgNodeId?: string
-  major?: string
+  majorId?: string
+  major?: string // Deprecated: 仅兼容旧读取
   workflowId?: string
   status: "open" | "closed"
   positionCount: number

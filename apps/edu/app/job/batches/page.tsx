@@ -31,17 +31,25 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { OrgNodeSelect } from '@/components/shared/org-node-select'
+import { MajorSelect } from '@/components/shared/major-select'
+import { useAuth } from '@/components/auth-provider'
+import { useOrgTree } from '@/hooks/use-org-tree'
 import { Plus, Search, Pencil, Trash2, FolderOpen, GitBranch, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { batchApi, workflowApi } from '@/lib/api'
+import { batchApi, workflowApi, majorApi } from '@/lib/api'
 import { convertJobBatchToBatch, convertApiWorkflowToLocal } from '@/lib/stores/job-converters'
 import type { Batch, Workflow } from '@/lib/types/job-source'
+import type { Major } from '@/lib/types/backend'
 import { useToast } from '@/hooks/use-toast'
 
 export default function BatchesPage() {
   const { toast } = useToast()
+  const { tenantId } = useAuth()
+  const { orgMap, orgTypeMap } = useOrgTree(tenantId)
   const [batches, setBatches] = useState<Batch[]>([])
   const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [majorMap, setMajorMap] = useState<Map<string, Major>>(new Map())
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all')
@@ -50,10 +58,24 @@ export default function BatchesPage() {
 
   const [formData, setFormData] = useState({
     name: '',
-    department: '',
-    major: '',
+    department: '', // org node id (二级学院)
+    major: '',      // major id
     workflowId: '',
   })
+
+  useEffect(() => {
+    if (!tenantId) {
+      setMajorMap(new Map())
+      return
+    }
+    majorApi.list({ tenantId, limit: 1000 })
+      .then((res) => {
+        setMajorMap(new Map(res.items.map((m) => [m.id, m])))
+      })
+      .catch((err: any) => {
+        toast({ variant: 'destructive', title: '加载专业失败', description: err?.message || '请稍后重试' })
+      })
+  }, [tenantId, toast])
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -76,10 +98,12 @@ export default function BatchesPage() {
   }, [loadData])
 
   const filteredBatches = batches.filter((batch) => {
+    const deptName = orgMap.get(batch.orgNodeId || batch.department)?.name || ''
+    const majorName = majorMap.get(batch.majorId || '')?.name || batch.major || ''
     const matchesSearch =
       batch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      batch.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      batch.major.toLowerCase().includes(searchQuery.toLowerCase())
+      deptName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      majorName.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = filterStatus === 'all' || batch.status === filterStatus
     return matchesSearch && matchesStatus
   })
@@ -96,7 +120,7 @@ export default function BatchesPage() {
         name: formData.name,
         status: 'open',
         orgNodeId: formData.department || undefined,
-        major: formData.major || undefined,
+        majorId: formData.major || undefined,
         workflowId: formData.workflowId || undefined,
       })
       await loadData()
@@ -112,7 +136,7 @@ export default function BatchesPage() {
     setFormData({
       name: batch.name,
       department: batch.department,
-      major: batch.major,
+      major: batch.majorId || batch.major || '',
       workflowId: batch.workflowId,
     })
   }
@@ -123,9 +147,9 @@ export default function BatchesPage() {
       await batchApi.update(editingBatch.id, {
         name: formData.name,
         orgNodeId: formData.department || undefined,
-        major: formData.major || undefined,
+        majorId: formData.major || undefined,
         workflowId: formData.workflowId || undefined,
-      } as any)
+      })
       await loadData()
       setEditingBatch(null)
       resetForm()
@@ -182,18 +206,22 @@ export default function BatchesPage() {
       </Field>
       <Field>
         <FieldLabel>所属院系</FieldLabel>
-        <Input
-          placeholder="例如：计算机学院"
+        <OrgNodeSelect
+          tenantId={tenantId}
           value={formData.department}
-          onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+          onChange={(value) => setFormData({ ...formData, department: value || '', major: '' })}
+          allowedTypes={['二级学院']}
+          placeholder="选择院系"
         />
       </Field>
       <Field>
         <FieldLabel>专业方向</FieldLabel>
-        <Input
-          placeholder="例如：软件工程"
+        <MajorSelect
+          tenantId={tenantId}
+          orgNodeId={formData.department}
           value={formData.major}
-          onChange={(e) => setFormData({ ...formData, major: e.target.value })}
+          onChange={(value) => setFormData({ ...formData, major: value || '' })}
+          placeholder="选择专业"
         />
       </Field>
       <Field>
@@ -318,8 +346,8 @@ export default function BatchesPage() {
                         {batch.name}
                       </Link>
                     </TableCell>
-                    <TableCell>{batch.department}</TableCell>
-                    <TableCell>{batch.major}</TableCell>
+                    <TableCell>{orgMap.get(batch.orgNodeId || batch.department)?.name || '—'}</TableCell>
+                    <TableCell>{majorMap.get(batch.majorId || '')?.name || batch.major || '—'}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="gap-1">
                         <GitBranch className="h-3 w-3" />

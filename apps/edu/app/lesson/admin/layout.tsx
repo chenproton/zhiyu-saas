@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
-import { adminNavigationConfig, portalTopNavItems } from "@/lib/navigation-config"
+import { adminNavigationConfig } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 import type { PlatformNavigationConfig } from "@/components/platform-shell"
 
@@ -12,7 +12,6 @@ const ALLOWED_IDENTITIES = ["school_admin", "teacher"]
 
 const config: PlatformNavigationConfig = {
   ...adminNavigationConfig,
-  topNavItems: portalTopNavItems,
   sideBackHref: "/portal/apps",
   platformSwitchItems: [
     { id: "teacher", label: "教学空间", href: "/lesson/teacher/claim", icon: "bookOpen" },

@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
-import { evaluationNavigationConfig, portalTopNavItems } from "@/lib/navigation-config"
+import { evaluationNavigationConfig } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 
 const ALLOWED_IDENTITIES = ["teacher", "school_admin", "enterprise_hr", "enterprise_mentor"]
@@ -33,7 +33,6 @@ export default function EvaluationLayout({
     <PlatformShell
       config={{
         ...evaluationNavigationConfig,
-        topNavItems: portalTopNavItems,
         sideBackHref: "/portal/apps",
       }}
     >

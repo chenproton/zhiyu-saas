@@ -49,7 +49,7 @@ export interface PlatformNavigationConfig {
   brandHref?: string
   brandIcon?: PlatformIcon
   platformIcon?: PlatformIcon
-  topNavItems: TopNavItem[]
+  topNavItems?: TopNavItem[]
   sideNavItems: SideNavItem[]
   currentUserName?: string
   currentUserRoleLabel?: string

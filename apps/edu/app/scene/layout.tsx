@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
-import { sceneNavigationConfig, portalTopNavItems } from "@/lib/navigation-config"
+import { sceneNavigationConfig } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 
 const ALLOWED_IDENTITIES = ["teacher", "school_admin", "enterprise_hr", "enterprise_mentor"]
@@ -27,7 +27,6 @@ export default function SceneLayout({
 
   const config = {
     ...sceneNavigationConfig,
-    topNavItems: portalTopNavItems,
     sideBackHref: "/portal/apps",
   }
 

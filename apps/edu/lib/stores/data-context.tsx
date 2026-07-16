@@ -111,7 +111,9 @@ function convertJobBatchToBatch(jb: JobBatch): Batch {
   return {
     id: jb.id,
     name: jb.name,
-    department: jb.orgNodeId || jb.major || '',
+    orgNodeId: jb.orgNodeId,
+    department: jb.orgNodeId || '',
+    majorId: jb.majorId,
     major: jb.major || '',
     workflowId: jb.workflowId || '',
     status: jb.status,
@@ -301,8 +303,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const req: Omit<JobBatch, 'id' | 'positionCount' | 'publishedCount' | 'pendingCount' | 'createdAt' | 'updatedAt'> = {
       name: data.name,
       status: data.status,
-      orgNodeId: data.department || undefined,
-      major: data.major || undefined,
+      orgNodeId: data.orgNodeId || data.department || undefined,
+      majorId: data.majorId || undefined,
       workflowId: data.workflowId || undefined,
     }
     await batchApi.create(req)
@@ -312,8 +314,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateBatch = async (id: string, data: Partial<Batch>) => {
     const req: Partial<Omit<JobBatch, 'id' | 'createdAt' | 'updatedAt'>> = {}
     if (data.name !== undefined) req.name = data.name
-    if (data.department !== undefined) req.orgNodeId = data.department || undefined
-    if (data.major !== undefined) req.major = data.major || undefined
+    if (data.orgNodeId !== undefined) req.orgNodeId = data.orgNodeId || undefined
+    if (data.department !== undefined && data.orgNodeId === undefined) req.orgNodeId = data.department || undefined
+    if (data.majorId !== undefined) req.majorId = data.majorId || undefined
+    if (data.major !== undefined && data.majorId === undefined) req.major = data.major || undefined
     if (data.workflowId !== undefined) req.workflowId = data.workflowId || undefined
     if (data.status !== undefined) req.status = data.status
     if (data.positionCount !== undefined) req.positionCount = data.positionCount

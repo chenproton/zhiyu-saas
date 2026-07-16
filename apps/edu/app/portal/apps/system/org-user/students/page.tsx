@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,12 +15,25 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { usePortalUsers } from "@/hooks/use-portal-users"
-import { portalUserManagementApi } from "@/lib/api"
+import { useOrgTree, findOrgAncestor } from "@/hooks/use-org-tree"
+import { OrgNodeSelect } from "@/components/shared/org-node-select"
+import { MajorSelect } from "@/components/shared/major-select"
+import { portalUserManagementApi, majorApi } from "@/lib/api"
+import type { Organization } from "@/lib/types/backend"
 import { useToast } from "@/hooks/use-toast"
 import {
-  Plus, MoreHorizontal, Pencil, Power, Trash2, Search, Filter, Upload, Download,
-  ChevronRight, ChevronDown, FolderTree, Award, Key, Loader2, AlertCircle, RotateCcw
+  Plus, MoreHorizontal, Power, Trash2, Search, Filter, Upload, Download,
+  ChevronRight, ChevronDown, FolderTree, Key, Loader2, AlertCircle, RotateCcw, Award
 } from "lucide-react"
+
+const DEPT_TYPE = "二级学院"
+const MAJOR_TYPE = "专业"
+const CLASS_TYPE = "班级"
+
+interface Major {
+  id: string
+  name: string
+}
 
 interface Student {
   id: string
@@ -29,70 +42,10 @@ interface Student {
   className: string
   major: string
   department: string
+  orgNodeId?: string
+  majorId?: string
   status: "在籍" | "休学" | "退学" | "毕业" | "结业"
 }
-
-interface OrgClassNode {
-  id: string
-  name: string
-  gradeLabel?: string
-}
-
-interface OrgMajorNode {
-  id: string
-  name: string
-  classes: OrgClassNode[]
-}
-
-interface OrgDeptNode {
-  id: string
-  name: string
-  majors: OrgMajorNode[]
-}
-
-const orgTreeData: OrgDeptNode[] = [
-  {
-    id: "dept-1",
-    name: "信息学院",
-    majors: [
-      {
-        id: "major-1-1",
-        name: "计算机系",
-        classes: [
-          { id: "class-1-1-1", name: "计算机2401班", gradeLabel: "2024级" },
-          { id: "class-1-1-2", name: "计算机2301班", gradeLabel: "2023级" },
-          { id: "class-1-1-3", name: "计算机2201班", gradeLabel: "2022级" },
-        ],
-      },
-      {
-        id: "major-1-2",
-        name: "软件工程系",
-        classes: [
-          { id: "class-1-2-1", name: "2024级软件班", gradeLabel: "2024级" },
-          { id: "class-1-2-2", name: "软件2301班", gradeLabel: "2023级" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "dept-2",
-    name: "经济管理学院",
-    majors: [
-      {
-        id: "major-2-1",
-        name: "会计系",
-        classes: [{ id: "class-2-1-1", name: "会计2401班", gradeLabel: "2024级" }],
-      },
-      {
-        id: "major-2-2",
-        name: "金融系",
-        classes: [{ id: "class-2-1-2", name: "金融2401班", gradeLabel: "2024级" }],
-      },
-    ],
-  },
-  { id: "dept-3", name: "教务处", majors: [] },
-  { id: "dept-4", name: "学生处", majors: [] },
-]
 
 const statusColor: Record<string, string> = {
   "在籍": "default",
@@ -122,6 +75,11 @@ function classBadge(variant: string) {
   return "default" as const
 }
 
+function getOrgTypeName(org: Organization | undefined, orgTypeMap: Map<string, { name: string }>): string | undefined {
+  if (!org) return undefined
+  return orgTypeMap.get(org.typeId)?.name
+}
+
 export default function StudentsPage() {
   const { institution, institutionId, tenantId } = usePortalAuth()
   const { toast } = useToast()
@@ -130,6 +88,7 @@ export default function StudentsPage() {
     identityTypeCode: "student",
     search: searchTerm || undefined,
   })
+  const { orgs, orgMap, orgTypeMap, loading: orgLoading } = useOrgTree(tenantId)
 
   const [students, setStudents] = useState<Student[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -138,34 +97,86 @@ export default function StudentsPage() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const [majors, setMajors] = useState<Major[]>([])
+
   const [formName, setFormName] = useState("")
   const [formUsername, setFormUsername] = useState("")
   const [formPassword, setFormPassword] = useState("")
   const [formStudentNo, setFormStudentNo] = useState("")
+  const [formClassNodeId, setFormClassNodeId] = useState<string>("")
+  const [formMajorId, setFormMajorId] = useState<string>("")
+
+  useEffect(() => {
+    if (!tenantId) {
+      setMajors([])
+      return
+    }
+    let cancelled = false
+    majorApi.list({ tenantId, limit: 1000 })
+      .then((res) => {
+        if (cancelled) return
+        setMajors(res.items.map((m) => ({ id: m.id, name: m.name })))
+      })
+      .catch((err) => {
+        if (cancelled) return
+        toast({ variant: "destructive", title: "加载专业失败", description: err instanceof Error ? err.message : "未知错误" })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tenantId, toast])
+
+  const majorMap = useMemo(() => {
+    const map = new Map<string, Major>()
+    majors.forEach((m) => map.set(m.id, m))
+    return map
+  }, [majors])
+
+  const formDepartmentId = useMemo(() => {
+    if (!formClassNodeId) return undefined
+    const dept = findOrgAncestor(orgMap, formClassNodeId, (org) => getOrgTypeName(org, orgTypeMap) === DEPT_TYPE)
+    return dept?.id
+  }, [formClassNodeId, orgMap, orgTypeMap])
 
   useEffect(() => {
     setStudents(
-      users.map((u) => ({
-        id: u.id,
-        name: u.name,
-        studentNo: u.studentNo || u.username,
-        className: "—",
-        major: "—",
-        department: institution?.name || "—",
-        status: mapStudentStatus(u.status),
-      }))
+      users.map((u) => {
+        const classNode = u.orgNodeId ? orgMap.get(u.orgNodeId) : undefined
+        const className = classNode?.name || "—"
+
+        let majorName = "—"
+        if (u.majorId && majorMap.has(u.majorId)) {
+          majorName = majorMap.get(u.majorId)!.name
+        } else if (classNode) {
+          const majorNode = findOrgAncestor(orgMap, classNode.id, (org) => getOrgTypeName(org, orgTypeMap) === MAJOR_TYPE)
+          majorName = majorNode?.name || "—"
+        }
+
+        let departmentName = institution?.name || "—"
+        if (classNode) {
+          const deptNode = findOrgAncestor(orgMap, classNode.id, (org) => getOrgTypeName(org, orgTypeMap) === DEPT_TYPE)
+          departmentName = deptNode?.name || institution?.name || "—"
+        }
+
+        return {
+          id: u.id,
+          name: u.name,
+          studentNo: u.studentNo || u.username,
+          className,
+          major: majorName,
+          department: departmentName,
+          orgNodeId: u.orgNodeId,
+          majorId: u.majorId,
+          status: mapStudentStatus(u.status),
+        }
+      })
     )
-  }, [users, institution])
+  }, [users, institution, orgMap, orgTypeMap, majorMap])
 
   const filteredStudents = students.filter((student) => {
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      if (!student.name.toLowerCase().includes(term) && !student.studentNo.toLowerCase().includes(term)) return false
-    }
     if (statusFilter !== "all" && student.status !== statusFilter) return false
     if (selectedClassId) {
-      const cls = allClasses.find((c) => c.id === selectedClassId)
-      if (cls && student.className !== cls.name) return false
+      return student.orgNodeId === selectedClassId
     }
     return true
   })
@@ -217,16 +228,26 @@ export default function StudentsPage() {
     }
   }
 
-  const openCreateDialog = () => {
+  const resetForm = () => {
     setFormName("")
     setFormUsername("")
     setFormPassword("")
     setFormStudentNo("")
+    setFormClassNodeId("")
+    setFormMajorId("")
+  }
+
+  const openCreateDialog = () => {
+    resetForm()
     setIsDialogOpen(true)
   }
 
   const handleCreate = async () => {
     if (!tenantId || !institutionId || !formName.trim() || !formUsername.trim() || !formPassword.trim()) return
+    if (!formClassNodeId || !formMajorId) {
+      toast({ variant: "destructive", title: "创建失败", description: "请选择班级和专业" })
+      return
+    }
     const studentType = Array.from(identityTypeMap.values()).find((it) => it.code === "student")
     if (!studentType) {
       toast({ variant: "destructive", title: "创建失败", description: "未找到学生身份类型" })
@@ -245,9 +266,12 @@ export default function StudentsPage() {
         password: formPassword.trim(),
         name: formName.trim(),
         studentNo: formStudentNo.trim() || undefined,
+        orgNodeId: formClassNodeId,
+        majorId: formMajorId,
       })
       toast({ title: "创建成功" })
       setIsDialogOpen(false)
+      resetForm()
       await refetch()
     } catch (err) {
       toast({ variant: "destructive", title: "创建失败", description: err instanceof Error ? err.message : "未知错误" })
@@ -308,9 +332,19 @@ export default function StudentsPage() {
               >
                 全部学生
               </button>
-              {orgTreeData.map((dept) => (
-                <DeptTreeNode key={dept.id} dept={dept} selectedClassId={selectedClassId} onSelectClass={setSelectedClassId} />
-              ))}
+              {orgLoading ? (
+                <div className="flex items-center gap-2 px-2 py-4 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> 加载中...
+                </div>
+              ) : (
+                <OrgTreeNode
+                  nodes={orgs}
+                  depth={0}
+                  selectedClassId={selectedClassId}
+                  onSelectClass={setSelectedClassId}
+                  orgTypeMap={orgTypeMap}
+                />
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -429,7 +463,7 @@ export default function StudentsPage() {
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle>新生录入</DialogTitle>
-            <DialogDescription>填写学生基本信息</DialogDescription>
+            <DialogDescription>填写学生基本信息，并关联到真实班级与专业</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -448,10 +482,33 @@ export default function StudentsPage() {
               <Label>学号</Label>
               <Input placeholder="如：S2024001" value={formStudentNo} onChange={(e) => setFormStudentNo(e.target.value)} />
             </div>
+            <div className="grid gap-2">
+              <Label>班级 <span className="text-destructive">*</span></Label>
+              <OrgNodeSelect
+                tenantId={tenantId}
+                value={formClassNodeId}
+                onChange={(value) => {
+                  setFormClassNodeId(value || "")
+                  setFormMajorId("")
+                }}
+                allowedTypes={[CLASS_TYPE]}
+                placeholder="选择班级"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>专业 <span className="text-destructive">*</span></Label>
+              <MajorSelect
+                tenantId={tenantId}
+                orgNodeId={formDepartmentId}
+                value={formMajorId}
+                onChange={(value) => setFormMajorId(value || "")}
+                placeholder={formDepartmentId ? "选择专业" : "请先选择班级"}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
-            <Button onClick={handleCreate} disabled={saving || !formName.trim() || !formUsername.trim() || !formPassword.trim()}>
+            <Button onClick={handleCreate} disabled={saving || !formName.trim() || !formUsername.trim() || !formPassword.trim() || !formClassNodeId || !formMajorId}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               保存
             </Button>
@@ -462,74 +519,104 @@ export default function StudentsPage() {
   )
 }
 
-const allClasses = orgTreeData.flatMap((d) => d.majors.flatMap((m) => m.classes))
 
-function DeptTreeNode({
-  dept,
+interface OrgTreeNodeProps {
+  nodes: Organization[]
+  depth: number
+  selectedClassId: string | null
+  onSelectClass: (id: string) => void
+  orgTypeMap: Map<string, { name: string }>
+}
+
+function OrgTreeBranch({
+  node,
+  childNodes,
+  depth,
   selectedClassId,
   onSelectClass,
+  orgTypeMap,
 }: {
-  dept: OrgDeptNode
+  node: Organization
+  childNodes: Organization[]
+  depth: number
   selectedClassId: string | null
-  onSelectClass: (id: string | null) => void
+  onSelectClass: (id: string) => void
+  orgTypeMap: Map<string, { name: string }>
 }) {
   const [open, setOpen] = useState(false)
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
-        <button className="flex items-center w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors">
-          {open ? <ChevronDown className="h-3.5 w-3.5 mr-1 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 mr-1 shrink-0" />}
-          <span className="truncate">{dept.name}</span>
+        <button
+          className="flex items-center w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors"
+          style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
+        >
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5 mr-1 shrink-0" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 mr-1 shrink-0" />
+          )}
+          <span className="truncate">{node.name}</span>
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="ml-4 space-y-1">
-          {dept.majors.map((major) => (
-            <MajorTreeNode key={major.id} major={major} selectedClassId={selectedClassId} onSelectClass={onSelectClass} />
-          ))}
+        <div className="space-y-0.5 mt-0.5">
+          <OrgTreeNode
+            nodes={childNodes}
+            depth={depth + 1}
+            selectedClassId={selectedClassId}
+            onSelectClass={onSelectClass}
+            orgTypeMap={orgTypeMap}
+          />
         </div>
       </CollapsibleContent>
     </Collapsible>
   )
 }
 
-function MajorTreeNode({
-  major,
-  selectedClassId,
-  onSelectClass,
-}: {
-  major: OrgMajorNode
-  selectedClassId: string | null
-  onSelectClass: (id: string | null) => void
-}) {
-  const [open, setOpen] = useState(false)
+function OrgTreeNode({ nodes, depth, selectedClassId, onSelectClass, orgTypeMap }: OrgTreeNodeProps) {
+  const allowedChildTypes = depth === 0 ? [MAJOR_TYPE, CLASS_TYPE] : [CLASS_TYPE]
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger asChild>
-        <button className="flex items-center w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors">
-          {open ? <ChevronDown className="h-3.5 w-3.5 mr-1 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 mr-1 shrink-0" />}
-          <span className="truncate">{major.name}</span>
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="ml-4 space-y-0.5">
-          {major.classes.map((cls) => (
+    <>
+      {nodes.map((node) => {
+        const typeName = getOrgTypeName(node, orgTypeMap)
+        if (!typeName || ![DEPT_TYPE, MAJOR_TYPE, CLASS_TYPE].includes(typeName)) return null
+
+        if (typeName === CLASS_TYPE) {
+          return (
             <button
-              key={cls.id}
-              onClick={() => onSelectClass(cls.id)}
+              key={node.id}
+              onClick={() => onSelectClass(node.id)}
               className={cn(
                 "w-full text-left px-2 py-1 text-xs rounded-md transition-colors truncate flex items-center gap-1",
-                selectedClassId === cls.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                selectedClassId === node.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
+              style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
             >
-              <span className="truncate">{cls.name}</span>
-              {cls.gradeLabel && (
-                <span className="shrink-0 text-[10px] px-1 rounded bg-muted-foreground/10">{cls.gradeLabel}</span>
-              )}
+              <span className="truncate">{node.name}</span>
             </button>
-          ))}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+          )
+        }
+
+        const childNodes = node.children?.filter((child) => {
+          const childType = getOrgTypeName(child, orgTypeMap)
+          return childType && allowedChildTypes.includes(childType)
+        }) ?? []
+
+        if (childNodes.length === 0) return null
+
+        return (
+          <OrgTreeBranch
+            key={node.id}
+            node={node}
+            childNodes={childNodes}
+            depth={depth}
+            selectedClassId={selectedClassId}
+            onSelectClass={onSelectClass}
+            orgTypeMap={orgTypeMap}
+          />
+        )
+      })}
+    </>
   )
 }

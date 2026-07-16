@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { usePortalUsers } from "@/hooks/use-portal-users"
+import { useOrgTree } from "@/hooks/use-org-tree"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
@@ -20,11 +21,12 @@ function mapAccountStatus(status: string): { label: string; className: string } 
 
 export default function AccountsPage() {
   const { toast } = useToast()
-  const { hasPermission } = usePortalAuth()
+  const { hasPermission, tenantId } = usePortalAuth()
   const [searchText, setSearchText] = useState("")
   const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
     search: searchText || undefined,
   })
+  const { orgMap, orgTypeMap } = useOrgTree(tenantId)
 
   const handleResetPassword = async (id: string, name: string) => {
     const password = window.prompt(`请输入 ${name} 的新密码：`)
@@ -52,10 +54,14 @@ export default function AccountsPage() {
   const accounts = users.map((user) => {
     const idType = user.identityTypeId ? identityTypeMap.get(user.identityTypeId) : undefined
     const statusStyle = mapAccountStatus(user.status)
+    const orgNode = user.orgNodeId ? orgMap.get(user.orgNodeId) : undefined
+    const orgTypeName = orgNode ? orgTypeMap.get(orgNode.typeId)?.name : undefined
     return {
       id: user.id,
       name: user.name,
       identityType: idType?.name || "—",
+      orgNodeName: orgNode?.name || "—",
+      orgTypeName: orgTypeName || undefined,
       loginName: user.loginName || user.username,
       status: user.status,
       statusLabel: statusStyle.label,
@@ -100,6 +106,7 @@ export default function AccountsPage() {
               <TableHead className="w-12">序号</TableHead>
               <TableHead>姓名</TableHead>
               <TableHead>身份类型</TableHead>
+              <TableHead>所属组织</TableHead>
               <TableHead>账户登录名</TableHead>
               <TableHead>状态</TableHead>
               <TableHead>最后登录时间</TableHead>
@@ -109,14 +116,14 @@ export default function AccountsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12">
+                <TableCell colSpan={8} className="text-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
                 </TableCell>
               </TableRow>
             ) : accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                   {searchText ? "未找到匹配的账户" : "暂无账户数据"}
                 </TableCell>
               </TableRow>
@@ -127,6 +134,14 @@ export default function AccountsPage() {
                   <TableCell className="font-medium">{account.name}</TableCell>
                   <TableCell>
                     <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary">{account.identityType}</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <span>{account.orgNodeName}</span>
+                      {account.orgTypeName && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{account.orgTypeName}</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>{account.loginName}</TableCell>
                   <TableCell>

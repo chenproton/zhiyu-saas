@@ -958,10 +958,12 @@ export interface CertificationRelatedTask {
 
 export interface EvaluationBatch {
   id: string
+  tenantId?: string
   name: string
   code?: string
   orgNodeId?: string
-  major?: string
+  majorId?: string
+  major?: string // Deprecated
   workflowId?: string
   status: "open" | "closed"
   createdAt: string

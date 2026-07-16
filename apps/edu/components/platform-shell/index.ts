@@ -1,4 +1,4 @@
-export { PlatformShell, PlatformSideNav, PlatformTopNav } from "./PlatformShell"
+export { PlatformShell, PlatformSideNav } from "./PlatformShell"
 
 export {
   platformIconMap,
