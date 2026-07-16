@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
 import { sceneNavigationConfig } from "@/lib/navigation-config"
@@ -15,13 +15,15 @@ export default function SceneLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const { user, loading, identityTypeCode } = useAuth()
+  const isLanding = pathname.startsWith("/scene/landing")
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !isLanding) {
       router.replace("/portal/login")
     }
-  }, [loading, user, router])
+  }, [loading, user, isLanding, router])
 
   const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityTypeCode ?? "")
 
@@ -30,10 +32,18 @@ export default function SceneLayout({
     sideBackHref: "/portal/apps",
   }
 
-  return (
+  const content = isLanding ? (
+    <>{children}</>
+  ) : (
     <PlatformShell config={config}>
       {children}
-      {(loading || !allowed) && (
+    </PlatformShell>
+  )
+
+  return (
+    <>
+      {content}
+      {!isLanding && (loading || !allowed) && (
         <div className="fixed inset-0 z-50 flex h-screen items-center justify-center bg-[#f5f7fa]">
           {loading ? (
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -44,6 +54,6 @@ export default function SceneLayout({
           )}
         </div>
       )}
-    </PlatformShell>
+    </>
   )
 }
