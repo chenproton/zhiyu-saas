@@ -165,7 +165,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   function convertApiRecommendationToLocal(rec: ApiPositionRecommendation): PositionRecommendation {
     return {
       id: rec.id,
-      major: rec.major,
+      major: rec.majorName || '',
       positionId: rec.careerPositionId,
       positionType: rec.positionType as PositionType,
       reason: rec.reason ?? undefined,
@@ -548,14 +548,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const existing = recommendations.find((r) => r.id === id)
     if (!existing) return
     await recommendApi.update(id, {
-      major: data.major ?? existing.major,
+      majorId: (data.major ?? existing.major) || undefined,
       careerPositionId: data.positionId ?? existing.positionId,
       positionType: data.positionType ?? existing.positionType,
       reason: data.reason ?? existing.reason,
       sortOrder: data.order ?? existing.order,
       isEnabled: data.isEnabled ?? existing.isEnabled,
       createdBy: existing.createdBy,
-    } as ApiPositionRecommendation)
+    } as any)
     await loadRecommendations()
   }
 
@@ -575,14 +575,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const newOrder = index + 1
         if (newOrder === rec.order) return
         await recommendApi.update(id, {
-          major: rec.major,
+          majorId: rec.major || undefined,
           careerPositionId: rec.positionId,
           positionType: rec.positionType,
           reason: rec.reason,
           sortOrder: newOrder,
-      isEnabled: rec.isEnabled,
+          isEnabled: rec.isEnabled,
           createdBy: rec.createdBy,
-        } as ApiPositionRecommendation)
+        } as any)
       })
     )
     await loadRecommendations()
