@@ -99,28 +99,48 @@ cleanup() {
 trap 'cleanup' EXIT
 
 # ==================== 必需变量校验 ====================
-REQUIRED_VARS=(DATABASE_URL JWT_SECRET)
-for v in "${REQUIRED_VARS[@]}"; do
-  if [[ -z "${!v:-}" ]]; then
-    echo "错误：缺少必需环境变量 ${v}，请在 .env 中配置" >&2
-    exit 1
-  fi
-done
+if [[ "$FRONTEND_ONLY" != "true" ]]; then
+  REQUIRED_VARS=(DATABASE_URL JWT_SECRET)
+  for v in "${REQUIRED_VARS[@]}"; do
+    if [[ -z "${!v:-}" ]]; then
+      echo "错误：缺少必需环境变量 ${v}，请在 .env 中配置" >&2
+      exit 1
+    fi
+  done
+fi
 
 # ==================== 本地依赖检查 ====================
 echo "==> 检查本地部署依赖..."
 LOCAL_DEPS_OK=true
 
-for dep in pnpm node go pm2 psql; do
-  if ! command -v "$dep" > /dev/null 2>&1; then
-    echo "错误：本地缺少必需工具 ${dep}，请先安装" >&2
+# 所有模式均需要 pm2
+if ! command -v pm2 > /dev/null 2>&1; then
+  echo "错误：本地缺少必需工具 pm2，请先安装" >&2
+  LOCAL_DEPS_OK=false
+fi
+
+# 前端（full / frontend-only）
+if [[ "$BACKEND_ONLY" != "true" ]]; then
+  for dep in pnpm node; do
+    if ! command -v "$dep" > /dev/null 2>&1; then
+      echo "错误：本地缺少必需工具 ${dep}，请先安装" >&2
+      LOCAL_DEPS_OK=false
+    fi
+  done
+fi
+
+# 后端（full / backend-only）
+if [[ "$FRONTEND_ONLY" != "true" ]]; then
+  for dep in go psql; do
+    if ! command -v "$dep" > /dev/null 2>&1; then
+      echo "错误：本地缺少必需工具 ${dep}，请先安装" >&2
+      LOCAL_DEPS_OK=false
+    fi
+  done
+  if ! command -v pg_dump > /dev/null 2>&1 && [[ "$SKIP_BACKUP" != "true" ]]; then
+    echo "错误：本地缺少 pg_dump，无法执行数据库备份（使用 --skip-backup 跳过）" >&2
     LOCAL_DEPS_OK=false
   fi
-done
-
-if ! command -v pg_dump > /dev/null 2>&1 && [[ "$SKIP_BACKUP" != "true" ]]; then
-  echo "错误：本地缺少 pg_dump，无法执行数据库备份（使用 --skip-backup 跳过）" >&2
-  LOCAL_DEPS_OK=false
 fi
 
 if [[ "$LOCAL_DEPS_OK" != "true" ]]; then
@@ -139,14 +159,15 @@ get_applied_migrations() {
 
 save_snapshot() {
   local snapshot_dir="$1"
+  local mode="$2"
   mkdir -p "$snapshot_dir"
   cat > "$snapshot_dir/snapshot.json" <<EOF
 {
   "timestamp": "$(date -Iseconds)",
   "git_commit": "$(get_git_commit)",
-  "mode": "$2",
+  "mode": "$mode",
   "applied_migrations_before": [
-$(get_applied_migrations | sed 's/^/    "/; s/$/",/' | sed '$ s/,$//')
+$(if [[ "$mode" != "frontend-only" ]]; then get_applied_migrations | sed 's/^/    "/; s/$/",/' | sed '$ s/,$//'; fi)
   ]
 }
 EOF
@@ -212,8 +233,16 @@ restore_rollback() {
   echo "==> 部署失败，开始回滚..."
 
   echo "  停止当前进程..."
-  pm2 stop all &>/dev/null || true
-  pm2 delete all &>/dev/null || true
+  if [[ "$FRONTEND_ONLY" == "true" ]]; then
+    pm2 stop "zhiyu-marketplace" "zhiyu-edu" &>/dev/null || true
+    pm2 delete "zhiyu-marketplace" "zhiyu-edu" &>/dev/null || true
+  elif [[ "$BACKEND_ONLY" == "true" ]]; then
+    pm2 stop "zhiyu-backend" &>/dev/null || true
+    pm2 delete "zhiyu-backend" &>/dev/null || true
+  else
+    pm2 stop all &>/dev/null || true
+    pm2 delete all &>/dev/null || true
+  fi
   sleep 1
 
   if [[ -f "$snapshot_dir/server" ]]; then
@@ -225,18 +254,24 @@ restore_rollback() {
     echo "  恢复商城 standalone 产物..."
     rm -rf "$MARKETPLACE_STANDALONE"
     mkdir -p "$(dirname "$MARKETPLACE_STANDALONE")"
-    cp -a "$snapshot_dir/marketplace" "$MARKETPLACE_STANDALONE"
+    mv "$snapshot_dir/marketplace" "$MARKETPLACE_STANDALONE"
   fi
 
   if [[ -d "$snapshot_dir/edu" ]]; then
     echo "  恢复教育管理 standalone 产物..."
     rm -rf "$EDU_STANDALONE"
     mkdir -p "$(dirname "$EDU_STANDALONE")"
-    cp -a "$snapshot_dir/edu" "$EDU_STANDALONE"
+    mv "$snapshot_dir/edu" "$EDU_STANDALONE"
   fi
 
   echo "  重启旧版本服务..."
-  pm2 start "$PROJECT_ROOT/ecosystem.config.js" --env production || true
+  if [[ "$FRONTEND_ONLY" == "true" ]]; then
+    pm2 start "$PROJECT_ROOT/ecosystem.config.js" --only "zhiyu-marketplace,zhiyu-edu" --env production || true
+  elif [[ "$BACKEND_ONLY" == "true" ]]; then
+    pm2 start "$PROJECT_ROOT/ecosystem.config.js" --only "zhiyu-backend" --env production || true
+  else
+    pm2 start "$PROJECT_ROOT/ecosystem.config.js" --env production || true
+  fi
   sleep 3
 
   local rollback_ok=true
@@ -292,10 +327,10 @@ if [[ "$FRONTEND_ONLY" != "true" && -f "$BACKEND_BIN" ]]; then
   cp "$BACKEND_BIN" "$SNAPSHOT_DIR/server"
 fi
 if [[ "$BACKEND_ONLY" != "true" && -d "$MARKETPLACE_STANDALONE" ]]; then
-  cp -a "$MARKETPLACE_STANDALONE" "$SNAPSHOT_DIR/marketplace"
+  mv "$MARKETPLACE_STANDALONE" "$SNAPSHOT_DIR/marketplace"
 fi
 if [[ "$BACKEND_ONLY" != "true" && -d "$EDU_STANDALONE" ]]; then
-  cp -a "$EDU_STANDALONE" "$SNAPSHOT_DIR/edu"
+  mv "$EDU_STANDALONE" "$SNAPSHOT_DIR/edu"
 fi
 
 rm -f "$ROLLBACK_DIR/latest"
@@ -356,6 +391,7 @@ if [[ "$BACKEND_ONLY" != "true" ]]; then
   rm -rf "$MARKETPLACE_DIR/.next/standalone"
   NODE_ENV=production pnpm --filter @zhiyu/marketplace build || {
     echo "错误：商城前端构建失败" >&2
+    restore_rollback "$SNAPSHOT_DIR"
     exit 1
   }
   assemble_standalone "$MARKETPLACE_DIR" "marketplace"
@@ -365,6 +401,7 @@ if [[ "$BACKEND_ONLY" != "true" ]]; then
   rm -rf "$EDU_DIR/.next/standalone"
   NODE_ENV=production pnpm --filter @zhiyu/edu build || {
     echo "错误：教育管理前端构建失败" >&2
+    restore_rollback "$SNAPSHOT_DIR"
     exit 1
   }
   assemble_standalone "$EDU_DIR" "edu"
@@ -454,11 +491,25 @@ fi
 echo ""
 echo "==> 本地 PM2 启动服务..."
 
-pm2 start "$PROJECT_ROOT/ecosystem.config.js" --env production || {
-  echo "错误：PM2 启动失败" >&2
-  restore_rollback "$SNAPSHOT_DIR"
-  exit 1
-}
+if [[ "$FRONTEND_ONLY" == "true" ]]; then
+  pm2 start "$PROJECT_ROOT/ecosystem.config.js" --only "zhiyu-marketplace,zhiyu-edu" --env production || {
+    echo "错误：PM2 启动失败" >&2
+    restore_rollback "$SNAPSHOT_DIR"
+    exit 1
+  }
+elif [[ "$BACKEND_ONLY" == "true" ]]; then
+  pm2 start "$PROJECT_ROOT/ecosystem.config.js" --only "zhiyu-backend" --env production || {
+    echo "错误：PM2 启动失败" >&2
+    restore_rollback "$SNAPSHOT_DIR"
+    exit 1
+  }
+else
+  pm2 start "$PROJECT_ROOT/ecosystem.config.js" --env production || {
+    echo "错误：PM2 启动失败" >&2
+    restore_rollback "$SNAPSHOT_DIR"
+    exit 1
+  }
+fi
 
 pm2 save > /dev/null
 
