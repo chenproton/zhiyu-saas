@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -600,4 +601,25 @@ func (h *UserManagementHandler) scanUserRows(rows pgx.Rows) ([]domain.User, erro
 		items = append(items, user)
 	}
 	return items, nil
+}
+
+func (h *UserManagementHandler) validateUserOrgMajor(ctx context.Context, tenantID string, orgNodeID, majorID *string) error {
+	if tenantID == "" {
+		return nil
+	}
+	if orgNodeID != nil && *orgNodeID != "" {
+		var exists bool
+		err := h.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organizations WHERE id = $1 AND tenant_id = $2)`, *orgNodeID, tenantID).Scan(&exists)
+		if err != nil || !exists {
+			return fmt.Errorf("invalid orgNodeId")
+		}
+	}
+	if majorID != nil && *majorID != "" {
+		var exists bool
+		err := h.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM majors WHERE id = $1 AND tenant_id = $2)`, *majorID, tenantID).Scan(&exists)
+		if err != nil || !exists {
+			return fmt.Errorf("invalid majorId")
+		}
+	}
+	return nil
 }

@@ -177,6 +177,18 @@ func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 		"research": true,
 	})
 
+	// 为新租户初始化默认组织类型
+	_, _ = h.DB.Exec(r.Context(), `
+		INSERT INTO org_types (tenant_id, name, category, description)
+		VALUES
+			($1, '学校', 'internal', '学校根节点'),
+			($1, '二级学院', 'internal', '二级学院/系'),
+			($1, '专业', 'internal', '专业节点'),
+			($1, '班级', 'internal', '班级节点'),
+			($1, '行政职能部门', 'internal', '行政职能部门')
+		ON CONFLICT DO NOTHING
+	`, id)
+
 	tenant, _ := h.fetchTenant(r.Context(), id)
 	respondJSON(w, http.StatusCreated, tenant)
 }
