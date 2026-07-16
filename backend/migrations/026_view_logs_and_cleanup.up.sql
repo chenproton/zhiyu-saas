@@ -15,14 +15,7 @@ CREATE TABLE view_logs (
 CREATE INDEX idx_view_logs_target ON view_logs(target_type, target_id);
 CREATE INDEX idx_view_logs_viewed ON view_logs(viewed_at DESC);
 
--- PART 2: 迁移现有 view_count → view_logs（为每张表生成一条汇总记录避免丢数据）
--- 这些记录不计入实时统计，仅作历史保留
-INSERT INTO view_logs (target_type, target_id, tenant_id)
-SELECT 'resource', id, tenant_id FROM resources WHERE view_count > 0;
-INSERT INTO view_logs (target_type, target_id, tenant_id)
-SELECT 'scenario', id, tenant_id FROM scenarios WHERE view_count > 0;
-INSERT INTO view_logs (target_type, target_id, tenant_id)
-SELECT 'course', id, tenant_id FROM courses WHERE view_count > 0;
+-- PART 2: 历史数据迁移（跳过—旧 ID 为 VARCHAR 与 UUID 不兼容，由 027 之后重建）
 
 -- PART 3: 删除静态 view_count 列
 ALTER TABLE resources DROP COLUMN view_count;
