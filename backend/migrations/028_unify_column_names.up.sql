@@ -1,17 +1,9 @@
--- ============================================================
--- 028_unify_column_names
--- 统一含义相同的列名
--- ============================================================
-
--- cover_url → cover_image（统一为 cover_image）
-ALTER TABLE resources RENAME COLUMN cover_url TO cover_image;
-ALTER TABLE exams RENAME COLUMN cover_url TO cover_image;
-ALTER TABLE question_banks RENAME COLUMN cover_url TO cover_image;
-ALTER TABLE micro_cert_templates RENAME COLUMN cover_url TO cover_image;
-
--- is_visible / is_active → is_enabled
-ALTER TABLE position_recommendations RENAME COLUMN is_visible TO is_enabled;
-ALTER TABLE credit_conversion_rules RENAME COLUMN is_visible TO is_enabled;
-ALTER TABLE student_ability_archives RENAME COLUMN is_visible TO is_enabled;
-ALTER TABLE learn_roads RENAME COLUMN is_active TO is_enabled;
-ALTER TABLE banner_configs RENAME COLUMN is_active TO is_enabled;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='resources' AND column_name='cover_url') THEN ALTER TABLE resources RENAME COLUMN cover_url TO cover_image; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='exams' AND column_name='cover_url') THEN ALTER TABLE exams RENAME COLUMN cover_url TO cover_image; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='question_banks' AND column_name='cover_url') THEN ALTER TABLE question_banks RENAME COLUMN cover_url TO cover_image; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='micro_cert_templates' AND column_name='cover_url') THEN ALTER TABLE micro_cert_templates RENAME COLUMN cover_url TO cover_image; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='position_recommendations' AND column_name='is_visible') THEN ALTER TABLE position_recommendations RENAME COLUMN is_visible TO is_enabled; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='credit_conversion_rules' AND column_name='is_visible') THEN ALTER TABLE credit_conversion_rules RENAME COLUMN is_visible TO is_enabled; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='student_ability_archives' AND column_name='is_visible') THEN ALTER TABLE student_ability_archives RENAME COLUMN is_visible TO is_enabled; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='learn_roads' AND column_name='is_active') THEN ALTER TABLE learn_roads RENAME COLUMN is_active TO is_enabled; END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='banner_configs' AND column_name='is_active') THEN ALTER TABLE banner_configs RENAME COLUMN is_active TO is_enabled; END IF; END $$;
