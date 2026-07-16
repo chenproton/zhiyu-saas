@@ -1,5 +1,3 @@
-ALTER TABLE courses ADD COLUMN batch_group VARCHAR(128);
-UPDATE courses SET batch_group = batch_id::text WHERE batch_id IS NOT NULL;
-ALTER TABLE courses DROP CONSTRAINT fk_courses_batch;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS batch_group VARCHAR(128);
+ALTER TABLE courses DROP COLUMN IF EXISTS batch_id;
 DROP INDEX IF EXISTS idx_courses_batch_id;
-ALTER TABLE courses DROP COLUMN batch_id;
