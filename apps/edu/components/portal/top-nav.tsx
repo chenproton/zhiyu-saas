@@ -13,23 +13,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { useAuth } from "@/components/auth-provider"
 
-const baseNavItems = [
+const navItems = [
   { href: "/portal", label: "门户首页", icon: Home },
-  { href: "/portal/workspace", label: "我的服务台", icon: Briefcase, identityCodes: ["teacher", "student"] },
-  { href: "/portal/apps", label: "应用服务中心", icon: LayoutGrid, identityCodes: ["school_admin"] },
+  { href: "/portal/workspace", label: "我的服务台", icon: Briefcase },
+  { href: "/portal/apps", label: "应用服务中心", icon: LayoutGrid },
 ]
 
 export function TopNav() {
   const pathname = usePathname()
-  const { user, identityType, institution, loading, logout } = usePortalAuth()
-  const identityCode = identityType?.code
+  const { user, identityType, institution, loading, logout } = useAuth()
   const isLoggedIn = !!user
-
-  const navItems = baseNavItems.filter((item) =>
-    !item.identityCodes || (identityCode && item.identityCodes.includes(identityCode))
-  )
   const [currentTime, setCurrentTime] = useState("")
   const [mounted, setMounted] = useState(false)
 

@@ -7,6 +7,8 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import type { PlatformNavigationConfig, SideNavItem } from "./config"
 import { resolvePlatformIcon } from "./icons"
 import { cn, matchesPath } from "./utils"
+import { useAuth } from "@/components/auth-provider"
+import { TopNav } from "@/components/portal/top-nav"
 
 function isSideItemActive(pathname: string, item: SideNavItem) {
   if (item.children?.length) {
@@ -15,11 +17,14 @@ function isSideItemActive(pathname: string, item: SideNavItem) {
   return matchesPath(pathname, item.href, item.matchers)
 }
 
-function getVisibleSideNavItems(items: SideNavItem[]): SideNavItem[] {
+function getVisibleSideNavItems(items: SideNavItem[], hasMenuPerm: (path: string) => boolean): SideNavItem[] {
   return items
     .map((item) => {
       if (item.hidden) return null
-      const visibleChildren = item.children?.filter((child) => !child.hidden)
+      const visibleChildren = item.children?.filter((child) => {
+        if (child.hidden) return false
+        return hasMenuPerm(child.href)
+      })
       if (item.children && item.children.length > 0 && (!visibleChildren || visibleChildren.length === 0)) {
         return null
       }
@@ -30,7 +35,11 @@ function getVisibleSideNavItems(items: SideNavItem[]): SideNavItem[] {
 
 export function PlatformSideNav({ config }: { config: PlatformNavigationConfig }) {
   const pathname = usePathname()
-  const visibleSideNavItems = useMemo(() => getVisibleSideNavItems(config.sideNavItems), [config.sideNavItems])
+  const { hasMenuPermission } = useAuth()
+  const visibleSideNavItems = useMemo(
+    () => getVisibleSideNavItems(config.sideNavItems, hasMenuPermission),
+    [config.sideNavItems, hasMenuPermission]
+  )
   const defaultExpanded = useMemo(
     () =>
       config.defaultExpandedSideNavIds?.length
@@ -56,7 +65,7 @@ export function PlatformSideNav({ config }: { config: PlatformNavigationConfig }
   }
 
   return (
-    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col overflow-hidden overflow-y-auto border-r border-gray-100 bg-white">
+    <aside className="sticky top-14 flex h-[calc(100vh-3.5rem)] w-56 shrink-0 flex-col overflow-hidden overflow-y-auto border-r border-gray-100 bg-white">
       <div className="border-b border-gray-100 p-4">
         <div className="flex items-center gap-3">
           <Link
@@ -174,11 +183,14 @@ export function PlatformShell({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn("flex min-h-screen bg-[#f5f7fa]", config.shellClassName)}>
-      {config.hideSideNav ? null : <PlatformSideNav config={config} />}
-      <main className={cn("min-w-0 flex-1", config.mainClassName)}>
-        <div className={cn("p-6", config.contentClassName)}>{children}</div>
-      </main>
+    <div className="min-h-screen bg-[#f5f7fa] pt-14">
+      <TopNav />
+      <div className={cn("flex min-h-[calc(100vh-3.5rem)]", config.shellClassName)}>
+        {config.hideSideNav ? null : <PlatformSideNav config={config} />}
+        <main className={cn("min-w-0 flex-1", config.mainClassName)}>
+          <div className={cn("p-6", config.contentClassName)}>{children}</div>
+        </main>
+      </div>
     </div>
   )
 }
