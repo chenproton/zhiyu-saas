@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -14,68 +14,15 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Spinner } from "@/components/ui/spinner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Plus, MoreHorizontal, Pencil, Trash2, Search, Upload, Download, Eye, Settings, ChevronRight, ChevronDown, FolderTree, AlertCircle } from "lucide-react"
+import { Plus, MoreHorizontal, Pencil, Trash2, Search, Upload, Download, Eye, Settings, ChevronRight, ChevronDown, FolderTree, AlertCircle, LayoutDashboard } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { roleApi } from "@/lib/api"
 import type { Role } from "@/lib/types/backend"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { buildMenuTree } from "@/lib/menu-permissions"
+import type { MenuTreeItem } from "@/lib/menu-permissions"
 
 let roleCounter = 5
-
-const permissionTree = [
-  {
-    id: "system",
-    name: "系统设置",
-    children: [
-      {
-        id: "system-tenant",
-        name: "租户管理",
-        children: [
-          { id: "system-tenant-view", name: "查看" },
-          { id: "system-tenant-add", name: "新增" },
-          { id: "system-tenant-edit", name: "编辑" },
-          { id: "system-tenant-delete", name: "删除" },
-        ],
-      },
-      {
-        id: "system-resource",
-        name: "资源管理",
-        children: [
-          { id: "system-resource-view", name: "查看" },
-          { id: "system-resource-add", name: "新增" },
-          { id: "system-resource-edit", name: "编辑" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "org",
-    name: "组织用户",
-    children: [
-      {
-        id: "org-structure",
-        name: "组织架构",
-        children: [
-          { id: "org-structure-view", name: "查看" },
-          { id: "org-structure-add", name: "新增" },
-          { id: "org-structure-edit", name: "编辑" },
-          { id: "org-structure-delete", name: "删除" },
-        ],
-      },
-      {
-        id: "org-users",
-        name: "用户管理",
-        children: [
-          { id: "org-users-view", name: "查看" },
-          { id: "org-users-add", name: "新增" },
-          { id: "org-users-edit", name: "编辑" },
-          { id: "org-users-import", name: "导入" },
-          { id: "org-users-export", name: "导出" },
-        ],
-      },
-    ],
-  },
-]
 
 const orgTree = [
   {
@@ -89,7 +36,7 @@ const orgTree = [
   },
 ]
 
-function PermissionNode({ node, level = 0, checked, onCheck }: { node: any; level?: number; checked: Set<string>; onCheck: (id: string) => void }) {
+function OrgNode({ node, level = 0 }: { node: any; level?: number }) {
   const [expanded, setExpanded] = useState(true)
   const hasChildren = node.children && node.children.length > 0
 
@@ -103,37 +50,65 @@ function PermissionNode({ node, level = 0, checked, onCheck }: { node: any; leve
         ) : (
           <span className="w-4" />
         )}
-        <Checkbox checked={checked.has(node.id)} onCheckedChange={() => onCheck(node.id)} />
+        <FolderTree className="w-4 h-4 text-primary" />
         <span className="text-sm">{node.name}</span>
       </div>
       {hasChildren && expanded && node.children.map((child: any) => (
-        <PermissionNode key={child.id} node={child} level={level + 1} checked={checked} onCheck={onCheck} />
+        <OrgNode key={child.id} node={child} level={level + 1} />
       ))}
     </div>
   )
 }
 
-function OrgNode({ node, level = 0, checked, onCheck }: { node: any; level?: number; checked: Set<string>; onCheck: (id: string) => void }) {
-  const [expanded, setExpanded] = useState(true)
-  const hasChildren = node.children && node.children.length > 0
+function SystemCard({ node, checked, onCheck }: { node: MenuTreeItem; checked: Set<string>; onCheck: (id: string) => void }) {
+  const childPages = useMemo(() => {
+    const pages: MenuTreeItem[] = []
+    const walk = (items: MenuTreeItem[]) => {
+      for (const item of items) {
+        if (item.href) pages.push(item)
+        if (item.children) walk(item.children)
+      }
+    }
+    if (node.children) walk(node.children)
+    return pages
+  }, [node])
+
+  const checkedCount = childPages.filter(p => checked.has(p.id)).length
+  const allChecked = checkedCount === childPages.length && childPages.length > 0
+  const someChecked = checkedCount > 0 && !allChecked
+
+  const handleSystemToggle = () => {
+    const shouldCheck = !allChecked
+    childPages.forEach(p => {
+      if (shouldCheck && !checked.has(p.id)) onCheck(p.id)
+      else if (!shouldCheck && checked.has(p.id)) onCheck(p.id)
+    })
+  }
+
+  if (childPages.length === 0) return null
 
   return (
-    <div>
-      <div className={cn("flex items-center gap-2 py-1.5", level > 0 && "ml-6")}>
-        {hasChildren ? (
-          <button onClick={() => setExpanded(!expanded)} className="w-4 h-4">
-            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
-        ) : (
-          <span className="w-4" />
-        )}
-        <Checkbox checked={checked.has(node.id)} onCheckedChange={() => onCheck(node.id)} />
-        <FolderTree className="w-4 h-4 text-primary" />
-        <span className="text-sm">{node.name}</span>
+    <div className="rounded-lg border border-border p-4">
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+        <Checkbox
+          checked={allChecked ? true : someChecked ? "indeterminate" : false}
+          onCheckedChange={handleSystemToggle}
+        />
+        <LayoutDashboard className="w-4 h-4 text-primary" />
+        <span className="text-sm font-medium">{node.label}</span>
+        <span className="text-xs text-muted-foreground">（{checkedCount}/{childPages.length}）</span>
       </div>
-      {hasChildren && expanded && node.children.map((child: any) => (
-        <OrgNode key={child.id} node={child} level={level + 1} checked={checked} onCheck={onCheck} />
-      ))}
+      <div className="grid grid-cols-6 gap-1.5">
+        {childPages.map(page => (
+          <label
+            key={page.id}
+            className="flex items-center gap-1.5 p-1.5 rounded hover:bg-accent cursor-pointer text-sm"
+          >
+            <Checkbox checked={checked.has(page.id)} onCheckedChange={() => onCheck(page.id)} />
+            <span className="truncate">{page.label}</span>
+          </label>
+        ))}
+      </div>
     </div>
   )
 }
@@ -147,10 +122,13 @@ export default function RolesPage() {
   const [isPermDialogOpen, setIsPermDialogOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [checkedPerms, setCheckedPerms] = useState<Set<string>>(new Set())
-  const [checkedOrgs, setCheckedOrgs] = useState<Set<string>>(new Set())
+  const [checkedMenus, setCheckedMenus] = useState<Set<string>>(new Set())
+  const [editName, setEditName] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
 
-  const fetchData = async () => {
+  const menuTree = useMemo(() => buildMenuTree(), [])
+
+  const fetchData = useCallback(async () => {
     if (!tenantId) {
       setIsLoading(false)
       setError("未获取到租户信息，请重新登录")
@@ -166,12 +144,11 @@ export default function RolesPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [tenantId, searchTerm])
 
   useEffect(() => {
     fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, searchTerm])
+  }, [fetchData])
 
   const filteredRoles = useMemo(
     () => roles.filter((role) => role.name.includes(searchTerm) || role.code.includes(searchTerm)),
@@ -183,17 +160,8 @@ export default function RolesPage() {
     return `ROLE${String(roleCounter).padStart(3, "0")}`
   }
 
-  const togglePerm = (id: string) => {
-    setCheckedPerms((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const toggleOrg = (id: string) => {
-    setCheckedOrgs((prev) => {
+  const toggleMenu = (id: string) => {
+    setCheckedMenus((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -204,6 +172,103 @@ export default function RolesPage() {
   const roleStatus = (role: Role): "active" | "inactive" => {
     if (role.status === "active" || role.status === "inactive") return role.status as "active" | "inactive"
     return role.status ? "active" : "inactive"
+  }
+
+  const openPermDialog = (role: Role) => {
+    setSelectedRole(role)
+    const perms = role.permissions || {}
+
+    const menuSet = new Set<string>()
+    const walkAllIds = (nodes: MenuTreeItem[]) => {
+      for (const n of nodes) {
+        if (n.href) menuSet.add(n.id)
+        if (n.children) walkAllIds(n.children)
+      }
+    }
+    if (perms.menus && typeof perms.menus === "object") {
+      menuSet.clear()
+      for (const item of menuTree) {
+        const walk = (nodes: MenuTreeItem[]) => {
+          for (const n of nodes) {
+            if (n.href && perms.menus[n.href] === true) {
+              menuSet.add(n.id)
+            }
+            if (n.children) walk(n.children)
+          }
+        }
+        walk([item])
+      }
+    } else {
+      walkAllIds(menuTree)
+    }
+    setCheckedMenus(menuSet)
+
+    setIsPermDialogOpen(true)
+  }
+
+  const savePermissions = async () => {
+    if (!selectedRole || !tenantId) return
+    setIsSaving(true)
+    try {
+      const menus: Record<string, boolean> = {}
+      const walkMenuTree = (nodes: MenuTreeItem[]) => {
+        for (const n of nodes) {
+          if (n.href && checkedMenus.has(n.id)) {
+            menus[n.href] = true
+          }
+          if (n.children) walkMenuTree(n.children)
+        }
+      }
+      walkMenuTree(menuTree)
+
+      const permissions: Record<string, any> = {}
+      if (Object.keys(menus).length > 0) {
+        permissions.menus = menus
+      }
+
+      await roleApi.update(selectedRole.id, { ...selectedRole, permissions })
+      await fetchData()
+      setIsPermDialogOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存权限失败")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const saveRole = async () => {
+    if (!tenantId) return
+    setIsSaving(true)
+    try {
+      if (selectedRole) {
+        await roleApi.update(selectedRole.id, { ...selectedRole, name: editName })
+      } else {
+        await roleApi.create({
+          tenantId,
+          code: generateRoleCode(),
+          name: editName,
+          description: "",
+          permissions: {},
+          status: "active",
+        })
+      }
+      await fetchData()
+      setIsDialogOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存角色失败")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const deleteRole = async (role: Role) => {
+    if (!confirm(`确定要删除角色「${role.name}」吗？`)) return
+    try {
+      await roleApi.delete(role.id)
+      await fetchData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "删除角色失败")
+    }
   }
 
   return (
@@ -222,7 +287,7 @@ export default function RolesPage() {
             <Download className="h-4 w-4 mr-1" />
             导出
           </Button>
-          <Button size="sm" onClick={() => { setSelectedRole(null); setIsDialogOpen(true) }}>
+          <Button size="sm" onClick={() => { setSelectedRole(null); setEditName(""); setIsDialogOpen(true) }}>
             <Plus className="h-4 w-4 mr-1" />
             新增角色
           </Button>
@@ -239,7 +304,7 @@ export default function RolesPage() {
       {error && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>加载失败</AlertTitle>
+          <AlertTitle>操作失败</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
@@ -301,11 +366,11 @@ export default function RolesPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => { setSelectedRole(role); setIsDialogOpen(true) }}>
+                              <DropdownMenuItem onClick={() => { setSelectedRole(role); setEditName(role.name); setIsDialogOpen(true) }}>
                                 <Pencil className="mr-2 h-4 w-4" />
                                 编辑
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => { setSelectedRole(role); setIsPermDialogOpen(true) }}>
+                              <DropdownMenuItem onClick={() => openPermDialog(role)}>
                                 <Settings className="mr-2 h-4 w-4" />
                                 权限配置
                               </DropdownMenuItem>
@@ -313,7 +378,7 @@ export default function RolesPage() {
                                 <Eye className="mr-2 h-4 w-4" />
                                 查看用户
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem className="text-destructive" onClick={() => deleteRole(role)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 删除
                               </DropdownMenuItem>
@@ -346,48 +411,56 @@ export default function RolesPage() {
             </div>
             <div className="grid gap-2">
               <Label>角色名称</Label>
-              <Input placeholder="如：学校管理员" defaultValue={selectedRole?.name} />
+              <Input placeholder="如：学校管理员" value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsDialogOpen(false)}>保存</Button>
+            <Button onClick={saveRole} disabled={!editName.trim() || isSaving}>
+              {isSaving ? "保存中..." : "保存"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* 权限配置 */}
       <Dialog open={isPermDialogOpen} onOpenChange={setIsPermDialogOpen}>
-        <DialogContent className="sm:max-w-[700px]">
+        <DialogContent className="sm:max-w-[1100px] lg:max-w-6xl">
           <DialogHeader>
             <DialogTitle>权限配置 - {selectedRole?.name}</DialogTitle>
-            <DialogDescription>配置角色的系统权限和数据权限</DialogDescription>
+            <DialogDescription>配置角色的系统权限、菜单权限和数据权限</DialogDescription>
           </DialogHeader>
-          <Tabs defaultValue="system" className="mt-4">
+          <Tabs defaultValue="menus" className="mt-4">
             <TabsList>
-              <TabsTrigger value="system">系统权限绑定</TabsTrigger>
+              <TabsTrigger value="menus">菜单权限</TabsTrigger>
               <TabsTrigger value="data">数据权限设置</TabsTrigger>
             </TabsList>
-            <TabsContent value="system" className="mt-4">
-              <div className="text-sm text-muted-foreground mb-3">选择角色可访问的模块、页面和按钮</div>
-              <ScrollArea className="h-[300px] border border-border rounded-lg p-4">
-                {permissionTree.map((node) => (
-                  <PermissionNode key={node.id} node={node} checked={checkedPerms} onCheck={togglePerm} />
-                ))}
+            <TabsContent value="menus" className="mt-4">
+              <div className="text-sm text-muted-foreground mb-3">
+                选择该角色可以在侧边导航中看到的功能页面。未勾选的页面在菜单中不可见。
+              </div>
+              <ScrollArea className="max-h-[560px] border border-border rounded-lg p-4">
+                <div className="space-y-4">
+                  {menuTree.map((node) => (
+                    <SystemCard key={node.id} node={node} checked={checkedMenus} onCheck={toggleMenu} />
+                  ))}
+                </div>
               </ScrollArea>
             </TabsContent>
             <TabsContent value="data" className="mt-4">
-              <div className="text-sm text-muted-foreground mb-3">选择角色可访问的组织数据范围</div>
-              <ScrollArea className="h-[300px] border border-border rounded-lg p-4">
+              <div className="text-sm text-muted-foreground mb-3">组织数据范围（仅展示）</div>
+              <ScrollArea className="h-[350px] border border-border rounded-lg p-4">
                 {orgTree.map((node) => (
-                  <OrgNode key={node.id} node={node} checked={checkedOrgs} onCheck={toggleOrg} />
+                  <OrgNode key={node.id} node={node} />
                 ))}
               </ScrollArea>
             </TabsContent>
           </Tabs>
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setIsPermDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsPermDialogOpen(false)}>保存配置</Button>
+            <Button onClick={savePermissions} disabled={isSaving}>
+              {isSaving ? "保存中..." : "保存配置"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
