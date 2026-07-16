@@ -338,7 +338,7 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
                       )}
                     </div>
                     {!isEditing && (
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-0.5">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()

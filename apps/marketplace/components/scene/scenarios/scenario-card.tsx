@@ -98,7 +98,7 @@ export function ScenarioCard({ scenario }: ScenarioCardProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="h-8 w-8 text-gray-400 hover:text-gray-600"
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>

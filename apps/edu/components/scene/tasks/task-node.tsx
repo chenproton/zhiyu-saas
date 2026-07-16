@@ -82,7 +82,7 @@ export function TaskNode({ task, scenarioId, isActive, onEdit, onDelete }: TaskN
       </Link>
 
       {/* Actions */}
-      <div className="flex items-center px-2 border-l border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center px-2 border-l border-gray-100">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600">

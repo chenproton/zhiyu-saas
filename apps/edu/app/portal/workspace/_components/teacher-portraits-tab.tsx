@@ -331,7 +331,7 @@ export function TeacherPortraitsTab() {
                             <div className="flex items-center gap-1.5">
                               <Button
                                 size="sm"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity h-8 gap-1.5 text-xs bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-sm"
+                                className="h-8 gap-1.5 text-xs bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-sm"
                                 onClick={(e) => { e.stopPropagation(); setSelectedStudent(student.id) }}
                               >
                                 <Eye className="w-3.5 h-3.5" />
@@ -340,7 +340,7 @@ export function TeacherPortraitsTab() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity h-8 gap-1.5 text-xs border-amber-200 text-amber-600 hover:bg-amber-50"
+                                className="h-8 gap-1.5 text-xs border-amber-200 text-amber-600 hover:bg-amber-50"
                                 onClick={(e) => { e.stopPropagation(); setActiveStudent(student); setGradeReportOpen(true) }}
                               >
                                 <FileText className="w-3.5 h-3.5" />
@@ -349,7 +349,7 @@ export function TeacherPortraitsTab() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity h-8 gap-1.5 text-xs border-purple-200 text-purple-600 hover:bg-purple-50"
+                                className="h-8 gap-1.5 text-xs border-purple-200 text-purple-600 hover:bg-purple-50"
                                 onClick={(e) => { e.stopPropagation(); setActiveStudent(student); setAbilityProfileOpen(true) }}
                               >
                                 <Target className="w-3.5 h-3.5" />

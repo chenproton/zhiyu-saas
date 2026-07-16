@@ -159,7 +159,18 @@ export default function BatchesPage() {
     return workflow?.name || '-'
   }
 
-  const BatchForm = ({ isEdit = false }: { isEdit?: boolean }) => (
+  const submitForm = (isEdit: boolean) => {
+    if (isEdit) handleUpdate()
+    else handleCreate()
+  }
+
+  const cancelForm = (isEdit: boolean) => {
+    if (isEdit) setEditingBatch(null)
+    else setIsCreateOpen(false)
+    resetForm()
+  }
+
+  const renderBatchForm = (isEdit = false) => (
     <FieldGroup className="gap-4">
       <Field>
         <FieldLabel>批次名称</FieldLabel>
@@ -204,14 +215,10 @@ export default function BatchesPage() {
         </Select>
       </Field>
       <DialogFooter>
-        <Button variant="outline" onClick={() => {
-          if (isEdit) setEditingBatch(null)
-          else setIsCreateOpen(false)
-          resetForm()
-        }}>
+        <Button variant="outline" onClick={() => cancelForm(isEdit)}>
           取消
         </Button>
-        <Button onClick={isEdit ? handleUpdate : handleCreate}>
+        <Button onClick={() => submitForm(isEdit)}>
           {isEdit ? '保存' : '创建'}
         </Button>
       </DialogFooter>
@@ -237,7 +244,7 @@ export default function BatchesPage() {
               <DialogTitle>新建批次</DialogTitle>
               <DialogDescription>创建一个新的岗位建设批次</DialogDescription>
             </DialogHeader>
-            <BatchForm />
+            {renderBatchForm()}
           </DialogContent>
         </Dialog>
       </div>
@@ -325,7 +332,7 @@ export default function BatchesPage() {
                     <TableCell>{batch.positionCount}</TableCell>
                     <TableCell>{batch.publishedCount}</TableCell>
                     <TableCell className="text-right relative">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-sm z-10 px-2 py-1 rounded-lg shadow-sm border">
+                      <div className="flex items-center justify-end gap-1 absolute right-2 top-1/2 -translate-y-1/2 z-10 px-2 py-1 rounded-lg">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -368,7 +375,7 @@ export default function BatchesPage() {
             <DialogTitle>编辑批次</DialogTitle>
             <DialogDescription>修改批次信息</DialogDescription>
           </DialogHeader>
-          <BatchForm isEdit />
+          {renderBatchForm(true)}
         </DialogContent>
       </Dialog>
     </div>

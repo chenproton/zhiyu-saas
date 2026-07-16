@@ -994,7 +994,7 @@ export function CertificationRulePage({ isGlobal = false, positionId }: Certific
                             onClick={() => handleOpenPointWeightDialog()}
                             disabled={isReadOnly}
                           >
-                            <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Edit2 className="h-3 w-3" />
                             {row.pointWeight > 0 ? `${row.pointWeight}%` : '--'}
                           </button>
                         </PrdAnnotation>
@@ -1014,7 +1014,7 @@ export function CertificationRulePage({ isGlobal = false, positionId }: Certific
                             onClick={() => handleOpenTaskWeightDialog(row.abilityItemId, row.abilityPointId)}
                             disabled={isReadOnly}
                           >
-                            <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Edit2 className="h-3 w-3" />
                             {row.weight}%
                           </button>
                         </PrdAnnotation>

@@ -375,7 +375,7 @@ export default function ApprovalsPage() {
                         })}
                       </TableCell>
                       <TableCell className="text-right relative">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-sm z-10 px-2 py-1 rounded-lg shadow-sm border">
+                        <div className="flex items-center justify-end gap-1 absolute right-2 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-sm z-10 px-2 py-1 rounded-lg shadow-sm border">
                           <Button
                             variant="ghost"
                             size="sm"
