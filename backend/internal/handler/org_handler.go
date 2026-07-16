@@ -30,7 +30,7 @@ type OrgTreeResponse struct {
 
 type OrgTreeNode struct {
 	domain.Organization
-	Children []OrgTreeNode `json:"children"`
+	Children []*OrgTreeNode `json:"children"`
 }
 
 type CreateOrgRequest struct {
@@ -303,26 +303,31 @@ func (h *OrgHandler) scanOrgRows(rows pgx.Rows) ([]domain.Organization, error) {
 
 func (h *OrgHandler) buildOrgTree(orgs []domain.Organization) []OrgTreeNode {
 	nodeMap := make(map[string]*OrgTreeNode)
-	var roots []OrgTreeNode
+	var roots []*OrgTreeNode
 
 	for i := range orgs {
 		nodeMap[orgs[i].ID] = &OrgTreeNode{
 			Organization: orgs[i],
-			Children:     make([]OrgTreeNode, 0),
+			Children:     make([]*OrgTreeNode, 0),
 		}
 	}
 
 	for i := range orgs {
 		node := nodeMap[orgs[i].ID]
 		if orgs[i].ParentID == nil || *orgs[i].ParentID == "" {
-			roots = append(roots, *node)
+			roots = append(roots, node)
 		} else if parent, ok := nodeMap[*orgs[i].ParentID]; ok {
-			parent.Children = append(parent.Children, *node)
+			parent.Children = append(parent.Children, node)
 		}
 	}
 
 	sort.Slice(roots, func(i, j int) bool {
 		return roots[i].SortOrder < roots[j].SortOrder
 	})
-	return roots
+
+	result := make([]OrgTreeNode, len(roots))
+	for i, r := range roots {
+		result[i] = *r
+	}
+	return result
 }

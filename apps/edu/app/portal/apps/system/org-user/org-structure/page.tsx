@@ -245,14 +245,17 @@ export default function OrgStructurePage() {
     return map
   }
 
-  const mapToOrgNode = (node: Organization & { children?: (Organization & { children?: any[] })[] }): OrgNode => {
+  const mapToOrgNode = (
+    node: Organization & { children?: (Organization & { children?: any[] })[] },
+    typeMap: Record<string, string>
+  ): OrgNode => {
     const sortedChildren = node.children
-      ? [...node.children].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(mapToOrgNode)
+      ? [...node.children].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((child) => mapToOrgNode(child, typeMap))
       : undefined
     return {
       id: node.id,
       name: node.name,
-      type: typeNames[node.typeId] || "组织",
+      type: typeMap[node.typeId] || "组织",
       typeId: node.typeId,
       parentId: node.parentId,
       order: node.sortOrder,
@@ -278,7 +281,7 @@ export default function OrgStructurePage() {
       const map = buildTypeNameMap(typesRes.items)
       setOrgTypes(typesRes.items)
       setTypeNames(map)
-      setOrgData(treeRes.items.map((node) => mapToOrgNode(node)))
+      setOrgData(treeRes.items.map((node) => mapToOrgNode(node, map)))
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载组织架构失败")
     } finally {
