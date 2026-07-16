@@ -16,6 +16,7 @@ import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree } from "@/hooks/use-org-tree"
 import { OrgNodeSelect } from "@/components/shared/org-node-select"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -66,6 +67,7 @@ export default function TeachersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedOrgNodeId, setSelectedOrgNodeId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const [formName, setFormName] = useState("")
   const [formUsername, setFormUsername] = useState("")
@@ -166,14 +168,20 @@ export default function TeachersPage() {
     }
   }
 
-  const deleteTeacher = async (id: string) => {
-    if (!window.confirm("确定要删除该教职工吗？此操作不可恢复。")) return
+  const handleDeleteClick = (id: string) => {
+    setDeleteTarget(id)
+  }
+
+  const confirmDeleteTeacher = async () => {
+    if (!deleteTarget) return
     try {
-      await portalUserManagementApi.delete(id)
+      await portalUserManagementApi.delete(deleteTarget)
       toast({ title: "删除成功" })
       await refetch()
     } catch (err) {
       toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setDeleteTarget(null)
     }
   }
 
@@ -355,7 +363,7 @@ export default function TeachersPage() {
                                   <Key className="mr-2 h-4 w-4" />
                                   重置密码
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => deleteTeacher(teacher.id)} className="text-destructive">
+                                <DropdownMenuItem onClick={() => handleDeleteClick(teacher.id)} className="text-destructive">
                                   <Trash2 className="mr-2 h-4 w-4" />删除
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -424,6 +432,16 @@ export default function TeachersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="确认删除"
+        description="确定要删除该教职工吗？此操作不可恢复。"
+        confirmText="删除"
+        variant="destructive"
+        onConfirm={confirmDeleteTeacher}
+      />
     </div>
   )
 }

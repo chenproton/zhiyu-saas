@@ -49,6 +49,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { orgApi, orgTypeApi } from "@/lib/api"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import type { Organization, OrgType } from "@/lib/types/backend"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { useToast } from "@/hooks/use-toast"
@@ -231,6 +232,7 @@ export default function OrgStructurePage() {
   const [mounted, setMounted] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<OrgNode | null>(null)
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
@@ -438,13 +440,19 @@ export default function OrgStructurePage() {
   }
 
   const handleDelete = async (node: OrgNode) => {
-    if (!window.confirm(`确定删除组织节点「${node.name}」吗？如果该节点下还有子节点或成员，删除可能会失败。`)) return
+    setDeleteTarget(node)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
     try {
-      await orgApi.delete(node.id)
+      await orgApi.delete(deleteTarget.id)
       toast({ title: "删除成功" })
       await fetchData()
     } catch (err) {
       toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setDeleteTarget(null)
     }
   }
 
@@ -653,6 +661,16 @@ export default function OrgStructurePage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="确认删除"
+        description={`确定删除组织节点「${deleteTarget?.name}」吗？如果该节点下还有子节点或成员，删除可能会失败。`}
+        confirmText="删除"
+        variant="destructive"
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }

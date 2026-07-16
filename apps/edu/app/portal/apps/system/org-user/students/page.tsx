@@ -18,6 +18,7 @@ import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree, findOrgAncestor } from "@/hooks/use-org-tree"
 import { OrgNodeSelect } from "@/components/shared/org-node-select"
 import { MajorSelect } from "@/components/shared/major-select"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { portalUserManagementApi, majorApi } from "@/lib/api"
 import type { Organization } from "@/lib/types/backend"
 import { useToast } from "@/hooks/use-toast"
@@ -96,6 +97,7 @@ export default function StudentsPage() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const [majors, setMajors] = useState<Major[]>([])
 
@@ -193,14 +195,20 @@ export default function StudentsPage() {
     }
   }
 
-  const deleteStudent = async (id: string) => {
-    if (!window.confirm("确定要删除该学生吗？此操作不可恢复。")) return
+  const handleDeleteClick = (id: string) => {
+    setDeleteTarget(id)
+  }
+
+  const confirmDeleteStudent = async () => {
+    if (!deleteTarget) return
     try {
-      await portalUserManagementApi.delete(id)
+      await portalUserManagementApi.delete(deleteTarget)
       toast({ title: "删除成功" })
       await refetch()
     } catch (err) {
       toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setDeleteTarget(null)
     }
   }
 
@@ -432,7 +440,7 @@ export default function StudentsPage() {
                                 <Power className="mr-2 h-4 w-4" />
                                 {student.status === "在籍" ? "设为休学" : "设为在籍"}
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => deleteStudent(student.id)} className="text-destructive">
+                              <DropdownMenuItem onClick={() => handleDeleteClick(student.id)} className="text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" />删除
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -515,6 +523,16 @@ export default function StudentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="确认删除"
+        description="确定要删除该学生吗？此操作不可恢复。"
+        confirmText="删除"
+        variant="destructive"
+        onConfirm={confirmDeleteStudent}
+      />
     </div>
   )
 }

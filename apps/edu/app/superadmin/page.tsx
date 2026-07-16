@@ -45,6 +45,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 
 const API_BASE = "/api/v1/admin/tenants"
 
@@ -104,6 +105,9 @@ export default function SuperAdminPage() {
     description: "",
     status: "active" as "active" | "inactive",
   })
+
+  const [toggleTarget, setToggleTarget] = useState<AdminTenant | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AdminTenant | null>(null)
 
   const { toast } = useToast()
 
@@ -209,12 +213,16 @@ export default function SuperAdminPage() {
     }
   }
 
-  const handleToggleStatus = async (t: AdminTenant) => {
-    const newStatus = t.status === "active" ? "inactive" : "active"
+  const handleToggleClick = (t: AdminTenant) => {
+    setToggleTarget(t)
+  }
+
+  const confirmToggleStatus = async () => {
+    if (!toggleTarget) return
+    const newStatus = toggleTarget.status === "active" ? "inactive" : "active"
     const label = newStatus === "active" ? "启用" : "停用"
-    if (!window.confirm(`确定${label}租户「${t.name}」吗？`)) return
     try {
-      await adminFetch(`/${t.id}/status`, {
+      await adminFetch(`/${toggleTarget.id}/status`, {
         method: "POST",
         body: JSON.stringify({ status: newStatus }),
       })
@@ -222,17 +230,25 @@ export default function SuperAdminPage() {
       await fetchTenants()
     } catch (err) {
       toast({ variant: "destructive", title: `${label}失败`, description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setToggleTarget(null)
     }
   }
 
-  const handleDelete = async (t: AdminTenant) => {
-    if (!window.confirm(`确定删除租户「${t.name}」吗？此操作不可撤销。`)) return
+  const handleDeleteClick = (t: AdminTenant) => {
+    setDeleteTarget(t)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
     try {
-      await adminFetch(`/${t.id}`, { method: "DELETE" })
+      await adminFetch(`/${deleteTarget.id}`, { method: "DELETE" })
       toast({ title: "删除成功" })
       await fetchTenants()
     } catch (err) {
       toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setDeleteTarget(null)
     }
   }
 
@@ -306,11 +322,11 @@ export default function SuperAdminPage() {
                             <Pencil className="mr-2 h-4 w-4" />
                             编辑
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleStatus(t)}>
+                          <DropdownMenuItem onClick={() => handleToggleClick(t)}>
                             <Power className="mr-2 h-4 w-4" />
                             {t.status === "active" ? "停用" : "启用"}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(t)} className="text-destructive">
+                          <DropdownMenuItem onClick={() => handleDeleteClick(t)} className="text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" />
                             删除
                           </DropdownMenuItem>
@@ -415,6 +431,24 @@ export default function SuperAdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={toggleTarget !== null}
+        onOpenChange={(open) => { if (!open) setToggleTarget(null) }}
+        title={toggleTarget ? `${toggleTarget.status === "active" ? "停用" : "启用"}租户` : ""}
+        description={toggleTarget ? `确定${toggleTarget.status === "active" ? "停用" : "启用"}租户「${toggleTarget.name}」吗？` : ""}
+        confirmText={toggleTarget ? (toggleTarget.status === "active" ? "停用" : "启用") : ""}
+        onConfirm={confirmToggleStatus}
+      />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="确认删除"
+        description={deleteTarget ? `确定删除租户「${deleteTarget.name}」吗？此操作不可撤销。` : ""}
+        confirmText="删除"
+        variant="destructive"
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }
