@@ -67,8 +67,8 @@ export function convertJobBatchToBatch(jb: JobBatch): Batch {
   return {
     id: jb.id,
     name: jb.name,
-    department: jb.orgNodeId || jb.major || '',
-    major: jb.major || '',
+    department: jb.orgNodeId || jb.majorName || '',
+    major: jb.majorName || '',
     workflowId: jb.workflowId || '',
     status: jb.status,
     positionCount: jb.positionCount || 0,
