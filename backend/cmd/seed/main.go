@@ -667,10 +667,10 @@ func seedPlatformConfig(ctx context.Context, tx pgx.Tx) error {
 	_, err = tx.Exec(ctx, `
 		INSERT INTO platform_links (platform, url, enabled) VALUES
 			('alliance', '/portal', true),
-			('career', '/job/positions', true),
-			('scene', '/scene/', true),
-			('course', '/lesson/admin/system', true),
-			('ability', '/evaluation/question-banks', true),
+			('career', '/job/landing', true),
+			('scene', '/scene/landing', true),
+			('course', '/lesson/landing', true),
+			('ability', '/evaluation/landing', true),
 			('ai', '/portal', false),
 			('resource', '/', true),
 			('opc', '/portal', false),
