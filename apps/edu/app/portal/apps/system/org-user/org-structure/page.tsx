@@ -50,11 +50,13 @@ import {
   LayoutList,
   Building,
   AlertCircle,
+  Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { orgApi, orgTypeApi } from "@/lib/api"
 import type { Organization, OrgType } from "@/lib/types/backend"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { useToast } from "@/hooks/use-toast"
 
 type OrgNodeType = string
 
@@ -62,6 +64,8 @@ interface OrgNode {
   id: string
   name: string
   type: OrgNodeType
+  typeId: string
+  parentId?: string
   order: number
   memberCount: number
   children?: OrgNode[]
@@ -208,13 +212,19 @@ function TreeNode({
 
 export default function OrgStructurePage() {
   const { tenantId } = usePortalAuth()
+  const { toast } = useToast()
   const [orgData, setOrgData] = useState<OrgNode[]>([])
+  const [orgTypes, setOrgTypes] = useState<OrgType[]>([])
   const [typeNames, setTypeNames] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [dialogType, setDialogType] = useState<"add" | "edit" | "members">("add")
+  const [dialogMode, setDialogMode] = useState<"addRoot" | "addChild" | "addParent" | "edit" | "members">("addRoot")
   const [selectedNode, setSelectedNode] = useState<OrgNode | null>(null)
+  const [formName, setFormName] = useState("")
+  const [formTypeId, setFormTypeId] = useState("")
+  const [formSortOrder, setFormSortOrder] = useState<string>("1")
+  const [saving, setSaving] = useState(false)
 
   const buildTypeNameMap = (types: OrgType[]): Record<string, string> => {
     const map: Record<string, string> = {}
@@ -229,6 +239,8 @@ export default function OrgStructurePage() {
       id: node.id,
       name: node.name,
       type: typeNames[node.typeId] || "组织",
+      typeId: node.typeId,
+      parentId: node.parentId,
       order: node.sortOrder,
       memberCount: node.memberCount,
       expanded: true,
@@ -250,6 +262,7 @@ export default function OrgStructurePage() {
         orgTypeApi.list({ tenantId, limit: 1000 }),
       ])
       const map = buildTypeNameMap(typesRes.items)
+      setOrgTypes(typesRes.items)
       setTypeNames(map)
       setOrgData(treeRes.items.map((node) => mapToOrgNode(node)))
     } catch (err) {
@@ -288,17 +301,96 @@ export default function OrgStructurePage() {
     setOrgData(toggle(orgData))
   }
 
-  const handleAction = (action: string, node: OrgNode) => {
+  const openDialog = (mode: typeof dialogMode, node: OrgNode | null = null) => {
+    setDialogMode(mode)
     setSelectedNode(node)
-    if (action === "addChild" || action === "addParent") {
-      setDialogType("add")
-      setIsDialogOpen(true)
+    if (mode === "edit" && node) {
+      setFormName(node.name)
+      setFormTypeId(node.typeId)
+      setFormSortOrder(String(node.order))
+    } else if (mode === "addChild" && node) {
+      setFormName("")
+      setFormTypeId("")
+      setFormSortOrder(String(node.children ? node.children.length + 1 : 1))
+    } else if (mode === "addParent" && node) {
+      setFormName("")
+      setFormTypeId("")
+      setFormSortOrder("1")
+    } else {
+      setFormName("")
+      setFormTypeId("")
+      setFormSortOrder(String(orgData.length + 1))
+    }
+    setIsDialogOpen(true)
+  }
+
+  const handleAction = (action: string, node: OrgNode) => {
+    if (action === "addChild") {
+      openDialog("addChild", node)
+    } else if (action === "addParent") {
+      openDialog("addParent", node)
     } else if (action === "edit") {
-      setDialogType("edit")
-      setIsDialogOpen(true)
+      openDialog("edit", node)
     } else if (action === "members") {
-      setDialogType("members")
-      setIsDialogOpen(true)
+      openDialog("members", node)
+    } else if (action === "delete") {
+      handleDelete(node)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!tenantId) return
+    if (!formName.trim() || !formTypeId) {
+      toast({ variant: "destructive", title: "请填写节点名称并选择类型" })
+      return
+    }
+    setSaving(true)
+    try {
+      if (dialogMode === "edit" && selectedNode) {
+        await orgApi.update(selectedNode.id, {
+          tenantId,
+          name: formName.trim(),
+          typeId: formTypeId,
+          sortOrder: Number(formSortOrder) || 0,
+        })
+        toast({ title: "保存成功" })
+      } else {
+        let parentId: string | undefined
+        if (dialogMode === "addChild" && selectedNode) {
+          parentId = selectedNode.id
+        } else if (dialogMode === "addParent" && selectedNode) {
+          parentId = selectedNode.parentId
+        }
+        const newNode = await orgApi.create({
+          tenantId,
+          name: formName.trim(),
+          typeId: formTypeId,
+          parentId,
+          sortOrder: Number(formSortOrder) || 0,
+          memberCount: 0,
+        })
+        if (dialogMode === "addParent" && selectedNode) {
+          await orgApi.update(selectedNode.id, { parentId: newNode.id })
+        }
+        toast({ title: "创建成功" })
+      }
+      setIsDialogOpen(false)
+      await fetchData()
+    } catch (err) {
+      toast({ variant: "destructive", title: "保存失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (node: OrgNode) => {
+    if (!window.confirm(`确定删除组织节点「${node.name}」吗？如果该节点下还有子节点或成员，删除可能会失败。`)) return
+    try {
+      await orgApi.delete(node.id)
+      toast({ title: "删除成功" })
+      await fetchData()
+    } catch (err) {
+      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
     }
   }
 
@@ -326,11 +418,7 @@ export default function OrgStructurePage() {
           </Button>
           <Button
             size="sm"
-            onClick={() => {
-              setSelectedNode(null)
-              setDialogType("add")
-              setIsDialogOpen(true)
-            }}
+            onClick={() => openDialog("addRoot")}
           >
             <Plus className="h-4 w-4 mr-1" />
             新增节点
@@ -400,39 +488,42 @@ export default function OrgStructurePage() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
-              {dialogType === "add"
+              {dialogMode === "addRoot"
                 ? "新增节点"
-                : dialogType === "edit"
+                : dialogMode === "addChild"
+                ? `添加子节点：${selectedNode?.name}`
+                : dialogMode === "addParent"
+                ? `为 ${selectedNode?.name} 添加父节点`
+                : dialogMode === "edit"
                 ? "编辑节点"
                 : "成员管理"}
             </DialogTitle>
             <DialogDescription>
-              {dialogType === "members"
+              {dialogMode === "members"
                 ? `管理 ${selectedNode?.name} 的组织成员`
                 : "配置组织节点信息"}
             </DialogDescription>
           </DialogHeader>
-          {dialogType !== "members" ? (
+          {dialogMode !== "members" ? (
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label>节点名称</Label>
                 <Input
                   placeholder="如：信息学院"
-                  defaultValue={dialogType === "edit" ? selectedNode?.name : ""}
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
                 <Label>节点类型</Label>
-                <Select
-                  defaultValue={dialogType === "edit" ? selectedNode?.type : undefined}
-                >
+                <Select value={formTypeId} onValueChange={setFormTypeId}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择类型" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(typeNames).map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
+                    {orgTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -443,7 +534,8 @@ export default function OrgStructurePage() {
                 <Input
                   type="number"
                   placeholder="1"
-                  defaultValue={dialogType === "edit" ? selectedNode?.order : 1}
+                  value={formSortOrder}
+                  onChange={(e) => setFormSortOrder(e.target.value)}
                 />
               </div>
             </div>
@@ -470,10 +562,15 @@ export default function OrgStructurePage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>
               取消
             </Button>
-            <Button onClick={() => setIsDialogOpen(false)}>保存</Button>
+            {dialogMode !== "members" && (
+              <Button onClick={handleSave} disabled={saving || !formName.trim() || !formTypeId}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                保存
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
