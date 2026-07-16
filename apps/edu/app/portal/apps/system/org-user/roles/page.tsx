@@ -425,7 +425,7 @@ export default function RolesPage() {
 
       {/* 权限配置 */}
       <Dialog open={isPermDialogOpen} onOpenChange={setIsPermDialogOpen}>
-        <DialogContent className="sm:max-w-[1100px] lg:max-w-6xl">
+        <DialogContent className="sm:max-w-[1100px] lg:max-w-6xl !max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>权限配置 - {selectedRole?.name}</DialogTitle>
             <DialogDescription>配置角色的系统权限、菜单权限和数据权限</DialogDescription>
@@ -439,7 +439,7 @@ export default function RolesPage() {
               <div className="text-sm text-muted-foreground mb-3">
                 选择该角色可以在侧边导航中看到的功能页面。未勾选的页面在菜单中不可见。
               </div>
-              <ScrollArea className="max-h-[560px] border border-border rounded-lg p-4">
+              <ScrollArea className="border border-border rounded-lg p-4">
                 <div className="space-y-4">
                   {menuTree.map((node) => (
                     <SystemCard key={node.id} node={node} checked={checkedMenus} onCheck={toggleMenu} />
