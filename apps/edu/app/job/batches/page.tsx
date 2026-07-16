@@ -355,7 +355,7 @@ export default function BatchesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={batch.status} type="batch" />
+                      <StatusBadge status={batch.status} />
                     </TableCell>
                     <TableCell>{batch.positionCount}</TableCell>
                     <TableCell>{batch.publishedCount}</TableCell>

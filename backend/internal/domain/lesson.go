@@ -2,23 +2,7 @@ package domain
 
 import "time"
 
-type CourseStatus string
-
-const (
-	CourseStatusDraft     CourseStatus = "draft"
-	CourseStatusPending   CourseStatus = "pending"
-	CourseStatusApproved  CourseStatus = "approved"
-	CourseStatusRejected  CourseStatus = "rejected"
-	CourseStatusPublished CourseStatus = "published"
-	CourseStatusArchived  CourseStatus = "archived"
-)
-
-type LessonBatchStatus string
-
-const (
-	LessonBatchStatusOpen   LessonBatchStatus = "open"
-	LessonBatchStatusClosed LessonBatchStatus = "closed"
-)
+// Status types and constants now defined in status.go (shared with all modules)
 
 type Course struct {
 	ID            string         `json:"id"`

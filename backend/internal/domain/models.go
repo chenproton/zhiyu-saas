@@ -11,13 +11,7 @@ const (
 	InstitutionTypeEnterprise InstitutionType = "enterprise"
 )
 
-type InstitutionStatus string
-
-const (
-	InstitutionStatusPending  InstitutionStatus = "pending"
-	InstitutionStatusApproved InstitutionStatus = "approved"
-	InstitutionStatusDisabled InstitutionStatus = "disabled"
-)
+// InstitutionStatus removed — defined in status.go
 
 type ResourceStatus string
 

@@ -2,16 +2,7 @@ package domain
 
 import "time"
 
-type CareerPositionStatus string
-
-const (
-	CareerPositionStatusDraft     CareerPositionStatus = "draft"
-	CareerPositionStatusPending   CareerPositionStatus = "pending"
-	CareerPositionStatusApproved  CareerPositionStatus = "approved"
-	CareerPositionStatusRejected  CareerPositionStatus = "rejected"
-	CareerPositionStatusPublished CareerPositionStatus = "published"
-	CareerPositionStatusArchived  CareerPositionStatus = "archived"
-)
+// Status types and constants now defined in status.go (shared with all modules)
 
 type PositionType string
 
@@ -35,12 +26,7 @@ const (
 	AbilityPointSourceCustom AbilityPointSource = "custom"
 )
 
-type BatchStatus string
-
-const (
-	BatchStatusOpen   BatchStatus = "open"
-	BatchStatusClosed BatchStatus = "closed"
-)
+// BatchStatus type and constants now defined in status.go (shared)
 
 type CareerPosition struct {
 	ID            string               `json:"id"`

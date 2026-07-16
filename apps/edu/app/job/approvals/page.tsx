@@ -366,7 +366,7 @@ export default function ApprovalsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={approval.status} type="approval" />
+                        <StatusBadge status={approval.status} />
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatDistanceToNow(new Date(approval.createdAt), {
@@ -492,7 +492,6 @@ export default function ApprovalsPage() {
                             ? "pending"
                             : "draft"
                         }
-                        type="approval"
                       />
                     </div>
                   ))}

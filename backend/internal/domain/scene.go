@@ -139,12 +139,7 @@ type ScenarioGradeMapping struct {
 	Color       *string `json:"color,omitempty"`
 }
 
-type SceneBatchStatus string
-
-const (
-	SceneBatchStatusOpen   SceneBatchStatus = "open"
-	SceneBatchStatusClosed SceneBatchStatus = "closed"
-)
+// SceneBatchStatus removed — defined in status.go
 
 type SceneBatch struct {
 	ID            string           `json:"id"`

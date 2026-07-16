@@ -2,27 +2,7 @@ package domain
 
 import "time"
 
-type QuestionBankStatus string
-
-const (
-	QuestionBankStatusDraft     QuestionBankStatus = "draft"
-	QuestionBankStatusPending   QuestionBankStatus = "pending"
-	QuestionBankStatusApproved  QuestionBankStatus = "approved"
-	QuestionBankStatusRejected  QuestionBankStatus = "rejected"
-	QuestionBankStatusPublished QuestionBankStatus = "published"
-	QuestionBankStatusArchived  QuestionBankStatus = "archived"
-)
-
-type ExamStatus string
-
-const (
-	ExamStatusDraft     ExamStatus = "draft"
-	ExamStatusPending   ExamStatus = "pending"
-	ExamStatusApproved  ExamStatus = "approved"
-	ExamStatusRejected  ExamStatus = "rejected"
-	ExamStatusPublished ExamStatus = "published"
-	ExamStatusArchived  ExamStatus = "archived"
-)
+// Status types and constants now defined in status.go (shared with all modules)
 
 // QuestionBank represents a repository of questions.
 type QuestionBank struct {
