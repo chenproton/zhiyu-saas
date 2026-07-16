@@ -114,7 +114,7 @@ export function convertApiApprovalToLocal(
 export function convertApiRecommendationToLocal(rec: ApiPositionRecommendation): PositionRecommendation {
   return {
     id: rec.id,
-    major: rec.major,
+    major: rec.majorName || '',
     positionId: rec.careerPositionId,
     positionType: rec.positionType as PositionType,
     reason: rec.reason ?? undefined,

@@ -153,7 +153,7 @@ export default function PostRecommendPage() {
           const newOrder = idx + 1
           if (newOrder === rec.order) return
           await recommendApi.update(id, {
-            major: rec.major,
+            majorId: rec.major || undefined,
             careerPositionId: rec.positionId,
             positionType: rec.positionType,
             reason: rec.reason,
@@ -183,7 +183,7 @@ export default function PostRecommendPage() {
     if (!rec) return
     try {
       await recommendApi.update(id, {
-        major: rec.major,
+        majorId: rec.major || undefined,
         careerPositionId: rec.positionId,
         positionType: rec.positionType,
         reason: rec.reason,

@@ -88,7 +88,8 @@ export interface JobBatch {
 
 export interface PositionRecommendation {
   id: string
-  major: string
+  majorId?: string
+  majorName?: string
   careerPositionId: string
   positionType: string
   reason?: string
