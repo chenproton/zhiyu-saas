@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -15,6 +15,7 @@ import {
   Settings,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 
 const menuItems = [
   {
@@ -75,9 +76,23 @@ export default function SystemLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const { hasMenuPermission } = usePortalAuth()
   const [expandedItems, setExpandedItems] = useState<string[]>(() =>
     menuItems.filter((item) => item.children).map((item) => item.id)
   )
+
+  const visibleMenuItems = useMemo(() => {
+    return menuItems
+      .map((item) => {
+        if (item.href) {
+          return hasMenuPermission(item.href) ? item : null
+        }
+        const visibleChildren = (item.children || []).filter((child: any) => hasMenuPermission(child.href))
+        if (visibleChildren.length === 0) return null
+        return { ...item, children: visibleChildren }
+      })
+      .filter(Boolean) as typeof menuItems
+  }, [hasMenuPermission])
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
@@ -108,11 +123,11 @@ export default function SystemLayout({
         </div>
 
         <nav className="p-3">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item: any) => {
             const Icon = item.icon
             const hasChildren = item.children && item.children.length > 0
             const isExpanded = expandedItems.includes(item.id)
-            const itemActive = item.href ? isActive(item.href) : item.children?.some((c) => isActive(c.href))
+            const itemActive = item.href ? isActive(item.href) : item.children?.some((c: any) => isActive(c.href))
 
             return (
               <div key={item.id} className="mb-1">
@@ -154,7 +169,7 @@ export default function SystemLayout({
                 {/* Children */}
                 {hasChildren && isExpanded && (
                   <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-border pl-3">
-                    {item.children!.map((child) => (
+                    {(item.children || []).map((child: any) => (
                       <Link
                         key={child.id}
                         href={child.href}

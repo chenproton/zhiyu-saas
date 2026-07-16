@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from "react"
 import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { portalRequest, buildQuery } from "@/lib/api"
+import { buildMenuTree } from "@/lib/menu-permissions"
+import type { MenuTreeItem } from "@/lib/menu-permissions"
 import type { SubscriptionPackage } from "@/lib/types/backend"
 
 interface SubModule {
@@ -20,41 +22,50 @@ interface PackageModule {
   subModules: SubModule[]
 }
 
-function parseModules(modules: Record<string, any> | undefined): PackageModule[] {
+const SUBSCRIPTION_KEY_TO_PLATFORM: Record<string, string> = {
+  system: "portal-system",
+  course: "lesson-admin",
+  career: "job",
+  scene: "scene",
+  ability: "evaluation",
+}
+
+function collectLeafPages(nodes: MenuTreeItem[]): { id: string; label: string }[] {
+  const pages: { id: string; label: string }[] = []
+  const walk = (items: MenuTreeItem[]) => {
+    for (const item of items) {
+      if (item.href) pages.push({ id: item.id, label: item.label })
+      if (item.children) walk(item.children)
+    }
+  }
+  walk(nodes)
+  return pages
+}
+
+function buildPackageModules(
+  modules: Record<string, any> | undefined,
+): PackageModule[] {
   if (!modules || typeof modules !== "object") return []
 
-  // If backend stores modules as an array already, use it directly.
-  if (Array.isArray(modules)) {
-    return modules
-      .filter((m) => m && typeof m === "object" && typeof m.name === "string")
-      .map((m) => ({
-        name: m.name,
-        enabled: Boolean(m.enabled),
-        subModules: Array.isArray(m.subModules)
-          ? m.subModules
-              .filter((s: any) => s && typeof s === "object" && typeof s.name === "string")
-              .map((s: any) => ({ name: s.name, enabled: Boolean(s.enabled) }))
-          : [],
-      }))
-  }
+  const menuTree = buildMenuTree()
 
-  // Otherwise treat it as a flat map of moduleName -> enabled | subModules.
-  return Object.entries(modules).map(([name, value]) => {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      const subs = Object.entries(value)
-        .filter(([k]) => k !== "enabled")
-        .map(([subName, subEnabled]) => ({
-          name: subName,
-          enabled: Boolean(subEnabled),
-        }))
+  return Object.entries(modules)
+    .map(([key, value]) => {
+      const platformId = SUBSCRIPTION_KEY_TO_PLATFORM[key]
+      if (!platformId) return null
+      const platformNode = menuTree.find((n) => n.id === platformId)
+      if (!platformNode) return null
+      const leafPages = collectLeafPages(platformNode.children || [])
       return {
-        name,
-        enabled: value.enabled === undefined ? subs.some((s) => s.enabled) : Boolean(value.enabled),
-        subModules: subs,
+        name: platformNode.label,
+        enabled: Boolean(value),
+        subModules: leafPages.map((p) => ({
+          name: p.label,
+          enabled: Boolean(value),
+        })),
       }
-    }
-    return { name, enabled: Boolean(value), subModules: [] }
-  })
+    })
+    .filter((m): m is PackageModule => m !== null)
 }
 
 export default function PackagePage() {
@@ -75,7 +86,7 @@ export default function PackagePage() {
       .then((res) => {
         if (!cancelled) {
           setSubscription(res)
-          const parsed = parseModules(res.modules)
+          const parsed = buildPackageModules(res.modules)
           if (parsed.length > 0) {
             setExpandedModules([parsed[0].name])
           }
@@ -95,7 +106,7 @@ export default function PackagePage() {
     }
   }, [tenantId, authLoading])
 
-  const packageModules = useMemo(() => parseModules(subscription?.modules), [subscription])
+  const packageModules = useMemo(() => buildPackageModules(subscription?.modules), [subscription])
 
   const toggleModule = (moduleName: string) => {
     setExpandedModules((prev) =>

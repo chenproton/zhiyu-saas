@@ -28,6 +28,7 @@ interface PortalAuthContextType {
   refresh: () => Promise<void>
   logout: () => void
   hasPermission: (module: string, page?: string, action?: string) => boolean
+  hasMenuPermission: (path: string) => boolean
 }
 
 const PortalAuthContext = createContext<PortalAuthContextType>({
@@ -35,6 +36,7 @@ const PortalAuthContext = createContext<PortalAuthContextType>({
   refresh: async () => {},
   logout: () => {},
   hasPermission: () => false,
+  hasMenuPermission: () => true,
 })
 
 export function usePortalAuth() {
@@ -121,6 +123,12 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
     return false
   }, [permissions])
 
+  const hasMenuPermission = useCallback((path: string) => {
+    const menus = permissions?.menus
+    if (!menus || typeof menus !== "object") return true
+    return menus[path] === true
+  }, [permissions])
+
   return (
     <PortalAuthContext.Provider
       value={{
@@ -143,6 +151,7 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
         refresh,
         logout,
         hasPermission,
+        hasMenuPermission,
       }}
     >
       {children}

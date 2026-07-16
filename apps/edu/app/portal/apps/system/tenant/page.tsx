@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -36,9 +36,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Plus,
   MoreHorizontal,
   Pencil,
+  Plus,
   Power,
   Trash2,
   Search,
@@ -50,6 +50,7 @@ import {
   X,
   Loader2,
 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { portalRequest } from "@/lib/api"
 import type { Tenant as BackendTenant } from "@/lib/types/backend"
@@ -108,33 +109,56 @@ export default function TenantPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [editingAdmins, setEditingAdmins] = useState<Admin[]>([])
   const [newAdmin, setNewAdmin] = useState({ name: "", account: "", phone: "" })
+  const [formData, setFormData] = useState({
+    name: "",
+    contact: "",
+    phone: "",
+    userCount: "",
+    domain: "",
+    address: "",
+    enterpriseCode: "",
+    description: "",
+    status: "active" as "active" | "inactive",
+  })
+  const [submitting, setSubmitting] = useState(false)
+  const { toast } = useToast()
 
-  useEffect(() => {
-    if (authLoading || !tenantId) return
+  const resetForm = () => {
+    setFormData({ name: "", contact: "", phone: "", userCount: "", domain: "", address: "", enterpriseCode: "", description: "", status: "active" })
+  }
 
-    let cancelled = false
+  const loadTenantToForm = (tenant: Tenant) => {
+    setFormData({
+      name: tenant.enterpriseName,
+      contact: tenant.contact === "-" ? "" : tenant.contact,
+      phone: tenant.phone === "-" ? "" : tenant.phone,
+      userCount: String(tenant.userCount),
+      domain: tenant.domain === "-" ? "" : tenant.domain,
+      address: tenant.address === "-" ? "" : tenant.address,
+      enterpriseCode: tenant.enterpriseCode === "-" ? "" : tenant.enterpriseCode,
+      description: tenant.description === "-" ? "" : tenant.description,
+      status: tenant.status,
+    })
+  }
+
+  const fetchTenant = useCallback(async () => {
+    if (!tenantId) return
     setLoading(true)
     setError(null)
-
-    portalRequest<BackendTenant>(`/tenants/${tenantId}`)
-      .then((res) => {
-        if (!cancelled) {
-          setTenants([mapBackendTenant(res)])
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "加载租户信息失败")
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
+    try {
+      const res = await portalRequest<BackendTenant>(`/tenants/${tenantId}`)
+      setTenants([mapBackendTenant(res)])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载租户信息失败")
+    } finally {
+      setLoading(false)
     }
-  }, [tenantId, authLoading])
+  }, [tenantId])
+
+  useEffect(() => {
+    if (authLoading) return
+    fetchTenant()
+  }, [fetchTenant, authLoading])
 
   const filteredTenants = useMemo(
     () =>
@@ -147,16 +171,31 @@ export default function TenantPage() {
     [tenants, searchTerm]
   )
 
-  const toggleStatus = (id: string) => {
-    setTenants((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, status: t.status === "active" ? "inactive" : "active" } : t
-      )
-    )
+  const handleUpdateStatus = async (tenant: Tenant) => {
+    const newStatus = tenant.status === "active" ? "inactive" : "active"
+    const label = newStatus === "active" ? "启用" : "停用"
+    if (!window.confirm(`确定${label}租户「${tenant.enterpriseName}」吗？`)) return
+    try {
+      await portalRequest(`/tenants/${tenant.id}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status: newStatus }),
+      })
+      toast({ title: `${label}成功` })
+      await fetchTenant()
+    } catch (err) {
+      toast({ variant: "destructive", title: `${label}失败`, description: err instanceof Error ? err.message : "未知错误" })
+    }
   }
 
-  const deleteTenant = (id: string) => {
-    setTenants((prev) => prev.filter((t) => t.id !== id))
+  const handleDelete = async (tenant: Tenant) => {
+    if (!window.confirm(`确定删除租户「${tenant.enterpriseName}」吗？此操作不可撤销。`)) return
+    try {
+      await portalRequest(`/tenants/${tenant.id}`, { method: "DELETE" })
+      toast({ title: "删除成功" })
+      await fetchTenant()
+    } catch (err) {
+      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
   }
 
   const openAdminDialog = (tenant: Tenant) => {
@@ -188,6 +227,51 @@ export default function TenantPage() {
     }
   }
 
+  const handleCreateOrUpdate = async () => {
+    if (!formData.name || !formData.contact || !formData.phone) {
+      setError("请填写企业名称、联系人、联系电话")
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    try {
+      if (selectedTenant) {
+        await portalRequest(`/tenants/${selectedTenant.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: formData.name,
+            contact: formData.contact || null,
+            phone: formData.phone || null,
+            domain: formData.domain || null,
+            address: formData.address || null,
+            enterpriseCode: formData.enterpriseCode || null,
+            description: formData.description || null,
+          }),
+        })
+      } else {
+        await portalRequest("/tenants", {
+          method: "POST",
+          body: JSON.stringify({
+            name: formData.name,
+            code: "t" + Math.random().toString(36).substring(2, 9),
+            contact: formData.contact || null,
+            phone: formData.phone || null,
+            domain: formData.domain || null,
+            address: formData.address || null,
+            enterpriseCode: formData.enterpriseCode || null,
+            description: formData.description || null,
+          }),
+        })
+      }
+      setIsCreateDialogOpen(false)
+      await fetchTenant()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : (selectedTenant ? "更新租户失败" : "创建租户失败"))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div className="p-6 bg-[#f5f7fa] min-h-full">
       <div className="mb-6 flex items-center justify-between">
@@ -200,10 +284,7 @@ export default function TenantPage() {
             <FileKey className="h-4 w-4 mr-1" />
             导入License
           </Button>
-          <Button onClick={() => { setSelectedTenant(null); setIsCreateDialogOpen(true) }} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            新增租户
-          </Button>
+          {/* 新增租户已移至 /superadmin */}
         </div>
       </div>
 
@@ -280,7 +361,7 @@ export default function TenantPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => { setSelectedTenant(tenant); setIsCreateDialogOpen(true) }}>
+                          <DropdownMenuItem onClick={() => { setSelectedTenant(tenant); loadTenantToForm(tenant); setIsCreateDialogOpen(true) }}>
                             <Pencil className="mr-2 h-4 w-4" />
                             编辑
                           </DropdownMenuItem>
@@ -292,11 +373,11 @@ export default function TenantPage() {
                             <Shield className="mr-2 h-4 w-4" />
                             权限资源管理
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleStatus(tenant.id)}>
-                            <Power className="mr-2 h-4 w-4" />
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(tenant)}>
+                            <Power className="h-4 w-4 mr-1" />
                             {tenant.status === "active" ? "停用" : "启用"}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => deleteTenant(tenant.id)} className="text-destructive">
+                          <DropdownMenuItem onClick={() => handleDelete(tenant)} className="text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" />
                             删除
                           </DropdownMenuItem>
@@ -329,7 +410,7 @@ export default function TenantPage() {
 
       {/* 管理员管理对话框 */}
       <Dialog open={isAdminDialogOpen} onOpenChange={setIsAdminDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent size="lg">
           <DialogHeader>
             <DialogTitle>管理员管理</DialogTitle>
             <DialogDescription>管理 {selectedTenant?.enterpriseName} 的管理员账号</DialogDescription>
@@ -407,7 +488,7 @@ export default function TenantPage() {
 
       {/* 导入License对话框 */}
       <Dialog open={isLicenseDialogOpen} onOpenChange={setIsLicenseDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent size="default">
           <DialogHeader>
             <DialogTitle>导入License</DialogTitle>
             <DialogDescription>上传License文件以导入租户配置和资源</DialogDescription>
@@ -433,7 +514,7 @@ export default function TenantPage() {
 
       {/* 新增/编辑租户对话框 */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogContent size="lg" className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedTenant ? "编辑租户" : "新增租户"}</DialogTitle>
             <DialogDescription>{selectedTenant ? "修改租户信息，租户标识创建后不可修改" : "创建新的租户"}</DialogDescription>
@@ -446,7 +527,7 @@ export default function TenantPage() {
               </div>
               <div className="grid gap-2">
                 <Label>租户状态</Label>
-                <Select defaultValue={selectedTenant?.status || "active"}>
+                <Select value={formData.status} onValueChange={(v) => setFormData((prev) => ({ ...prev, status: v as "active" | "inactive" }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">启用</SelectItem>
@@ -457,51 +538,59 @@ export default function TenantPage() {
             </div>
             <div className="grid gap-2">
               <Label>企业名称 <span className="text-destructive">*</span></Label>
-              <Input placeholder="如：清华大学" defaultValue={selectedTenant?.enterpriseName} />
+              <Input placeholder="如：清华大学" value={formData.name} onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>联系人 <span className="text-destructive">*</span></Label>
-                <Input placeholder="企业联系人姓名" defaultValue={selectedTenant?.contact} />
+                <Input placeholder="企业联系人姓名" value={formData.contact} onChange={(e) => setFormData((prev) => ({ ...prev, contact: e.target.value }))} />
               </div>
               <div className="grid gap-2">
                 <Label>联系电话 <span className="text-destructive">*</span></Label>
-                <Input placeholder="联系电话" defaultValue={selectedTenant?.phone} />
+                <Input placeholder="联系电话" value={formData.phone} onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>用户数量</Label>
-                <Input type="number" placeholder="最大用户数" defaultValue={selectedTenant?.userCount} />
+                <Input type="number" placeholder="最大用户数" value={formData.userCount} onChange={(e) => setFormData((prev) => ({ ...prev, userCount: e.target.value }))} />
               </div>
               <div className="grid gap-2">
                 <Label>绑定域名</Label>
-                <Input placeholder="如：xxx.edu.cn" defaultValue={selectedTenant?.domain} />
+                <Input placeholder="如：xxx.edu.cn" value={formData.domain} onChange={(e) => setFormData((prev) => ({ ...prev, domain: e.target.value }))} />
               </div>
             </div>
             <div className="grid gap-2">
               <Label>企业地址</Label>
-              <Input placeholder="企业详细地址" defaultValue={selectedTenant?.address} />
+              <Input placeholder="企业详细地址" value={formData.address} onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))} />
             </div>
             <div className="grid gap-2">
               <Label>企业代码</Label>
-              <Input placeholder="统一社会信用代码" defaultValue={selectedTenant?.enterpriseCode} />
+              <Input placeholder="统一社会信用代码" value={formData.enterpriseCode} onChange={(e) => setFormData((prev) => ({ ...prev, enterpriseCode: e.target.value }))} />
             </div>
             <div className="grid gap-2">
               <Label>企业简介</Label>
-              <Textarea placeholder="企业简介描述" defaultValue={selectedTenant?.description} rows={3} />
+              <Textarea placeholder="企业简介描述" value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))} rows={3} />
             </div>
           </div>
+          {error && (
+            <div className="mb-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsCreateDialogOpen(false)}>{selectedTenant ? "保存" : "创建"}</Button>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={submitting}>取消</Button>
+            <Button onClick={handleCreateOrUpdate} disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              {selectedTenant ? "保存" : "创建"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* 权限资源管理对话框 */}
       <Dialog open={isPermissionDialogOpen} onOpenChange={setIsPermissionDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent size="lg">
           <DialogHeader>
             <DialogTitle>租户权限资源管理</DialogTitle>
             <DialogDescription>为 {selectedTenant?.enterpriseName} 配置可访问的系统资源和权限</DialogDescription>

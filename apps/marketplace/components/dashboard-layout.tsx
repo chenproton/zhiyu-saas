@@ -68,7 +68,7 @@ const IDENTITY_LABELS: Record<string, string> = {
   school_admin: "学校管理员",
   teacher: "教师",
   student: "学生",
-  enterprise_hr: "企业人事",
+
   enterprise_mentor: "企业导师",
 }
 
@@ -176,7 +176,6 @@ function getNavigationGroups(identityCode?: string): NavGroup[] {
       return platformAdminNavigation
     case "school_admin":
       return schoolNavigation
-    case "enterprise_hr":
     case "enterprise_mentor":
       return enterpriseNavigation
     case "teacher":

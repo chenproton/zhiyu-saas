@@ -25,12 +25,6 @@ function PortalAuthGuard({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // 应用服务中心 + 系统管理只对学校管理员开放
-    if (pathname.startsWith("/portal/apps") && identityTypeCode !== "school_admin") {
-      router.replace("/portal")
-      return
-    }
-
     // 我的服务台只对教师、学生、学校管理员开放
     if (
       (pathname === "/portal/workspace" || pathname.startsWith("/portal/workspace/")) &&
@@ -43,23 +37,8 @@ function PortalAuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [loading, user, identityTypeCode, router, pathname, isLoginPage])
 
-  if (loading && !isLoginPage) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (!isLoginPage && (!user || user.platform !== "portal")) {
-    // 服务端渲染时返回 children，避免 SSR 阶段把整页判定为 404；
-    // 客户端 useEffect 会在未登录时重定向到登录页。
-    if (typeof window === "undefined") {
-      return <>{children}</>
-    }
-    return null
-  }
-
+  // 认证状态确认前始终渲染 children，避免 SSR/客户端因返回 loading/null 触发 404；
+  // useEffect 会在未登录或平台不符时重定向到登录页。
   return <>{children}</>
 }
 
@@ -68,14 +47,21 @@ export default function PortalLayout({
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+  const isLoginPage = pathname === "/portal/login"
+
   return (
     <PortalAuthProvider>
       <PortalAuthGuard>
-        <div className="min-h-screen pt-14">
-          <TopNav />
+        {isLoginPage ? (
           <main>{children}</main>
-          <YiKnowAssistant />
-        </div>
+        ) : (
+          <div className="min-h-screen pt-14">
+            <TopNav />
+            <main>{children}</main>
+            <YiKnowAssistant />
+          </div>
+        )}
       </PortalAuthGuard>
     </PortalAuthProvider>
   )

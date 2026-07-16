@@ -251,12 +251,18 @@ function findByLabel(items: { id: string; icon: string; color: string; title: st
   return items.find((i) => i.id === id)
 }
 
-const INTERNAL_PLATFORM_IDS = new Set(["career", "scene", "ability", "course"])
+const INTERNAL_ROUTES: Record<string, string> = {
+  career: "/job/positions",
+  scene: "/scene",
+  ability: "/evaluation/landing",
+  course: "/lesson/admin/system",
+}
 
 function resolveTileUrl(id: string, configuredUrl: string): string {
-  if (INTERNAL_PLATFORM_IDS.has(id)) {
+  const route = INTERNAL_ROUTES[id]
+  if (route) {
     if (!configuredUrl || /^https?:\/\//i.test(configuredUrl)) {
-      return `/portal/${id}`
+      return route
     }
   }
   return configuredUrl

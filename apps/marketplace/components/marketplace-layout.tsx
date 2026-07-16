@@ -25,7 +25,6 @@ export function MarketplaceLayout({ children }: MarketplaceLayoutProps) {
     identityType?.code === "platform_admin"
       ? "/admin"
       : identityType?.code === "school_admin" ||
-          identityType?.code === "enterprise_hr" ||
           identityType?.code === "enterprise_mentor"
         ? "/dashboard"
         : "/"

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Clock, Calendar, FileText, BookOpen, Users, Award,
   BarChart3, Target, TrendingUp, Layers, Star, CheckCircle2,
@@ -10,6 +10,7 @@ import {
 import { useData } from "@/components/providers/data-provider"
 import { PrdAnnotation } from "@/components/prd-annotation"
 import { getAnnotation } from "@/lib/prd-annotations"
+import { positionApi } from "@/lib/api"
 
 function SectionHeader({ title, subtitle, moreHref }: { title: string; subtitle?: string; moreHref?: string }) {
   return (
@@ -38,18 +39,17 @@ const examStatusMap: Record<string, { bg: string; color: string; label: string }
   pending: { bg: "#dbeafe", color: "#2563eb", label: "审核中" },
 }
 
-// 岗位筛选数据应由 positionApi 提供，当前默认仅保留"全部"
-const POSITION_OPTIONS = ["全部"]
-
 function PositionFilter({
   selected,
   onChange,
+  options,
 }: {
   selected: string[]
   onChange: (next: string[]) => void
+  options: string[]
 }) {
   const [expanded, setExpanded] = useState(false)
-  const visible = expanded ? POSITION_OPTIONS : POSITION_OPTIONS.slice(0, 8)
+  const visible = expanded ? options : options.slice(0, 8)
 
   const toggle = (pos: string) => {
     if (pos === "全部") {
@@ -81,7 +81,7 @@ function PositionFilter({
             {pos}
           </button>
         ))}
-        {POSITION_OPTIONS.length > 8 && (
+        {options.length > 8 && (
           <button
             onClick={() => setExpanded(!expanded)}
             style={{
@@ -103,18 +103,6 @@ const certStatusMap: Record<string, string> = {
   rejected: "已驳回", draft: "草稿", none: "无规则",
 }
 
-function getMockTargetAudience(examId: string): { type: string; detail: string } {
-  const map: Record<string, { type: string; detail: string }> = {
-    "exam-1": { type: "学生", detail: "2024级前端1班、2024级前端2班" },
-    "exam-2": { type: "学生", detail: "2024级软件工程1班、2024级软件工程2班" },
-    "exam-3": { type: "学生", detail: "2023级计算机班" },
-    "exam-4": { type: "教师", detail: "张三、李四、王五" },
-    "exam-5": { type: "学生", detail: "2024级网络工程班" },
-    "exam-6": { type: "学生", detail: "2023级全栈开发班、2024级全栈开发班" },
-  }
-  return map[examId] || { type: "学生", detail: "2024级默认班" }
-}
-
 export default function LandingHomePage() {
   const {
     exams, questionBanks, evaluationCategories, evaluationMethods,
@@ -126,6 +114,14 @@ export default function LandingHomePage() {
   const [activeResourceTab, setActiveResourceTab] = useState("题库")
   const [portraitMajor, setPortraitMajor] = useState("全部")
   const [selectedPositions, setSelectedPositions] = useState<string[]>(["全部"])
+  const [positionOptions, setPositionOptions] = useState<string[]>(["全部"])
+
+  useEffect(() => {
+    positionApi.list({ limit: 100 }).then((res) => {
+      const names = res.items.map((p) => p.name).filter(Boolean)
+      setPositionOptions(["全部", ...names])
+    }).catch(() => {})
+  }, [])
 
   /* ── 统计数据 ── */
   const stats = useMemo(() => [
@@ -193,12 +189,9 @@ export default function LandingHomePage() {
     <div>
       {/* ═══ Hero Banner ═══ */}
       <div style={{
-        backgroundImage: "url('/2.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
+        background: "linear-gradient(135deg, #1e3a5f 0%, #2d5a87 40%, #3b82f6 100%)",
         color: "#fff", padding: "60px 20px 50px", textAlign: "center", position: "relative", overflow: "hidden", minHeight: 360,
       }}>
-        <div style={{ position: "absolute", inset: 0, background: "rgba(15, 23, 42, 0.55)" }} />
         <div style={{ maxWidth: 720, margin: "0 auto", position: "relative", zIndex: 1 }}>
            <h1 style={{ fontSize: 40, fontWeight: "bold", marginBottom: 12, letterSpacing: 1 }}>能力评价与测评资源管理平台</h1>
           <p style={{ fontSize: 15, opacity: 0.85, marginBottom: 28 }}>集测评资源、岗位能力认定、毕业设计、学生画像于一体的一站式能力成长平台</p>
@@ -245,11 +238,10 @@ export default function LandingHomePage() {
         <PrdAnnotation data={getAnnotation("lp-exam-center")}>
           {/* ── 考试中心 ── */}
           <section style={{ marginBottom: 50 }}>
-          <SectionHeader title="考试中心" subtitle="所有已发布的考试" moreHref="/landingpage/exams" />
+          <SectionHeader title="考试中心" subtitle="所有已发布的考试" moreHref="/evaluation/landing/exams" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {publishedExams.map((exam) => {
               const st = examStatusMap[exam.status] || examStatusMap.draft
-              const audience = getMockTargetAudience(exam.id)
               return (
                 <Link key={exam.id} href={`/evaluation/landing/exams/${exam.id}`} className="block" style={{ textDecoration: "none", color: "inherit" }}>
                   <PrdAnnotation data={getAnnotation("lp-exam-card")}>
@@ -283,7 +275,7 @@ export default function LandingHomePage() {
                     </div>
                     <h3 className="mb-1 text-base font-semibold text-gray-900">{exam.name}</h3>
                     <p className="mb-3 text-sm text-gray-500 line-clamp-2">
-                      {exam.id === "exam-1" ? "考察 JavaScript、React 基础知识" : exam.id === "exam-2" ? "TypeScript 类型系统与高级特性测验" : exam.id === "exam-3" ? "React Hooks 与性能优化专项考核" : exam.id === "exam-4" ? "Node.js 基础与 Express 框架测试" : exam.id === "exam-5" ? "Vue3 组合式 API 与响应式原理" : exam.id === "exam-6" ? "前后端技术栈综合知识考核" : "综合知识考核"}
+                      {exam.description || "暂无描述"}
                     </p>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
@@ -301,7 +293,7 @@ export default function LandingHomePage() {
                     </div>
                     <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                       <Users className="h-3 w-3" />
-                      考试对象：{audience.detail}
+                      {exam.description ? exam.description.slice(0, 20) + "..." : "待发布"}
                     </div>
                     {exam.status === "published" && (
                       <div className="mt-4">
@@ -328,7 +320,7 @@ export default function LandingHomePage() {
         <PrdAnnotation data={getAnnotation("lp-certifications")}>
           {/* ── 岗位能力认证 ── */}
           <section style={{ marginBottom: 50 }}>
-          <SectionHeader title="岗位能力认证项目库" moreHref="/landingpage/certifications" />
+          <SectionHeader title="岗位能力认证项目库" moreHref="/evaluation/landing/certifications" />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
             {positionsList.slice(0, 5).map((pos, i) => {
               const covers = [
@@ -382,7 +374,7 @@ export default function LandingHomePage() {
         <PrdAnnotation data={getAnnotation("lp-evaluation-methods")}>
           {/* ── 测评方式 ── */}
           <section style={{ marginBottom: 50 }}>
-          <SectionHeader title="测评方式库" moreHref="/landingpage/evaluation-methods" />
+          <SectionHeader title="测评方式库" moreHref="/evaluation/landing/evaluation-methods" />
           <div style={{ background: "#fff", padding: "15px 20px", borderRadius: 10, marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             {/* 一级分类 */}
             <div style={{ display: "flex", alignItems: "center", padding: "8px 0", borderBottom: "1px dashed #f1f5f9", fontSize: 13 }}>
@@ -462,7 +454,7 @@ export default function LandingHomePage() {
         <PrdAnnotation data={getAnnotation("lp-resources")}>
           {/* ── 测评资源 ── */}
           <section style={{ marginBottom: 50 }}>
-          <SectionHeader title="测评资源库" moreHref="/landingpage/resources" />
+          <SectionHeader title="测评资源库" moreHref="/evaluation/landing/resources" />
           <div style={{ display: "flex", gap: 30, borderBottom: "1px solid #e2e8f0", marginBottom: 20 }}>
             {["题库", "试卷库"].map((tab) => (
               <button key={tab} onClick={() => setActiveResourceTab(tab)} style={{
@@ -572,7 +564,7 @@ export default function LandingHomePage() {
         <PrdAnnotation data={getAnnotation("lp-graduation")}>
           {/* ── 毕业设计 ── */}
           <section style={{ marginBottom: 50 }}>
-          <SectionHeader title="毕业设计选题中心" subtitle="去选题中心" moreHref="/landingpage/graduation" />
+          <SectionHeader title="毕业设计选题中心" subtitle="去选题中心" moreHref="/evaluation/landing/graduation" />
           <div style={{ background: "#fff", padding: "15px 20px", borderRadius: 10, marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             {[
               { label: "院系：", tags: ["全部", "计算机学院", "软件学院", "信息学院", "大数据学院"] },
@@ -638,7 +630,7 @@ export default function LandingHomePage() {
           <SectionHeader title="学生画像排行榜" subtitle="按岗位查看关联专业排行榜" />
           <div style={{ background: "#fff", borderRadius: 10, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             {/* 岗位筛选 — 平铺多选 */}
-            <PositionFilter selected={selectedPositions} onChange={setSelectedPositions} />
+            <PositionFilter selected={selectedPositions} onChange={setSelectedPositions} options={positionOptions} />
 
             {/* 关联专业卡片 */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>

@@ -8,46 +8,45 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Search, Pencil, Loader2 } from "lucide-react"
+import { Search, Pencil, Trash2, Plus, Loader2 } from "lucide-react"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { portalRequest, buildQuery, type ListResponse } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 import type { Major } from "@/lib/types/backend"
 
 export default function MajorsPage() {
   const { tenantId, loading: authLoading } = usePortalAuth()
+  const { toast } = useToast()
   const [majors, setMajors] = useState<Major[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedMajor, setSelectedMajor] = useState<Major | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [aliasValue, setAliasValue] = useState("")
+  const [dialogCode, setDialogCode] = useState("")
+  const [dialogName, setDialogName] = useState("")
+  const [dialogAlias, setDialogAlias] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Major | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const fetchMajors = async () => {
+    if (!tenantId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await portalRequest<ListResponse<Major>>(`/majors${buildQuery({ tenantId, limit: 1000 })}`)
+      setMajors(res.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载专业数据失败")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (authLoading || !tenantId) return
-
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-
-    portalRequest<ListResponse<Major>>(`/majors${buildQuery({ tenantId, limit: 1000 })}`)
-      .then((res) => {
-        if (!cancelled) {
-          setMajors(res.items)
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "加载专业数据失败")
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
+    fetchMajors()
   }, [tenantId, authLoading])
 
   const filteredMajors = useMemo(
@@ -58,30 +57,103 @@ export default function MajorsPage() {
     [majors, searchTerm]
   )
 
-  const toggleEnabled = (id: string) => {
-    setMajors((prev) => prev.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)))
+  const openCreateDialog = () => {
+    setSelectedMajor(null)
+    setDialogCode("")
+    setDialogName("")
+    setDialogAlias("")
+    setIsDialogOpen(true)
   }
 
   const openEditDialog = (major: Major) => {
     setSelectedMajor(major)
-    setAliasValue(major.alias || "")
+    setDialogCode(major.code)
+    setDialogName(major.name)
+    setDialogAlias(major.alias || "")
     setIsDialogOpen(true)
   }
 
-  const saveAlias = () => {
-    if (selectedMajor) {
-      setMajors((prev) =>
-        prev.map((m) => (m.id === selectedMajor.id ? { ...m, alias: aliasValue || undefined } : m))
-      )
+  const handleSave = async () => {
+    if (!tenantId || !dialogCode.trim() || !dialogName.trim()) return
+    setSaving(true)
+    try {
+      if (selectedMajor) {
+        await portalRequest(`/majors/${selectedMajor.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            code: dialogCode.trim(),
+            name: dialogName.trim(),
+            alias: dialogAlias.trim() || null,
+            enabled: selectedMajor.enabled,
+          }),
+        })
+        toast({ title: "保存成功", description: "专业信息已更新" })
+      } else {
+        await portalRequest("/majors", {
+          method: "POST",
+          body: JSON.stringify({
+            tenantId,
+            code: dialogCode.trim(),
+            name: dialogName.trim(),
+            alias: dialogAlias.trim() || null,
+            enabled: true,
+          }),
+        })
+        toast({ title: "创建成功", description: "新专业已添加" })
+      }
+      setIsDialogOpen(false)
+      await fetchMajors()
+    } catch (err) {
+      toast({ variant: "destructive", title: selectedMajor ? "保存失败" : "创建失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
     }
-    setIsDialogOpen(false)
+  }
+
+  const toggleEnabled = async (major: Major) => {
+    try {
+      await portalRequest(`/majors/${major.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          code: major.code,
+          name: major.name,
+          alias: major.alias || null,
+          enabled: !major.enabled,
+        }),
+      })
+      toast({ title: !major.enabled ? "已启用" : "已关闭" })
+      await fetchMajors()
+    } catch (err) {
+      toast({ variant: "destructive", title: "操作失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await portalRequest(`/majors/${deleteTarget.id}`, { method: "DELETE" })
+      toast({ title: "删除成功" })
+      setDeleteTarget(null)
+      await fetchMajors()
+    } catch (err) {
+      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
-    <div className="p-6 bg-[#f5f7fa] min-h-full">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-foreground">专业管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理教育专业，可为专业配置别名并启用/关闭</p>
+    <div className="p-6 min-h-full">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">专业管理</h1>
+          <p className="mt-1 text-sm text-muted-foreground">管理教育专业，可为专业配置别名并启用/关闭</p>
+        </div>
+        <Button size="sm" onClick={openCreateDialog}>
+          <Plus className="h-4 w-4 mr-1" />
+          新增专业
+        </Button>
       </div>
 
       <div className="mb-4">
@@ -105,7 +177,7 @@ export default function MajorsPage() {
 
       {!loading && (
         <>
-          <div className="rounded-lg border border-gray-100 bg-white shadow-sm">
+          <div className="rounded-lg border border-border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="border-border">
@@ -131,12 +203,17 @@ export default function MajorsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Switch checked={major.enabled} onCheckedChange={() => toggleEnabled(major.id)} />
+                      <Switch checked={major.enabled} onCheckedChange={() => toggleEnabled(major)} />
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(major)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(major)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteTarget(major)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -155,29 +232,54 @@ export default function MajorsPage() {
         </>
       )}
 
+      {/* 新增/编辑专业 */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>编辑专业别名</DialogTitle>
-            <DialogDescription>为专业 {selectedMajor?.name} 配置别名</DialogDescription>
+            <DialogTitle>{selectedMajor ? "编辑专业" : "新增专业"}</DialogTitle>
+            <DialogDescription>
+              {selectedMajor ? "修改专业信息" : "添加新专业"}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>专业代码</Label>
-              <Input value={selectedMajor?.code} disabled className="bg-muted" />
+              <Label>专业代码 <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：CS101" value={dialogCode} onChange={(e) => setDialogCode(e.target.value)} disabled={!!selectedMajor} />
             </div>
             <div className="grid gap-2">
-              <Label>专业名称</Label>
-              <Input value={selectedMajor?.name} disabled className="bg-muted" />
+              <Label>专业名称 <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：计算机科学与技术" value={dialogName} onChange={(e) => setDialogName(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label>别名（备注）</Label>
-              <Input placeholder="输入专业别名或备注" value={aliasValue} onChange={(e) => setAliasValue(e.target.value)} />
+              <Input placeholder="输入专业别名或备注" value={dialogAlias} onChange={(e) => setDialogAlias(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-            <Button onClick={saveAlias}>保存</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
+            <Button onClick={handleSave} disabled={saving || !dialogCode.trim() || !dialogName.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除确认 */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>
+              确定要删除专业 <span className="font-medium">{deleteTarget?.name}</span>（{deleteTarget?.code}）吗？此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>取消</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              删除
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

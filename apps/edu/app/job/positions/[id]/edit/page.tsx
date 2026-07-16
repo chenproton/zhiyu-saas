@@ -221,7 +221,7 @@ function PositionEditPageContent({ params }: PageProps) {
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-800">{position.name}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {batch?.department} - {batch?.major} | 版本 {position.version}
+            {batch?.department} - {batch?.majorId} | 版本 {position.version}
           </p>
         </div>
 
@@ -346,7 +346,7 @@ function PositionEditPageContent({ params }: PageProps) {
       </div>
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogContent size="lg" className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>岗位信息预览</DialogTitle>
             <DialogDescription>预览当前填写的岗位信息</DialogDescription>

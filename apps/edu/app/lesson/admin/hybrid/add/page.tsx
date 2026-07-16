@@ -164,7 +164,7 @@ function HybridCourseAddForm() {
     [FIRST_NODE_ID]: createDefaultNodeModuleData({
       name: claimCourse || existing?.name,
       code: existing?.code,
-      major: existing?.majorName,
+      majorId: existing?.majorId,
       semester: existing?.semester,
       category: existing?.category as CourseBasicForm["category"],
     }),
@@ -211,7 +211,7 @@ function HybridCourseAddForm() {
       [newNode.id]: createDefaultNodeModuleData({
         name: claimCourse || existing?.name,
         code: existing?.code,
-        major: existing?.majorName,
+        majorId: existing?.majorId,
         semester: existing?.semester,
         category: existing?.category as CourseBasicForm["category"],
       }),
@@ -279,7 +279,7 @@ function HybridCourseAddForm() {
       const next = createDefaultNodeModuleData({
         name: claimCourse || existing?.name,
         code: existing?.code,
-        major: existing?.majorName,
+        majorId: existing?.majorId,
         semester: existing?.semester,
         category: existing?.category as CourseBasicForm["category"],
       })
@@ -572,9 +572,9 @@ function HybridCourseAddForm() {
                       <span className="text-xs font-normal text-gray-400">
                         {rootForm.name ? `《${rootForm.name}》` : "未填写课程名称"}
                       </span>
-                      {rootForm.major && (
+                      {rootForm.majorName && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
-                          {rootForm.major}
+                          {rootForm.majorName}
                         </span>
                       )}
                     </CardTitle>
@@ -615,7 +615,7 @@ function HybridCourseAddForm() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">所属专业</Label>
-                    <Select value={rootForm.major} onValueChange={(v) => updateRootForm({ major: v })}>
+                    <Select value={rootForm.majorName} onValueChange={(v) => updateRootForm({ majorName: v })}>
                       <SelectTrigger className="h-9 text-sm">
                         <SelectValue placeholder="请选择所属专业" />
                       </SelectTrigger>

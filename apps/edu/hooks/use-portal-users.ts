@@ -24,7 +24,7 @@ export interface UsePortalUsersResult {
 }
 
 export function usePortalUsers(options: UsePortalUsersOptions = {}): UsePortalUsersResult {
-  const { institutionId, tenantId } = usePortalAuth()
+  const { tenantId } = usePortalAuth()
   const [users, setUsers] = useState<User[]>([])
   const [identityTypes, setIdentityTypes] = useState<IdentityType[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,7 +40,7 @@ export function usePortalUsers(options: UsePortalUsersOptions = {}): UsePortalUs
   }, [identityTypes])
 
   useEffect(() => {
-    if (!institutionId) return
+    if (!tenantId) return
 
     let cancelled = false
     setLoading(true)
@@ -59,7 +59,7 @@ export function usePortalUsers(options: UsePortalUsersOptions = {}): UsePortalUs
           : undefined
 
         const usersRes = await portalUserManagementApi.list({
-          institutionId,
+          tenantId,
           ...(identityTypeId ? { identityTypeId } : {}),
           ...(options.search ? { search: options.search } : {}),
           ...(options.status ? { status: options.status } : {}),
@@ -79,7 +79,7 @@ export function usePortalUsers(options: UsePortalUsersOptions = {}): UsePortalUs
     return () => {
       cancelled = true
     }
-  }, [institutionId, tenantId, options.identityTypeCode, options.search, options.status, refetchKey])
+  }, [tenantId, options.identityTypeCode, options.search, options.status, refetchKey])
 
   return { users, identityTypes, identityTypeMap, loading, error, refetch }
 }

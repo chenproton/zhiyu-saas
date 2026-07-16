@@ -37,7 +37,7 @@ interface ExamStudentResult {
   studentId: string
   className: string
   grade: string
-  major: string
+  majorId: string
   score: number
   totalScore: number
   submitTime: Date
@@ -74,7 +74,7 @@ function ExamResultsContent() {
             studentId: r.userId,
             className: r.className || "-",
             grade: r.grade || "-",
-            major: r.major || "-",
+            majorId: r.major || "-",
             score: r.score,
             totalScore: r.totalScore,
             submitTime: new Date(r.submitTime),
@@ -323,7 +323,7 @@ function ExamResultsContent() {
                     <TableCell className="text-sm text-muted-foreground">{result.studentId}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{result.className}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{result.grade}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{result.major}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{result.majorId}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDateTime(result.submitTime)}
                     </TableCell>

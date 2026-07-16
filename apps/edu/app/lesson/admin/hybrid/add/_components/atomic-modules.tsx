@@ -61,7 +61,8 @@ export type CourseCategory = (typeof COURSE_CATEGORIES)[number]
 export interface CourseBasicForm {
   name: string
   code: string
-  major: string
+  majorId: string
+  majorName: string
   semester: string
   category: CourseCategory
   courseObjectives: string
@@ -206,7 +207,8 @@ export function createDefaultNodeModuleData(
   existing?: {
     name?: string
     code?: string
-    major?: string
+    majorId?: string
+    majorName?: string
     semester?: string
     category?: CourseCategory
     coverImage?: string
@@ -222,7 +224,8 @@ export function createDefaultNodeModuleData(
     form: {
       name: existing?.name ?? "",
       code: existing?.code ?? `HYB-${ts.slice(-6)}`,
-      major: existing?.major ?? MAJORS[1],
+      majorId: existing?.majorId ?? MAJORS[1],
+      majorName: existing?.majorName ?? (MAJORS[1] || ""),
       semester: existing?.semester ?? "2026-2027-1",
       category,
       courseObjectives: "",
@@ -648,7 +651,7 @@ function QuizListEditor({
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
+        <DialogContent size="lg" className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing?.id ? "编辑题目" : "新增题目"}</DialogTitle>
           </DialogHeader>
@@ -867,7 +870,7 @@ function ResourceListEditor({
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>从资源库关联</DialogTitle>
           </DialogHeader>
@@ -1375,7 +1378,7 @@ function ClassQuestionsModule({ data, onChange }: AtomicModuleProps) {
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+        <DialogContent size="lg" className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{addMode === "bank" ? "从题库引用" : "添加提问"}</DialogTitle>
           </DialogHeader>
@@ -1576,7 +1579,7 @@ function PracticeTasksModule({ data, onChange }: AtomicModuleProps) {
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] max-h-[85vh] overflow-y-auto">
+        <DialogContent size="xl" className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{addMode === "scenario" ? "从实践场景库引用" : "添加实践任务"}</DialogTitle>
           </DialogHeader>

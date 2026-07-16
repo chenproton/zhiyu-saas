@@ -36,7 +36,7 @@ const AuthContext = createContext<AuthContextType>({
   refresh: async () => {},
   logout: () => {},
   hasPermission: () => false,
-  hasMenuPermission: () => false,
+  hasMenuPermission: () => true,
 })
 
 export function useAuth() {
@@ -127,14 +127,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false
   }, [permissions])
 
-  const hasMenuPermission = useCallback((path: string): boolean => {
-    const perms = permissions
-    if (!perms || typeof perms !== "object") return false
-    if (perms.admin === true) return true
-    const menus = perms.menus
+  const hasMenuPermission = useCallback((path: string) => {
+    const menus = permissions?.menus
     if (!menus || typeof menus !== "object") return true
-    if (menus[path] !== undefined) return !!menus[path]
-    return true
+    return menus[path] === true
   }, [permissions])
 
   return (

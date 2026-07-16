@@ -28,6 +28,7 @@ interface AuthContextType {
   refresh: () => Promise<void>
   logout: () => void
   hasPermission: (module: string, page?: string, action?: string) => boolean
+  hasMenuPermission: (path: string) => boolean
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -35,6 +36,7 @@ const AuthContext = createContext<AuthContextType>({
   refresh: async () => {},
   logout: () => {},
   hasPermission: () => false,
+  hasMenuPermission: () => true,
 })
 
 export function useAuth() {
@@ -124,6 +126,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false
   }, [permissions])
 
+  const hasMenuPermission = useCallback((path: string) => {
+    const menus = permissions?.menus
+    if (!menus || typeof menus !== "object") return true
+    return menus[path] === true
+  }, [permissions])
+
   return (
     <AuthContext.Provider
       value={{
@@ -146,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refresh,
         logout,
         hasPermission,
+        hasMenuPermission,
       }}
     >
       {children}

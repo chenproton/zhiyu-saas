@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import Link from "next/link"
 import {
   Settings,
@@ -21,8 +21,8 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { usePlatformLinks } from "@/hooks/use-platform-links"
 import { useAppModules } from "@/hooks/use-platform-links"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 
 const menuItems = [
   { id: "system", label: "系统管理", icon: Settings },
@@ -41,8 +41,8 @@ const menuItems = [
 
 const quickAccess = [
   { icon: Settings, label: "组织权限", href: "/portal/apps/system/org-user/roles" },
-  { icon: Briefcase, label: "岗位资源管理", href: "/portal/apps/career" },
-  { icon: Layers, label: "场景资源管理", href: "/portal/apps/scene" },
+  { icon: Briefcase, label: "岗位资源管理", href: "/job/positions" },
+  { icon: Layers, label: "场景资源管理", href: "/scene" },
   { icon: BarChart3, label: "日志管理", href: "/portal/apps/system/logs/login" },
   { icon: CheckCircle, label: "审批管理", href: "/portal/apps/system/approval" },
 ]
@@ -68,51 +68,57 @@ const platformStyles: Record<string, PlatformStyle> = {
 }
 
 const systemModules = [
-  { id: "tenant", title: "租户信息管理", desc: "管理租户基本信息与配置", href: "/portal/apps/system/tenant" },
-  { id: "resource-mgmt", title: "系统资源管理", desc: "套餐、编码、行业、专业", href: "/portal/apps/system/resource/package" },
-  { id: "log", title: "日志管理", desc: "登录日志、操作日志查看", href: "/portal/apps/system/logs/login" },
-  { id: "org-user", title: "组织用户管理", desc: "组织架构、用户账户管理", href: "/portal/apps/system/org-user/org-structure" },
-  { id: "approval", title: "审批流程管理", desc: "审批流配置与管理", href: "/portal/apps/system/approval" },
+  { id: "tenant", title: "租户信息管理", desc: "管理租户基本信息与配置", note: "查看和编辑当前租户的基础信息", href: "/portal/apps/system/tenant" },
+  { id: "resource-mgmt", title: "系统资源管理", desc: "套餐、编码、行业、专业", note: "管理系统套餐与资源编码配置", href: "/portal/apps/system/resource/package" },
+  { id: "log", title: "日志管理", desc: "登录日志、操作日志查看", note: "追溯用户操作记录和登录历史", href: "/portal/apps/system/logs/login" },
+  { id: "org-user", title: "组织用户管理", desc: "组织架构、用户账户管理", note: "管理组织关系、角色权限和用户账号", href: "/portal/apps/system/org-user/org-structure" },
+  { id: "approval", title: "审批流程管理", desc: "审批流配置与管理", note: "自定义审批流程和审批规则", href: "/portal/apps/system/approval" },
 ]
 
 const fallbackModules: Record<string, ModuleItem[]> = {
   alliance: [
-    { id: "alliance-entry", title: "产教协同平台", desc: "暂未开放", href: "#" },
+    { id: "alliance-entry", title: "产教协同平台", desc: "暂未开放", note: "校企合作与人才供需对接", href: "#" },
   ],
   career: [
-    { id: "career-positions", title: "岗位管理", desc: "产业岗位与学习路径", href: "/job/positions" },
-    { id: "career-batches", title: "批次管理", desc: "岗位批次与推荐", href: "/job/batches" },
+    { id: "career-positions", title: "岗位管理", desc: "产业岗位与学习路径", note: "建设和发布产业岗位标准", href: "/job/positions" },
+    { id: "career-batches", title: "批次管理", desc: "岗位批次与推荐", note: "管理岗位招聘批次和智能推荐", href: "/job/batches" },
   ],
   course: [
-    { id: "course-system", title: "体系课管理", desc: "体系课程资源建设", href: "/lesson/admin/system" },
-    { id: "course-teacher", title: "教学空间", desc: "开课计划与教学跟踪", href: "/lesson/teacher/claim" },
+    { id: "course-system", title: "体系课管理", desc: "体系课程资源建设", note: "搭建课程体系和关联教学资源", href: "/lesson/admin/system" },
+    { id: "course-system-add", title: "体系课新建", desc: "新增体系课程", note: "创建新的体系课程资源", href: "/lesson/admin/system/add" },
+    { id: "course-granular", title: "颗粒课管理", desc: "颗粒化课程资源", note: "管理和维护颗粒化课程内容", href: "/lesson/admin/granular" },
+    { id: "course-granular-add", title: "颗粒课新建", desc: "新增颗粒课程", note: "创建新的颗粒课程资源", href: "/lesson/admin/granular/add" },
+    { id: "course-hybrid", title: "混合课管理", desc: "混合课模板与档案", note: "管理混合课程模板和历史档案", href: "/lesson/admin/hybrid" },
+    { id: "course-hybrid-add", title: "混合课新建", desc: "新增混合课程", note: "创建新的混合课程模板", href: "/lesson/admin/hybrid/add" },
+    { id: "course-archive", title: "混合课档案库", desc: "混合课历史档案", note: "查看和管理混合课历史档案", href: "/lesson/admin/archive" },
+    { id: "course-teacher", title: "教学空间", desc: "开课计划与教学跟踪", note: "管理开课计划和跟踪学生学习", href: "/lesson/teacher/claim" },
   ],
   scene: [
-    { id: "scene-scenarios", title: "场景管理", desc: "实践场景与任务设计", href: "/scene/" },
-    { id: "scene-archive", title: "场景归档", desc: "历史场景档案库", href: "/scene/archive" },
+    { id: "scene-scenarios", title: "场景管理", desc: "实践场景与任务设计", note: "创建和管理产业实践场景", href: "/scene/" },
+    { id: "scene-archive", title: "场景归档", desc: "历史场景档案库", note: "归档已完成的历史场景数据", href: "/scene/archive" },
   ],
   ability: [
-    { id: "ability-banks", title: "题库管理", desc: "测评题库与试卷", href: "/evaluation/question-banks" },
-    { id: "ability-exams", title: "考试管理", desc: "考试场次与结果", href: "/evaluation/exam-usage" },
-    { id: "ability-cert", title: "微证书", desc: "认证规则与颁发", href: "/evaluation/certificates/templates" },
+    { id: "ability-banks", title: "题库管理", desc: "测评题库与试卷", note: "建设和管理各学科题库资源", href: "/evaluation/question-banks" },
+    { id: "ability-exams", title: "考试管理", desc: "考试场次与结果", note: "组织在线考试和查看成绩分析", href: "/evaluation/exam-usage" },
+    { id: "ability-cert", title: "微证书", desc: "认证规则与颁发", note: "配置认证模板和颁发微证书", href: "/evaluation/certificates/templates" },
   ],
   affairs: [
-    { id: "affairs-entry", title: "教务服务", desc: "暂未开放", href: "#" },
+    { id: "affairs-entry", title: "教务服务", desc: "暂未开放", note: "教务管理功能即将上线", href: "#" },
   ],
   ai: [
-    { id: "ai-entry", title: "AI 服务", desc: "暂未开放", href: "#" },
+    { id: "ai-entry", title: "AI 服务", desc: "暂未开放", note: "AI 辅助教学功能即将上线", href: "#" },
   ],
   resource: [
-    { id: "resource-mall", title: "资源商城", desc: "教学资源交易", href: "/dashboard/marketplace" },
+    { id: "resource-mall", title: "资源商城", desc: "教学资源交易", note: "浏览和采购优质教学资源", href: "/dashboard/marketplace" },
   ],
   opc: [
-    { id: "opc-entry", title: "OPC 专区", desc: "暂未开放", href: "#" },
+    { id: "opc-entry", title: "OPC 专区", desc: "暂未开放", note: "校企合作课程专区即将上线", href: "#" },
   ],
   decision: [
-    { id: "decision-entry", title: "决策中心", desc: "暂未开放", href: "#" },
+    { id: "decision-entry", title: "决策中心", desc: "暂未开放", note: "数据分析和决策支持即将上线", href: "#" },
   ],
   research: [
-    { id: "research-entry", title: "教科研服务", desc: "暂未开放", href: "#" },
+    { id: "research-entry", title: "教科研服务", desc: "暂未开放", note: "教科研管理功能即将上线", href: "#" },
   ],
 }
 
@@ -121,6 +127,7 @@ interface ModuleItem {
   title: string
   desc: string
   href: string
+  note?: string
 }
 
 interface ModuleSection {
@@ -134,10 +141,8 @@ interface ModuleSection {
 
 function ModuleCard({
   module,
-  platformUrl,
 }: {
   module: ModuleItem
-  platformUrl: string
 }) {
   const isExternal = module.href.startsWith("http")
   const href = isExternal ? module.href : module.href
@@ -164,7 +169,7 @@ function ModuleCard({
         {module.title}
         {isExternal && <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-primary/70" />}
       </h3>
-      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{module.desc}</p>
+      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{module.note || module.desc}</p>
 
       <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
         <ChevronRight className="w-4 h-4 text-primary" />
@@ -205,11 +210,23 @@ function ModuleCard({
 }
 
 export default function AppsPage() {
+  const { hasMenuPermission } = usePortalAuth()
   const [activeMenu, setActiveMenu] = useState(menuItems[0].id)
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const contentRef = useRef<HTMLDivElement>(null)
-  const { getUrl } = usePlatformLinks()
   const { data: modulesData, loading: modulesLoading } = useAppModules()
+
+  const visibleQuickAccess = quickAccess.filter((item) => hasMenuPermission(item.href))
+
+  const fallbackNotes = useMemo(() => {
+    const map: Record<string, string | undefined> = {}
+    for (const modules of Object.values(fallbackModules)) {
+      for (const m of modules) {
+        if (m.note && m.href) map[m.href] = m.note
+      }
+    }
+    return map
+  }, [])
 
   const allModules: ModuleSection[] = [
     {
@@ -217,7 +234,7 @@ export default function AppsPage() {
       label: "系统管理",
       icon: Settings,
       ...platformStyles.system,
-      modules: systemModules,
+      modules: systemModules.filter((m) => hasMenuPermission(m.href)),
     },
     ...menuItems
       .filter((item) => item.id !== "system")
@@ -231,15 +248,18 @@ export default function AppsPage() {
           label: item.label,
           icon: item.icon,
           ...platformStyles[item.id],
-          modules: rawModules.map((m) => ({
-            id: m.id,
-            title: m.title,
-            desc: m.desc,
-            href: m.href || "#",
-          })),
+          modules: rawModules
+            .filter((m) => m.href && m.href !== "#" && hasMenuPermission(m.href))
+            .map((m) => ({
+              id: m.id,
+              title: m.title,
+              desc: (m as any).description || m.desc,
+              note: (m as any).note || fallbackNotes[m.href],
+              href: m.href || "#",
+            })),
         }
       }),
-  ]
+  ].filter((section) => section.modules.length > 0)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -288,7 +308,7 @@ export default function AppsPage() {
               <span className="font-medium">常用服务</span>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto">
-              {quickAccess.map((item, index) => (
+              {visibleQuickAccess.map((item, index) => (
                 <Link
                   key={index}
                   href={item.href}
@@ -306,7 +326,7 @@ export default function AppsPage() {
           {/* Left Sidebar */}
           <aside className="w-56 bg-background shrink-0 min-h-[calc(100vh-3.5rem-40px)] sticky top-[96px] self-start border-r border-border shadow-sm">
             <nav className="p-2 space-y-2">
-              {menuItems.map((item) => {
+              {menuItems.filter((m) => allModules.some((s) => s.id === m.id)).map((item) => {
                 const Icon = item.icon
                 const isActive = activeMenu === item.id
                 return (
@@ -343,7 +363,6 @@ export default function AppsPage() {
             ) : (
               allModules.map((section) => {
                 const SectionIcon = section.icon
-                const platformUrl = getUrl(section.id)
                 return (
                   <div
                     key={section.id}
@@ -361,26 +380,13 @@ export default function AppsPage() {
                       <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                         {section.modules.length} 个模块
                       </span>
-                      {platformUrl &&
-                        platformUrl !== "#" &&
-                        platformUrl !== "/portal" &&
-                        (section.id === "alliance" || section.id === "ability") && (
-                          <a
-                            href={platformUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="ml-auto flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors px-3 py-1.5 rounded-lg hover:bg-primary/5"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            进入平台
-                          </a>
-                        )}
+
                     </div>
 
                     {/* Module Cards Grid */}
                     <div className="grid grid-cols-5 gap-4">
                       {section.modules.map((module) => (
-                        <ModuleCard key={module.id} module={module} platformUrl={platformUrl} />
+                        <ModuleCard key={module.id} module={module} />
                       ))}
                     </div>
                   </div>

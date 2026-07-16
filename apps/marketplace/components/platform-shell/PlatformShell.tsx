@@ -7,6 +7,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Building2 } from "lucide-react"
 import type { PlatformNavigationConfig, SideNavItem, TopNavItem, UserMenuItem } from "./config"
 import { resolvePlatformIcon } from "./icons"
 import { cn, matchesPath } from "./utils"
+import { useAuth } from "@/components/auth-provider"
 
 function isTopItemActive(pathname: string, item: TopNavItem) {
   return matchesPath(pathname, item.href, item.matchers)
@@ -224,11 +225,14 @@ export function PlatformTopNav({ config }: { config: PlatformNavigationConfig })
   )
 }
 
-function getVisibleSideNavItems(items: SideNavItem[]): SideNavItem[] {
+function getVisibleSideNavItems(items: SideNavItem[], hasMenuPerm: (path: string) => boolean): SideNavItem[] {
   return items
     .map((item) => {
       if (item.hidden) return null
-      const visibleChildren = item.children?.filter((child) => !child.hidden)
+      const visibleChildren = item.children?.filter((child) => {
+        if (child.hidden) return false
+        return hasMenuPerm(child.href)
+      })
       if (item.children && item.children.length > 0 && (!visibleChildren || visibleChildren.length === 0)) {
         return null
       }
@@ -239,7 +243,11 @@ function getVisibleSideNavItems(items: SideNavItem[]): SideNavItem[] {
 
 export function PlatformSideNav({ config }: { config: PlatformNavigationConfig }) {
   const pathname = usePathname()
-  const visibleSideNavItems = useMemo(() => getVisibleSideNavItems(config.sideNavItems), [config.sideNavItems])
+  const { hasMenuPermission } = useAuth()
+  const visibleSideNavItems = useMemo(
+    () => getVisibleSideNavItems(config.sideNavItems, hasMenuPermission),
+    [config.sideNavItems, hasMenuPermission]
+  )
   const defaultExpanded = useMemo(
     () =>
       config.defaultExpandedSideNavIds?.length

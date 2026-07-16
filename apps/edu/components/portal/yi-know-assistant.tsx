@@ -29,8 +29,7 @@ interface AppModule {
 
 type ResourceCategory = "knowledge" | "agent" | "platform"
 
-const ZHIYU_AI_API = "http://111.170.170.202:3008"
-const ZHIYU_AI_HREF = "http://111.170.170.202:3008"
+
 
 interface Resource {
   id: string
@@ -63,8 +62,6 @@ const RESOURCES: Resource[] = [
     tags: ["金融", "专业"],
     icon: "book",
     color: "bg-amber-50 text-amber-600 border-amber-100",
-    originalId: 1,
-    originalType: "kb",
   },
   {
     id: "logistics-kb",
@@ -74,8 +71,6 @@ const RESOURCES: Resource[] = [
     tags: ["物流", "专业"],
     icon: "book",
     color: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    originalId: 2,
-    originalType: "kb",
   },
   {
     id: "cnc-kb",
@@ -85,8 +80,6 @@ const RESOURCES: Resource[] = [
     tags: ["数控", "实训"],
     icon: "book",
     color: "bg-blue-50 text-blue-600 border-blue-100",
-    originalId: 3,
-    originalType: "kb",
   },
   {
     id: "hotel-kb",
@@ -96,8 +89,6 @@ const RESOURCES: Resource[] = [
     tags: ["酒店", "案例"],
     icon: "book",
     color: "bg-rose-50 text-rose-600 border-rose-100",
-    originalId: 4,
-    originalType: "kb",
   },
   {
     id: "position-agent",
@@ -131,8 +122,6 @@ const RESOURCES: Resource[] = [
     tags: ["答疑", "课程"],
     icon: "bot",
     color: "bg-violet-50 text-violet-600 border-violet-100",
-    originalId: 7,
-    originalType: "bot",
   },
   {
     id: "custom-robot",
@@ -142,8 +131,6 @@ const RESOURCES: Resource[] = [
     tags: ["自建", "自定义"],
     icon: "bot",
     color: "bg-fuchsia-50 text-fuchsia-600 border-fuchsia-100",
-    originalId: 8,
-    originalType: "bot",
   },
   {
     id: "brand-platform",
@@ -322,11 +309,6 @@ function ResourceItem({
   const handleClick = () => {
     if (resource.href) {
       window.open(resource.href, "_blank")
-      return
-    }
-    if (isClickable && resource.originalId != null) {
-      const type = resource.originalType === "kb" ? "kb" : "bot"
-      window.open(`${ZHIYU_AI_HREF}/#/${type}/${resource.originalId}`, "_blank")
     }
   }
 
@@ -418,52 +400,9 @@ export function YiKnowAssistant() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
-  const [resources, setResources] = useState<Resource[]>(RESOURCES)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const getModules = (platformId: string) => APP_MODULES[platformId] || []
-
-  useEffect(() => {
-    const platforms = RESOURCES.filter((r) => r.category === "platform")
-    const COLORS = ["amber", "emerald", "blue", "rose", "indigo", "cyan", "violet", "fuchsia"]
-    const colorMap = (i: number, offset = 0) => {
-      const c = COLORS[(i + offset) % COLORS.length]
-      return `bg-${c}-50 text-${c}-600 border-${c}-100`
-    }
-    Promise.all([
-      fetch(`${ZHIYU_AI_API}/api/v1/kb`).then((r) => (r.ok ? r.json() : [])).catch(() => []),
-      fetch(`${ZHIYU_AI_API}/api/v1/bots/public`).then((r) => (r.ok ? r.json() : [])).catch(() => []),
-    ]).then(([kbs, bots]) => {
-      const kbList = Array.isArray(kbs) ? kbs : []
-      const botList = Array.isArray(bots) ? bots : []
-      const kbResources: Resource[] = kbList.map((kb: { id: number; name: string; description?: string; org_name?: string }, i: number) => ({
-        id: `kb-${kb.id}`,
-        category: "knowledge" as ResourceCategory,
-        title: kb.name || "未命名知识库",
-        desc: kb.description || "暂无描述",
-        tags: kb.org_name ? [kb.org_name] : [],
-        icon: "book",
-        color: colorMap(i),
-        originalId: kb.id,
-        originalType: "kb" as const,
-      }))
-      const botResources: Resource[] = botList.map((bot: { id: number; name: string; description?: string; is_official?: boolean }, i: number) => ({
-        id: `bot-${bot.id}`,
-        category: "agent" as ResourceCategory,
-        title: bot.name || "未命名智能体",
-        desc: bot.description || "暂无描述",
-        tags: bot.is_official ? ["官方"] : [],
-        icon: "bot",
-        color: colorMap(i, 4),
-        originalId: bot.id,
-        originalType: "bot" as const,
-      }))
-      const staticAgents = RESOURCES.filter((r) => r.category === "agent")
-      setResources([...kbResources, ...botResources, ...staticAgents, ...platforms])
-    }).catch(() => {
-      // Keep static resources on error
-    })
-  }, [])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -476,7 +415,7 @@ export function YiKnowAssistant() {
 
   const filteredResources = useMemo(() => {
     const query = inputValue.trim().toLowerCase()
-    const list = resources.filter((resource) => {
+    const list = RESOURCES.filter((resource) => {
       const matchesCategory = activeTab === "all" || resource.category === activeTab
       const matchesQuery =
         !query ||
@@ -506,7 +445,7 @@ export function YiKnowAssistant() {
       if (!aIsScene && bIsScene && !aIsPosition) return 1
       return 0
     })
-  }, [activeTab, inputValue, resources, isOfficialAgent])
+  }, [activeTab, inputValue, isOfficialAgent])
 
   const isChatMode = chatMessages.length > 0 || isTyping
 
@@ -545,31 +484,31 @@ export function YiKnowAssistant() {
     } else if (q.includes("网络安全工程师") || q.includes("岗位")) {
       reply =
         "推荐你进入【职业岗位学习平台】的网络安全工程师岗位页面。该岗位需要掌握网络协议分析、安全设备配置、渗透测试与日志审计等能力，涉及 NISP、CISP 等证书。建议先学习《网络协议与安全基础》，再完成对应实训场景。"
-      recommendations = resources.filter((r) =>
+      recommendations = RESOURCES.filter((r) =>
         ["career-platform", "finance-kb", "position-agent"].includes(r.id)
       )
     } else if (q.includes("实训场景") || q.includes("信息安全")) {
       reply =
         "信息安全专业已发布 12 个实践场景，包括 Web 渗透测试、内网安全加固、日志审计分析等。每个场景已标注关联岗位、能力点和任务数，你可以直接进入【实践场景学习平台】查看详情。"
-      recommendations = resources.filter((r) =>
+      recommendations = RESOURCES.filter((r) =>
         ["scene-platform", "cnc-kb", "scene-agent"].includes(r.id)
       )
     } else if (q.includes("岗位认证") || q.includes("能力")) {
       reply =
         "根据你的能力画像对比网络安全工程师岗位认证标准：已达成网络基础、系统配置；待提升渗透测试、安全报告撰写。已为你推荐对应测评任务和 3 个练习资源。"
-      recommendations = resources.filter((r) =>
+      recommendations = RESOURCES.filter((r) =>
         ["eval-platform", "qa-robot", "custom-robot"].includes(r.id)
       )
     } else if (q.includes("校企合作") || q.includes("合作单位")) {
       reply =
         "学校现有 8 家深度合作企业，包括金融科技、智能制造、现代服务等领域。你可以在【产业联盟与品牌运营平台】查看合作类型、重点项目成果及专家资源。"
-      recommendations = resources.filter((r) =>
+      recommendations = RESOURCES.filter((r) =>
         ["brand-platform", "hotel-kb", "logistics-kb"].includes(r.id)
       )
     } else {
       reply =
         "我帮你找到了一些相关资源，你可以点击卡片快速查看。如需更精准的推荐，可以补充专业、年级或目标岗位。"
-      recommendations = resources.filter((r) => {
+      recommendations = RESOURCES.filter((r) => {
         return (
           r.title.toLowerCase().includes(q) ||
           r.desc.toLowerCase().includes(q) ||
@@ -577,7 +516,7 @@ export function YiKnowAssistant() {
         )
       }).slice(0, 4)
       if (recommendations.length === 0) {
-        recommendations = resources.slice(0, 3)
+        recommendations = RESOURCES.slice(0, 3)
       }
     }
 

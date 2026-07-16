@@ -7,7 +7,7 @@ import { PlatformShell } from "@/components/platform-shell"
 import { jobNavigationConfig } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 
-const ALLOWED_IDENTITIES = ["teacher", "school_admin", "enterprise_hr", "enterprise_mentor"]
+const ALLOWED_IDENTITIES = ["teacher", "school_admin", "enterprise_mentor"]
 
 export default function JobLayout({
   children,

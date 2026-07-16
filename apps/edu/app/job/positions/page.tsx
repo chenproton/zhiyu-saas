@@ -560,7 +560,7 @@ export default function PositionsPage() {
                   配置批次分组
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+              <DialogContent size="lg" className="max-h-[85vh] overflow-hidden flex flex-col">
                 <DialogHeader>
                   <div>
                     <DialogTitle>批次分组管理</DialogTitle>
@@ -576,7 +576,7 @@ export default function PositionsPage() {
                           新增批次
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-[500px]">
+                      <DialogContent size="default">
                         <DialogHeader>
                           <div>
                             <DialogTitle>新增批次</DialogTitle>
@@ -869,7 +869,7 @@ export default function PositionsPage() {
                           <ChevronRight className="h-4 w-4 text-gray-400" />
                         )}
                         <span className="font-medium text-gray-800">{batch.name}</span>
-                        <span className="text-xs text-gray-400">({batch.department} - {batch.major})</span>
+                        <span className="text-xs text-gray-400">({batch.department} - {batch.majorId})</span>
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         {batchPositions.length} 个岗位
@@ -973,7 +973,7 @@ export default function PositionsPage() {
       </Dialog>
 
       <Dialog open={isResourceImportDialogOpen} onOpenChange={setIsResourceImportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>资源包导入</DialogTitle>
             <DialogDescription>导入包含岗位、能力模型和资源的完整资源包</DialogDescription>
@@ -993,7 +993,7 @@ export default function PositionsPage() {
       </Dialog>
 
       <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent size="lg" className="max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <div>
               <DialogTitle>配置审批流程</DialogTitle>
@@ -1039,7 +1039,7 @@ export default function PositionsPage() {
       </Dialog>
 
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>导出岗位</DialogTitle>
             <DialogDescription>将选中的岗位数据导出为文件</DialogDescription>
@@ -1063,7 +1063,7 @@ export default function PositionsPage() {
       </Dialog>
 
       <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>调整批次分组</DialogTitle>
             <DialogDescription>将选中的 {selectedIds.length} 个岗位移动到指定批次</DialogDescription>
@@ -1090,7 +1090,7 @@ export default function PositionsPage() {
       </Dialog>
 
       <Dialog open={isCloneRenameDialogOpen} onOpenChange={setIsCloneRenameDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>克隆岗位</DialogTitle>
             <DialogDescription>为克隆的岗位命名</DialogDescription>
