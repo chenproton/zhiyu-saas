@@ -257,7 +257,7 @@ func seedUnifiedBase(ctx context.Context, tx pgx.Tx) error {
 		{uuid.MustParse("41111111-1111-1111-1111-111111111112"), "school_admin", "学校管理员", true},
 		{uuid.MustParse("41111111-1111-1111-1111-111111111113"), "teacher", "教师", true},
 		{uuid.MustParse("41111111-1111-1111-1111-111111111114"), "student", "学生", true},
-		{uuid.MustParse("41111111-1111-1111-1111-111111111115"), "enterprise_hr", "企业人事", true},
+
 		{uuid.MustParse("41111111-1111-1111-1111-111111111116"), "enterprise_mentor", "企业导师", true},
 	}
 	for _, it := range identityTypes {
@@ -305,7 +305,7 @@ func seedUnifiedBase(ctx context.Context, tx pgx.Tx) error {
 		{uuid.MustParse("61111111-1111-1111-1111-111111111112"), "school_admin", "学校管理员", map[string]interface{}{"schoolAdmin": true}},
 		{uuid.MustParse("61111111-1111-1111-1111-111111111113"), "teacher", "教师", map[string]interface{}{"teacher": true}},
 		{uuid.MustParse("61111111-1111-1111-1111-111111111114"), "student", "学生", map[string]interface{}{"student": true}},
-		{uuid.MustParse("61111111-1111-1111-1111-111111111115"), "enterprise_hr", "企业人事", map[string]interface{}{"enterpriseHR": true}},
+
 		{uuid.MustParse("61111111-1111-1111-1111-111111111116"), "enterprise_mentor", "企业导师", map[string]interface{}{"enterpriseMentor": true}},
 	}
 	for _, role := range roles {
@@ -744,7 +744,7 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 		{
 			ID:             uuid.MustParse("71111111-1111-1111-1111-111111111113"),
 			InstitutionID:  str("inst-001"),
-			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111115"),
+			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111116"),
 			OrgNodeID:      nil,
 			Role:           "enterprise", Platform: "saas", Username: "enterprise", Password: "enterprise123",
 			Name: "张明", Email: "zhangming@cybersec.com", Phone: "13800000003",
@@ -842,8 +842,7 @@ func identityTypeIDToRoleCode(id uuid.UUID) string {
 		return "teacher"
 	case "41111111-1111-1111-1111-111111111114":
 		return "student"
-	case "41111111-1111-1111-1111-111111111115":
-		return "enterprise_hr"
+
 	case "41111111-1111-1111-1111-111111111116":
 		return "enterprise_mentor"
 	default:
@@ -862,8 +861,7 @@ func mapRoleToRoleCode(role string, identityTypeCode ...string) string {
 			return "teacher"
 		case "student":
 			return "student"
-		case "enterprise_hr":
-			return "enterprise_hr"
+
 		case "enterprise_mentor":
 			return "enterprise_mentor"
 		}
@@ -874,7 +872,7 @@ func mapRoleToRoleCode(role string, identityTypeCode ...string) string {
 	case "school":
 		return "school_admin"
 	case "enterprise":
-		return "enterprise_hr"
+		return "enterprise_mentor"
 	default:
 		return "student"
 	}
