@@ -59,17 +59,17 @@ UPDATE resources SET institution_id_new = '00000000-0000-0000-0000-000000000000'
 UPDATE resource_tags SET resource_id_new = '00000000-0000-0000-0000-000000000000' WHERE resource_id_new IS NULL;
 
 -- PART 4: 删除旧 PK，设新 PK
-ALTER TABLE institutions DROP CONSTRAINT IF EXISTS institutions_pkey;
+ALTER TABLE institutions DROP CONSTRAINT IF EXISTS institutions_pkey CASCADE;
 ALTER TABLE institutions ADD PRIMARY KEY (new_id);
-ALTER TABLE resources DROP CONSTRAINT IF EXISTS resources_pkey;
+ALTER TABLE resources DROP CONSTRAINT IF EXISTS resources_pkey CASCADE;
 ALTER TABLE resources ADD PRIMARY KEY (new_id);
-ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_pkey;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_pkey CASCADE;
 ALTER TABLE orders ADD PRIMARY KEY (new_id);
-ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS authorizations_pkey;
+ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS authorizations_pkey CASCADE;
 ALTER TABLE authorizations ADD PRIMARY KEY (new_id);
-ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_pkey;
+ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_pkey CASCADE;
 ALTER TABLE withdrawals ADD PRIMARY KEY (new_id);
-ALTER TABLE banners DROP CONSTRAINT IF EXISTS banners_pkey;
+ALTER TABLE banners DROP CONSTRAINT IF EXISTS banners_pkey CASCADE;
 ALTER TABLE banners ADD PRIMARY KEY (new_id);
 
 -- PART 5: 删除旧 FK，设新 FK
