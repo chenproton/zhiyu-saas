@@ -7,7 +7,7 @@ ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS industry_id_new UUID;
 UPDATE scenarios s SET industry_id_new = (SELECT i.id FROM industries i WHERE i.name = s.industry_id OR i.id::text = s.industry_id LIMIT 1)
 WHERE s.industry_id IS NOT NULL AND s.industry_id != '';
 ALTER TABLE scenarios DROP COLUMN IF EXISTS industry_id;
-ALTER TABLE scenarios RENAME COLUMN IF NOT EXISTS industry_id_new TO industry_id;
+ALTER TABLE scenarios RENAME COLUMN industry_id_new TO industry_id;
 
 -- PART 2: FK 约束（仅列存在时添加）
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='scenarios' AND column_name='industry_id') AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_scenarios_industry') THEN ALTER TABLE scenarios ADD CONSTRAINT fk_scenarios_industry FOREIGN KEY (industry_id) REFERENCES industries(id) ON DELETE SET NULL; END IF; END $$;
