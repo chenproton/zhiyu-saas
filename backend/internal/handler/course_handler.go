@@ -28,9 +28,9 @@ type CreateCourseRequest struct {
 	Name          string           `json:"name"`
 	Type          string           `json:"type"`
 	Category      string           `json:"category"`
-	Major         *string          `json:"major"`
+	MajorID       *string          `json:"majorId"`
 	TeacherID     *string          `json:"teacherId"`
-	Industry      *string          `json:"industry"`
+	IndustryID    *string          `json:"industryId"`
 	Version       *string          `json:"version"`
 	OnlineHours   *float64         `json:"onlineHours"`
 	OfflineHours  *float64         `json:"offlineHours"`
@@ -42,7 +42,7 @@ type CreateCourseRequest struct {
 	CoverImage    *string          `json:"coverImage"`
 	CourseTag     *string          `json:"courseTag"`
 	CoCreatorIds  domain.JSONSlice `json:"coCreatorIds"`
-	BatchGroup    *string          `json:"batchGroup"`
+	BatchID       *string          `json:"batchId"`
 }
 
 type UpdateCourseRequest struct {
@@ -50,9 +50,9 @@ type UpdateCourseRequest struct {
 	Name          string           `json:"name"`
 	Type          string           `json:"type"`
 	Category      string           `json:"category"`
-	Major         *string          `json:"major"`
+	MajorID       *string          `json:"majorId"`
 	TeacherID     *string          `json:"teacherId"`
-	Industry      *string          `json:"industry"`
+	IndustryID    *string          `json:"industryId"`
 	Version       *string          `json:"version"`
 	OnlineHours   *float64         `json:"onlineHours"`
 	OfflineHours  *float64         `json:"offlineHours"`
@@ -64,7 +64,7 @@ type UpdateCourseRequest struct {
 	CoverImage    *string          `json:"coverImage"`
 	CourseTag     *string          `json:"courseTag"`
 	CoCreatorIds  domain.JSONSlice `json:"coCreatorIds"`
-	BatchGroup    *string          `json:"batchGroup"`
+	BatchID       *string          `json:"batchId"`
 }
 
 type ReviewCourseRequest struct {
@@ -82,6 +82,7 @@ func (h *CourseHandler) List(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	status := r.URL.Query().Get("status")
 	search := r.URL.Query().Get("search")
+	batchID := r.URL.Query().Get("batchId")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
@@ -104,44 +105,52 @@ func (h *CourseHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if effectiveTenantID != "" {
-		where = append(where, "tenant_id = $"+itoa(argIdx))
+		where = append(where, "c.tenant_id = $"+itoa(argIdx))
 		args = append(args, effectiveTenantID)
 		argIdx++
 	}
 
 	if courseType != "" {
-		where = append(where, "type = $"+itoa(argIdx))
+		where = append(where, "c.type = $"+itoa(argIdx))
 		args = append(args, courseType)
 		argIdx++
 	}
 	if category != "" {
-		where = append(where, "category = $"+itoa(argIdx))
+		where = append(where, "c.category = $"+itoa(argIdx))
 		args = append(args, category)
 		argIdx++
 	}
 	if status != "" {
-		where = append(where, "status = $"+itoa(argIdx))
+		where = append(where, "c.status = $"+itoa(argIdx))
 		args = append(args, status)
 		argIdx++
 	}
 	if search != "" {
-		where = append(where, "(name ILIKE $"+itoa(argIdx)+" OR code ILIKE $"+itoa(argIdx)+")")
+		where = append(where, "(c.name ILIKE $"+itoa(argIdx)+" OR c.code ILIKE $"+itoa(argIdx)+")")
 		args = append(args, "%"+search+"%")
 		argIdx++
 	}
+	if batchID != "" {
+		where = append(where, "c.batch_id = $"+itoa(argIdx))
+		args = append(args, batchID)
+		argIdx++
+	}
 
-	countQuery := "SELECT COUNT(*) FROM courses WHERE " + strings.Join(where, " AND ")
+	countQuery := "SELECT COUNT(*) FROM courses c WHERE " + strings.Join(where, " AND ")
 	var total int
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, code, name, type, category, major, teacher_id, industry, version,
-			online_hours, offline_hours, online_weight, offline_weight, semester, class_name,
-			status, cover_color, cover_image, course_tag, creator_id, co_creator_ids, batch_group,
-			node_count, resource_count, view_count, study_count, created_at, updated_at
-		FROM courses
+		SELECT c.id, c.code, c.name, c.type, c.category, c.major_id, m.name AS major_name, c.teacher_id, c.industry_id, i.name AS industry_name, c.version,
+			c.online_hours, c.offline_hours, c.online_weight, c.offline_weight, c.semester, c.class_name,
+			c.status, c.cover_color, c.cover_image, c.course_tag, c.creator_id, c.co_creator_ids, c.batch_id, lb.name AS batch_name,
+			c.node_count, c.resource_count, c.view_count, c.study_count, c.created_at, c.updated_at
+		FROM courses c
+		LEFT JOIN majors m ON m.id = c.major_id
+		LEFT JOIN industries i ON i.id = c.industry_id
+		LEFT JOIN lesson_batches lb ON lb.id = c.batch_id
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY c.created_at DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -203,14 +212,14 @@ func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.CoCreatorIds = domain.JSONSlice{}
 	}
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO courses (id, code, name, type, category, major, teacher_id, industry, version,
+		INSERT INTO courses (id, code, name, type, category, major_id, teacher_id, industry_id, version,
 			online_hours, offline_hours, online_weight, offline_weight, semester, class_name,
-			status, cover_color, cover_image, course_tag, creator_id, co_creator_ids, batch_group,
+			status, cover_color, cover_image, course_tag, creator_id, co_creator_ids, batch_id,
 			node_count, resource_count, view_count, study_count)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'draft', $16, $17, $18, $19, $20, $21, 0, 0, 0, 0)
-	`, id, req.Code, req.Name, req.Type, req.Category, req.Major, req.TeacherID, req.Industry, req.Version,
+	`, id, req.Code, req.Name, req.Type, req.Category, req.MajorID, req.TeacherID, req.IndustryID, req.Version,
 		req.OnlineHours, req.OfflineHours, req.OnlineWeight, req.OfflineWeight, req.Semester, req.ClassName,
-		req.CoverColor, req.CoverImage, req.CourseTag, claims.UserID, req.CoCreatorIds, req.BatchGroup)
+		req.CoverColor, req.CoverImage, req.CourseTag, claims.UserID, req.CoCreatorIds, req.BatchID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create course")
 		return
@@ -248,14 +257,14 @@ func (h *CourseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := h.DB.Exec(r.Context(), `
-		UPDATE courses SET code = $1, name = $2, type = $3, category = $4, major = $5, teacher_id = $6,
-			industry = $7, version = $8, online_hours = $9, offline_hours = $10, online_weight = $11,
+		UPDATE courses SET code = $1, name = $2, type = $3, category = $4, major_id = $5, teacher_id = $6,
+			industry_id = $7, version = $8, online_hours = $9, offline_hours = $10, online_weight = $11,
 			offline_weight = $12, semester = $13, class_name = $14, cover_color = $15, cover_image = $16,
-			course_tag = $17, co_creator_ids = $18, batch_group = $19, updated_at = NOW()
+			course_tag = $17, co_creator_ids = $18, batch_id = $19, updated_at = NOW()
 		WHERE id = $20
-	`, req.Code, req.Name, req.Type, req.Category, req.Major, req.TeacherID, req.Industry, req.Version,
+	`, req.Code, req.Name, req.Type, req.Category, req.MajorID, req.TeacherID, req.IndustryID, req.Version,
 		req.OnlineHours, req.OfflineHours, req.OnlineWeight, req.OfflineWeight, req.Semester, req.ClassName,
-		req.CoverColor, req.CoverImage, req.CourseTag, req.CoCreatorIds, req.BatchGroup, id)
+		req.CoverColor, req.CoverImage, req.CourseTag, req.CoCreatorIds, req.BatchID, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update course")
 		return
@@ -406,15 +415,19 @@ func (h *CourseHandler) transitionStatus(w http.ResponseWriter, r *http.Request,
 func (h *CourseHandler) fetchCourse(ctx context.Context, id string) (*domain.Course, error) {
 	var c domain.Course
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, code, name, type, category, major, teacher_id, industry, version,
-			online_hours, offline_hours, online_weight, offline_weight, semester, class_name,
-			status, cover_color, cover_image, course_tag, creator_id, co_creator_ids, batch_group,
-			node_count, resource_count, view_count, study_count, created_at, updated_at
-		FROM courses WHERE id = $1
+		SELECT c.id, c.code, c.name, c.type, c.category, c.major_id, m.name AS major_name, c.teacher_id, c.industry_id, i.name AS industry_name, c.version,
+			c.online_hours, c.offline_hours, c.online_weight, c.offline_weight, c.semester, c.class_name,
+			c.status, c.cover_color, c.cover_image, c.course_tag, c.creator_id, c.co_creator_ids, c.batch_id, lb.name AS batch_name,
+			c.node_count, c.resource_count, c.view_count, c.study_count, c.created_at, c.updated_at
+		FROM courses c
+		LEFT JOIN majors m ON m.id = c.major_id
+		LEFT JOIN industries i ON i.id = c.industry_id
+		LEFT JOIN lesson_batches lb ON lb.id = c.batch_id
+		WHERE c.id = $1
 	`, id).Scan(
-		&c.ID, &c.Code, &c.Name, &c.Type, &c.Category, &c.Major, &c.TeacherID, &c.Industry, &c.Version,
+		&c.ID, &c.Code, &c.Name, &c.Type, &c.Category, &c.MajorID, &c.MajorName, &c.TeacherID, &c.IndustryID, &c.IndustryName, &c.Version,
 		&c.OnlineHours, &c.OfflineHours, &c.OnlineWeight, &c.OfflineWeight, &c.Semester, &c.ClassName,
-		&c.Status, &c.CoverColor, &c.CoverImage, &c.CourseTag, &c.CreatorID, &c.CoCreatorIds, &c.BatchGroup,
+		&c.Status, &c.CoverColor, &c.CoverImage, &c.CourseTag, &c.CreatorID, &c.CoCreatorIds, &c.BatchID, &c.BatchName,
 		&c.NodeCount, &c.ResourceCount, &c.ViewCount, &c.StudyCount, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
@@ -428,9 +441,9 @@ func (h *CourseHandler) scanCourseRows(rows pgx.Rows) ([]domain.Course, error) {
 	for rows.Next() {
 		var c domain.Course
 		if err := rows.Scan(
-			&c.ID, &c.Code, &c.Name, &c.Type, &c.Category, &c.Major, &c.TeacherID, &c.Industry, &c.Version,
+			&c.ID, &c.Code, &c.Name, &c.Type, &c.Category, &c.MajorID, &c.MajorName, &c.TeacherID, &c.IndustryID, &c.IndustryName, &c.Version,
 			&c.OnlineHours, &c.OfflineHours, &c.OnlineWeight, &c.OfflineWeight, &c.Semester, &c.ClassName,
-			&c.Status, &c.CoverColor, &c.CoverImage, &c.CourseTag, &c.CreatorID, &c.CoCreatorIds, &c.BatchGroup,
+			&c.Status, &c.CoverColor, &c.CoverImage, &c.CourseTag, &c.CreatorID, &c.CoCreatorIds, &c.BatchID, &c.BatchName,
 			&c.NodeCount, &c.ResourceCount, &c.ViewCount, &c.StudyCount, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, err

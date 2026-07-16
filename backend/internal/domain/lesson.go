@@ -26,9 +26,11 @@ type Course struct {
 	Name          string         `json:"name"`
 	Type          string         `json:"type"`
 	Category      string         `json:"category"`
-	Major         *string        `json:"major,omitempty"`
+	MajorID       *string        `json:"majorId,omitempty"`
+	MajorName     *string        `json:"majorName,omitempty"`
 	TeacherID     *string        `json:"teacherId,omitempty"`
-	Industry      *string        `json:"industry,omitempty"`
+	IndustryID    *string        `json:"industryId,omitempty"`
+	IndustryName  *string        `json:"industryName,omitempty"`
 	Version       *string        `json:"version,omitempty"`
 	OnlineHours   *float64       `json:"onlineHours,omitempty"`
 	OfflineHours  *float64       `json:"offlineHours,omitempty"`
@@ -42,7 +44,8 @@ type Course struct {
 	CourseTag     *string        `json:"courseTag,omitempty"`
 	CreatorID     string         `json:"creatorId"`
 	CoCreatorIds  JSONSlice      `json:"coCreatorIds,omitempty"`
-	BatchGroup    *string        `json:"batchGroup,omitempty"`
+	BatchID       *string        `json:"batchId,omitempty"`
+	BatchName     *string        `json:"batchName,omitempty"`
 	NodeCount     int            `json:"nodeCount"`
 	ResourceCount int            `json:"resourceCount"`
 	ViewCount     int            `json:"viewCount"`
@@ -122,7 +125,8 @@ type LessonBatch struct {
 	Name        string            `json:"name"`
 	Code        *string           `json:"code,omitempty"`
 	OrgNodeID   *string           `json:"orgNodeId,omitempty"`
-	Major       *string           `json:"major,omitempty"`
+	MajorID     *string           `json:"majorId,omitempty"`
+	MajorName   *string           `json:"majorName,omitempty"`
 	WorkflowID  *string           `json:"workflowId,omitempty"`
 	Status      LessonBatchStatus `json:"status"`
 	CourseCount *int              `json:"courseCount,omitempty"`

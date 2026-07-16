@@ -4,10 +4,12 @@ export interface Course {
   name: string
   type: "system" | "granular" | "hybrid"
   category: string
-  major?: string
+  majorId?: string
+  majorName?: string
   description?: string
   teacherId?: string
-  industry?: string
+  industryId?: string
+  industryName?: string
   version?: string
   onlineHours?: number
   offlineHours?: number
@@ -21,7 +23,8 @@ export interface Course {
   courseTag?: string
   creatorId: string
   coCreatorIds: string[]
-  batchGroup?: string
+  batchId?: string
+  batchName?: string
   nodeCount: number
   resourceCount: number
   viewCount: number
@@ -120,7 +123,7 @@ export interface LessonBatch {
   code?: string
   orgNodeId?: string
   majorId?: string
-  major?: string // Deprecated
+  majorName?: string // Deprecated
   workflowId?: string
   status: "open" | "closed"
   courseCount?: number

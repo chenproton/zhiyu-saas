@@ -436,7 +436,8 @@ export interface JobAbilityResult {
   studentName: string
   studentId: string
   className?: string
-  major?: string
+  majorId?: string
+  majorName?: string
   department?: string
   totalAbilityPoints: number
   achievedAbilityPoints: number
@@ -963,7 +964,6 @@ export interface EvaluationBatch {
   code?: string
   orgNodeId?: string
   majorId?: string
-  major?: string // Deprecated
   workflowId?: string
   status: "open" | "closed"
   createdAt: string

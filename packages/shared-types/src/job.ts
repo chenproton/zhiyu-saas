@@ -75,7 +75,7 @@ export interface JobBatch {
   code?: string
   orgNodeId?: string
   majorId?: string
-  major?: string // Deprecated: 仅兼容旧读取
+  majorName?: string // Deprecated: 仅兼容旧读取
   workflowId?: string
   status: "open" | "closed"
   positionCount: number

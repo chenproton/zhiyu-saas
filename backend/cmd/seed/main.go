@@ -1478,7 +1478,7 @@ func seedLessonData(ctx context.Context, tx pgx.Tx) error {
 		courseType string
 		category string
 		status   string
-		batchGroup string
+		batchID uuid.UUID
 	}{
 		{
 			uuid.MustParse("c3333333-3333-3333-3333-333333333331"),
@@ -1487,7 +1487,7 @@ func seedLessonData(ctx context.Context, tx pgx.Tx) error {
 			"system",
 			"专业核心课",
 			"draft",
-			"2024年春季课程建设批次",
+			uuid.MustParse("c2222222-2222-2222-2222-222222222221"),
 		},
 		{
 			uuid.MustParse("c3333333-3333-3333-3333-333333333332"),
@@ -1496,7 +1496,7 @@ func seedLessonData(ctx context.Context, tx pgx.Tx) error {
 			"system",
 			"专业基础课",
 			"pending",
-			"2024年春季课程建设批次",
+			uuid.MustParse("c2222222-2222-2222-2222-222222222221"),
 		},
 		{
 			uuid.MustParse("c3333333-3333-3333-3333-333333333333"),
@@ -1505,18 +1505,18 @@ func seedLessonData(ctx context.Context, tx pgx.Tx) error {
 			"system",
 			"专业核心课",
 			"published",
-			"2024年春季课程建设批次",
+			uuid.MustParse("c2222222-2222-2222-2222-222222222221"),
 		},
 	}
 	for _, c := range courses {
 		_, err := tx.Exec(ctx, `
-			INSERT INTO courses (id, code, name, type, category, status, creator_id, batch_group, created_at, updated_at)
+			INSERT INTO courses (id, code, name, type, category, status, creator_id, batch_id, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
 			ON CONFLICT (id) DO UPDATE SET
 				code = EXCLUDED.code, name = EXCLUDED.name, type = EXCLUDED.type,
 				category = EXCLUDED.category, status = EXCLUDED.status, creator_id = EXCLUDED.creator_id,
-				co_creator_ids = '{}', batch_group = EXCLUDED.batch_group, updated_at = NOW()
-		`, c.id, c.code, c.name, c.courseType, c.category, c.status, teacherID, c.batchGroup)
+				co_creator_ids = '{}', batch_id = EXCLUDED.batch_id, updated_at = NOW()
+		`, c.id, c.code, c.name, c.courseType, c.category, c.status, teacherID, c.batchID)
 		if err != nil {
 			return fmt.Errorf("seed course %s: %w", c.name, err)
 		}

@@ -117,7 +117,8 @@ type JobBatch struct {
 	Name           string      `json:"name"`
 	Code           *string     `json:"code,omitempty"`
 	OrgNodeID      *string     `json:"orgNodeId,omitempty"`
-	Major          *string     `json:"major,omitempty"`
+	MajorID        *string     `json:"majorId,omitempty"`
+	MajorName      *string     `json:"majorName,omitempty"`
 	WorkflowID     *string     `json:"workflowId,omitempty"`
 	Status         BatchStatus `json:"status"`
 	PositionCount  int         `json:"positionCount"`
@@ -129,7 +130,8 @@ type JobBatch struct {
 
 type PositionRecommendation struct {
 	ID               string    `json:"id"`
-	Major            string    `json:"major"`
+	MajorID          *string   `json:"majorId,omitempty"`
+	MajorName        *string   `json:"majorName,omitempty"`
 	CareerPositionID string    `json:"careerPositionId"`
 	PositionType     string    `json:"positionType"`
 	Reason           *string   `json:"reason,omitempty"`

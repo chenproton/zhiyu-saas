@@ -601,7 +601,6 @@ func TestRecommend_CRUD(t *testing.T) {
 
 	t.Run("Create", func(t *testing.T) {
 		body := map[string]interface{}{
-			"major":            "Computer Science",
 			"careerPositionId": positionID,
 			"positionType":     "enterprise",
 		}
@@ -612,9 +611,6 @@ func TestRecommend_CRUD(t *testing.T) {
 		rec, err := testhelper.Unmarshal[domain.PositionRecommendation](w)
 		if err != nil {
 			t.Fatalf("unmarshal: %v", err)
-		}
-		if rec.Major != "Computer Science" {
-			t.Errorf("major = %q, want %q", rec.Major, "Computer Science")
 		}
 		if rec.CareerPositionID != positionID {
 			t.Errorf("careerPositionId = %q, want %q", rec.CareerPositionID, positionID)
@@ -648,7 +644,6 @@ func TestRecommend_CRUD(t *testing.T) {
 
 	t.Run("Update", func(t *testing.T) {
 		body := map[string]interface{}{
-			"major":            "Data Science",
 			"careerPositionId": positionID,
 			"positionType":     "enterprise",
 		}
@@ -660,9 +655,7 @@ func TestRecommend_CRUD(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unmarshal: %v", err)
 		}
-		if rec.Major != "Data Science" {
-			t.Errorf("major = %q, want %q", rec.Major, "Data Science")
-		}
+		_ = rec
 	})
 
 	t.Run("Delete", func(t *testing.T) {

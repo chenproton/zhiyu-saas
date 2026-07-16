@@ -128,7 +128,7 @@ func (h *CertGradeHandler) ListGrades(w http.ResponseWriter, r *http.Request) {
 		GradeDataID     string
 		StudentName     string
 		ClassName       string
-		Major           string
+		MajorName       string
 		AchievementRate float64
 		GradeLabel      string
 		SortOrder       int
@@ -138,17 +138,18 @@ func (h *CertGradeHandler) ListGrades(w http.ResponseWriter, r *http.Request) {
 	var allLB []lbRow
 	if len(gradeIDs) > 0 {
 		lbRows, err := h.DB.Query(r.Context(), `
-			SELECT grade_data_id, student_name, COALESCE(class_name, ''), COALESCE(major, ''),
-				COALESCE(achievement_rate, 0), COALESCE(grade_label, ''), sort_order, user_id
-			FROM certification_grade_leaderboard
-			WHERE grade_data_id = ANY($1)
-			ORDER BY grade_data_id, sort_order
+			SELECT cgl.grade_data_id, cgl.student_name, COALESCE(cgl.class_name, ''), COALESCE(m.name, '') AS major_name,
+				COALESCE(cgl.achievement_rate, 0), COALESCE(cgl.grade_label, ''), cgl.sort_order, cgl.user_id
+			FROM certification_grade_leaderboard cgl
+			LEFT JOIN majors m ON m.id = cgl.major_id
+			WHERE cgl.grade_data_id = ANY($1)
+			ORDER BY cgl.grade_data_id, cgl.sort_order
 		`, gradeIDs)
 		if err == nil {
 			defer lbRows.Close()
 			for lbRows.Next() {
 				var l lbRow
-				if err := lbRows.Scan(&l.GradeDataID, &l.StudentName, &l.ClassName, &l.Major, &l.AchievementRate, &l.GradeLabel, &l.SortOrder, &l.UserID); err == nil {
+				if err := lbRows.Scan(&l.GradeDataID, &l.StudentName, &l.ClassName, &l.MajorName, &l.AchievementRate, &l.GradeLabel, &l.SortOrder, &l.UserID); err == nil {
 					allLB = append(allLB, l)
 				}
 			}
@@ -185,7 +186,7 @@ func (h *CertGradeHandler) ListGrades(w http.ResponseWriter, r *http.Request) {
 			if l.GradeDataID != g.ID { continue }
 			dto.Leaderboard = append(dto.Leaderboard, LeaderboardEntryDTO{
 				ID: l.UserID, StudentName: l.StudentName, ClassName: l.ClassName,
-				Major: l.Major, AchievementRate: l.AchievementRate, Grade: l.GradeLabel,
+				Major: l.MajorName, AchievementRate: l.AchievementRate, Grade: l.GradeLabel,
 			})
 		}
 

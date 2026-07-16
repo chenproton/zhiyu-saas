@@ -92,7 +92,8 @@ function convertBackendCourse(c: BackendCourse): Course {
     createDate: c.createdAt,
     coCreator: c.coCreatorIds?.length ? c.coCreatorIds.join(", ") : undefined,
     coCreatorIds: c.coCreatorIds,
-    batchGroup: c.batchGroup || undefined,
+    batchId: c.batchId || undefined,
+    batchName: c.batchName || undefined,
     onlineHours: c.onlineHours,
     offlineHours: c.offlineHours,
     onlineWeight: c.onlineWeight,
@@ -201,7 +202,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
       )
     }
     if (selectedBatchId) {
-      result = result.filter((c) => c.batchGroup === selectedBatchId)
+      result = result.filter((c) => c.batchId === selectedBatchId)
     }
     if (selectedStatus) {
       result = result.filter((c) => c.status === selectedStatus)
@@ -222,15 +223,15 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
     if (viewMode !== "group") return null
     const groups: Record<string, Course[]> = {}
     filteredCourses.forEach((c) => {
-      if (!c.batchGroup) return
-      if (!groups[c.batchGroup]) groups[c.batchGroup] = []
-      groups[c.batchGroup].push(c)
+      if (!c.batchId) return
+      if (!groups[c.batchId]) groups[c.batchId] = []
+      groups[c.batchId].push(c)
     })
     return groups
   }, [filteredCourses, viewMode])
 
   const uncategorizedCourses = useMemo(
-    () => filteredCourses.filter((c) => !c.batchGroup && c.status === "draft"),
+    () => filteredCourses.filter((c) => !c.batchId && c.status === "draft"),
     [filteredCourses]
   )
 
@@ -257,7 +258,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
   const handleBatchSubmitApproval = async () => {
     for (const id of selectedIds) {
       const course = courses.find((c) => c.id === id)
-      if (course && (course.status === "draft" || course.status === "rejected") && course.batchGroup) {
+      if (course && (course.status === "draft" || course.status === "rejected") && course.batchId) {
         await courseApi.submit(id)
       }
     }
@@ -326,7 +327,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
         status: "draft",
         creatorId: CURRENT_USER_ID,
         coCreatorIds: [],
-        batchGroup: course.batchGroup,
+        batchId: course.batchId,
       })
     }
     setSelectedIds([])
@@ -357,7 +358,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
   const handleConfirmMove = async () => {
     if (!moveTargetBatchId) return
     for (const id of selectedIds) {
-      await courseApi.update(id, { batchGroup: moveTargetBatchId })
+      await courseApi.update(id, { batchId: moveTargetBatchId })
     }
     setSelectedIds([])
     setIsBatchMoveDialogOpen(false)
@@ -385,7 +386,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
       status: "draft",
       creatorId: CURRENT_USER_ID,
       coCreatorIds: [],
-      batchGroup: cloneTargetCourse.batchGroup,
+      batchId: cloneTargetCourse.batchId,
     })
     setIsCloneRenameDialogOpen(false)
     setCloneTargetCourse(null)
@@ -401,7 +402,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
   }
 
   const handleSubmitApproval = async (course: Course) => {
-    if (!course.batchGroup) {
+    if (!course.batchId) {
       alert("该课程未关联批次，无法提交审批")
       return
     }
@@ -834,8 +835,8 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
                           <ChevronRight className="h-4 w-4 text-gray-400" />
                         )}
                         <span className="font-medium text-gray-800">{batch.name}</span>
-                        {batch.major && (
-                          <span className="text-xs text-gray-400">({batch.major})</span>
+                        {batch.majorName && (
+                          <span className="text-xs text-gray-400">({batch.majorName})</span>
                         )}
                       </div>
                       <Badge variant="secondary" className="text-xs">

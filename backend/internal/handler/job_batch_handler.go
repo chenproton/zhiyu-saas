@@ -15,8 +15,8 @@ type JobBatchHandler struct {
 func NewJobBatchHandler(db *pgxpool.Pool) *JobBatchHandler {
 	return &JobBatchHandler{
 		BatchHandler: NewBatchHandler(db, BatchTableConfig{
-			TableName:     "batches",
-			SelectColumns: "id, name, code, org_node_id, major, workflow_id, status, position_count, published_count, pending_count, created_at, updated_at",
+			TableName:     "batches b LEFT JOIN majors m ON m.id = b.major_id",
+			SelectColumns: "b.id, b.name, b.code, b.org_node_id, b.major_id, COALESCE(m.name, '') AS major_name, b.workflow_id, b.status, b.position_count, b.published_count, b.pending_count, b.created_at, b.updated_at",
 			EntityName:    "batch",
 			StatusOpen:    string(domain.BatchStatusOpen),
 			StatusClosed:  string(domain.BatchStatusClosed),
@@ -30,14 +30,14 @@ func NewJobBatchHandler(db *pgxpool.Pool) *JobBatchHandler {
 
 func scanJobBatchRow(ctx context.Context, db *pgxpool.Pool, id string) (any, error) {
 	var b domain.JobBatch
-	var code, orgNodeID, major, workflowID *string
+	var code, orgNodeID, majorID, majorName, workflowID *string
 
 	err := db.QueryRow(ctx, `
-		SELECT id, name, code, org_node_id, major, workflow_id, status,
-			position_count, published_count, pending_count, created_at, updated_at
-		FROM batches WHERE id = $1
+		SELECT b.id, b.name, b.code, b.org_node_id, b.major_id, COALESCE(m.name, '') AS major_name, b.workflow_id, b.status,
+			b.position_count, b.published_count, b.pending_count, b.created_at, b.updated_at
+		FROM batches b LEFT JOIN majors m ON m.id = b.major_id WHERE b.id = $1
 	`, id).Scan(
-		&b.ID, &b.Name, &code, &orgNodeID, &major, &workflowID, &b.Status,
+		&b.ID, &b.Name, &code, &orgNodeID, &majorID, &majorName, &workflowID, &b.Status,
 		&b.PositionCount, &b.PublishedCount, &b.PendingCount, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
@@ -45,7 +45,8 @@ func scanJobBatchRow(ctx context.Context, db *pgxpool.Pool, id string) (any, err
 	}
 	b.Code = code
 	b.OrgNodeID = orgNodeID
-	b.Major = major
+	b.MajorID = majorID
+	b.MajorName = majorName
 	b.WorkflowID = workflowID
 	return b, nil
 }
@@ -54,16 +55,17 @@ func scanJobBatchRows(rows pgx.Rows) (any, error) {
 	items := make([]domain.JobBatch, 0)
 	for rows.Next() {
 		var b domain.JobBatch
-		var code, orgNodeID, major, workflowID *string
+		var code, orgNodeID, majorID, majorName, workflowID *string
 		if err := rows.Scan(
-			&b.ID, &b.Name, &code, &orgNodeID, &major, &workflowID, &b.Status,
+			&b.ID, &b.Name, &code, &orgNodeID, &majorID, &majorName, &workflowID, &b.Status,
 			&b.PositionCount, &b.PublishedCount, &b.PendingCount, &b.CreatedAt, &b.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
 		b.Code = code
 		b.OrgNodeID = orgNodeID
-		b.Major = major
+		b.MajorID = majorID
+		b.MajorName = majorName
 		b.WorkflowID = workflowID
 		items = append(items, b)
 	}

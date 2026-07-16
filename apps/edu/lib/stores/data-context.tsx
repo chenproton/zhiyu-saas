@@ -114,7 +114,7 @@ function convertJobBatchToBatch(jb: JobBatch): Batch {
     orgNodeId: jb.orgNodeId,
     department: jb.orgNodeId || '',
     majorId: jb.majorId,
-    major: jb.major || '',
+    major: jb.majorName || '',
     workflowId: jb.workflowId || '',
     status: jb.status,
     positionCount: jb.positionCount || 0,
@@ -317,7 +317,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (data.orgNodeId !== undefined) req.orgNodeId = data.orgNodeId || undefined
     if (data.department !== undefined && data.orgNodeId === undefined) req.orgNodeId = data.department || undefined
     if (data.majorId !== undefined) req.majorId = data.majorId || undefined
-    if (data.major !== undefined && data.majorId === undefined) req.major = data.major || undefined
+    if (data.major !== undefined && data.majorId === undefined)         req.majorId = data.major || undefined
     if (data.workflowId !== undefined) req.workflowId = data.workflowId || undefined
     if (data.status !== undefined) req.status = data.status
     if (data.positionCount !== undefined) req.positionCount = data.positionCount

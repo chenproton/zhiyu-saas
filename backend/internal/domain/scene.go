@@ -151,7 +151,8 @@ type SceneBatch struct {
 	Name          string           `json:"name"`
 	Code          *string          `json:"code,omitempty"`
 	OrgNodeID     *string          `json:"orgNodeId,omitempty"`
-	Major         *string          `json:"major,omitempty"`
+	MajorID       *string          `json:"majorId,omitempty"`
+	MajorName     *string          `json:"majorName,omitempty"`
 	WorkflowID    *string          `json:"workflowId,omitempty"`
 	Status        SceneBatchStatus `json:"status"`
 	ScenarioCount int              `json:"scenarioCount"`

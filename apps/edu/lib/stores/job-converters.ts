@@ -70,7 +70,7 @@ export function convertJobBatchToBatch(jb: JobBatch): Batch {
     orgNodeId: jb.orgNodeId,
     department: jb.orgNodeId || '',
     majorId: jb.majorId,
-    major: jb.major || '',
+    major: jb.majorName || '',
     workflowId: jb.workflowId || '',
     status: jb.status,
     positionCount: jb.positionCount || 0,

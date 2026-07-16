@@ -132,7 +132,8 @@ type ExamResult struct {
 	StudentName  string    `json:"studentName"`
 	ClassName    string    `json:"className"`
 	Grade        string    `json:"grade"`
-	Major        string    `json:"major"`
+	MajorID      *string   `json:"majorId,omitempty"`
+	MajorName    *string   `json:"majorName,omitempty"`
 	Score        float64   `json:"score"`
 	TotalScore   float64   `json:"totalScore"`
 	IsPass       bool      `json:"isPass"`
@@ -186,7 +187,8 @@ type JobAbilityResult struct {
 	CareerPositionID      string  `json:"careerPositionId"`
 	UserID                string  `json:"userId"`
 	ClassName             *string `json:"className,omitempty"`
-	Major                 *string `json:"major,omitempty"`
+	MajorID                 *string `json:"majorId,omitempty"`
+	MajorName               *string `json:"majorName,omitempty"`
 	TotalAbilityPoints    int     `json:"totalAbilityPoints"`
 	AchievedAbilityPoints int     `json:"achievedAbilityPoints"`
 	AchievementRate       float64 `json:"achievementRate"`
@@ -375,7 +377,8 @@ type EvaluationBatch struct {
 	Name       string    `json:"name"`
 	Code       *string   `json:"code,omitempty"`
 	OrgNodeID  *string   `json:"orgNodeId,omitempty"`
-	Major      *string   `json:"major,omitempty"`
+	MajorID    *string   `json:"majorId,omitempty"`
+	MajorName  *string   `json:"majorName,omitempty"`
 	WorkflowID *string   `json:"workflowId,omitempty"`
 	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"createdAt"`

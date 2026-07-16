@@ -266,7 +266,7 @@ func (h *PortalHandler) stats(ctx context.Context, userID string, tenantID *stri
 
 func (h *PortalHandler) listStudentCourses(ctx context.Context, userID string, tenantID *string) []domain.WorkspaceCourse {
 	query := `
-		SELECT c.id, c.code, c.name, c.type, c.category, c.major, c.online_hours, c.offline_hours,
+		SELECT c.id, c.code, c.name, c.type, c.category, c.online_hours, c.offline_hours,
 			c.semester, c.class_name, c.status, c.cover_color, c.cover_image, u.name
 		FROM courses c
 		LEFT JOIN users u ON u.id = c.teacher_id
@@ -287,8 +287,8 @@ func (h *PortalHandler) listStudentCourses(ctx context.Context, userID string, t
 	for rows.Next() {
 		var c domain.WorkspaceCourse
 		var onlineHours, offlineHours *float64
-		var category, major, semester, className, coverColor, coverImage, teacher, status string
-		if err := rows.Scan(&c.ID, &c.Code, &c.Name, &c.Type, &category, &major, &onlineHours, &offlineHours,
+		var category, semester, className, coverColor, coverImage, teacher, status string
+		if err := rows.Scan(&c.ID, &c.Code, &c.Name, &c.Type, &category, &onlineHours, &offlineHours,
 			&semester, &className, &status, &coverColor, &coverImage, &teacher); err != nil {
 			continue
 		}

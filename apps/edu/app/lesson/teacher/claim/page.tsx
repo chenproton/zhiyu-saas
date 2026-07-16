@@ -105,7 +105,7 @@ export default function ClassClaimPage() {
   }, [hybridCourses])
 
   const uniqueBatches = useMemo(() => {
-    const batches = new Set(hybridCourses.map((c) => c.batchGroup).filter(Boolean) as string[])
+    const batches = new Set(hybridCourses.map((c) => c.batchId).filter(Boolean) as string[])
     return [...batches]
   }, [hybridCourses])
 
@@ -119,7 +119,7 @@ export default function ClassClaimPage() {
       if (getCourseScope(c) !== cloneScope) return false
       if (cloneMajor !== "全部" && c.major !== cloneMajor) return false
       if (cloneCategory !== "全部" && c.category !== cloneCategory) return false
-      if (cloneBatch !== "全部" && c.batchGroup !== cloneBatch) return false
+      if (cloneBatch !== "全部" && c.batchId !== cloneBatch) return false
       if (cloneSearch && !c.name.includes(cloneSearch) && !(c.major || "").includes(cloneSearch)) return false
       return true
     }),
@@ -461,8 +461,8 @@ export default function ClassClaimPage() {
                           {c.major && <span>{c.major}</span>}
                           {c.major && c.category && <span className="text-gray-300">|</span>}
                           {c.category && <span>{c.category}</span>}
-                          {c.category && c.batchGroup && <span className="text-gray-300">|</span>}
-                          {c.batchGroup && <span>{c.batchGroup}</span>}
+                          {c.category && c.batchId && <span className="text-gray-300">|</span>}
+                          {c.batchId && <span>{c.batchId}</span>}
                         </div>
                         <div className="flex items-center gap-2 mt-1 pl-7">
                           {c.teacherId && <span className="text-[10px] text-gray-400">{c.teacherId}</span>}

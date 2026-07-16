@@ -24,7 +24,7 @@ type RecommendListResponse struct {
 }
 
 type CreateRecommendRequest struct {
-	Major            string  `json:"major"`
+	MajorID          *string `json:"majorId"`
 	CareerPositionID string  `json:"careerPositionId"`
 	PositionType     string  `json:"positionType"`
 	Reason           *string `json:"reason"`
@@ -33,7 +33,7 @@ type CreateRecommendRequest struct {
 }
 
 type UpdateRecommendRequest struct {
-	Major            string  `json:"major"`
+	MajorID          *string `json:"majorId"`
 	CareerPositionID string  `json:"careerPositionId"`
 	PositionType     string  `json:"positionType"`
 	Reason           *string `json:"reason"`
@@ -47,7 +47,7 @@ func (h *RecommendHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	major := r.URL.Query().Get("major")
+	majorID := r.URL.Query().Get("majorId")
 	careerPositionID := r.URL.Query().Get("careerPositionId")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
@@ -71,32 +71,34 @@ func (h *RecommendHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if effectiveTenantID != "" {
-		where = append(where, "tenant_id = $"+itoa(argIdx))
+		where = append(where, "pr.tenant_id = $"+itoa(argIdx))
 		args = append(args, effectiveTenantID)
 		argIdx++
 	}
 
-	if major != "" {
-		where = append(where, "major = $"+itoa(argIdx))
-		args = append(args, major)
+	if majorID != "" {
+		where = append(where, "pr.major_id = $"+itoa(argIdx))
+		args = append(args, majorID)
 		argIdx++
 	}
 	if careerPositionID != "" {
-		where = append(where, "career_position_id = $"+itoa(argIdx))
+		where = append(where, "pr.career_position_id = $"+itoa(argIdx))
 		args = append(args, careerPositionID)
 		argIdx++
 	}
 
-	countQuery := "SELECT COUNT(*) FROM position_recommendations WHERE " + strings.Join(where, " AND ")
+	countQuery := "SELECT COUNT(*) FROM position_recommendations pr WHERE " + strings.Join(where, " AND ")
 	var total int
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, major, career_position_id, position_type, reason, sort_order,
-			is_visible, created_by, created_at, updated_at
-		FROM position_recommendations
+		SELECT pr.id, pr.major_id, COALESCE(m.name, '') AS major_name,
+			pr.career_position_id, pr.position_type, pr.reason, pr.sort_order,
+			pr.is_visible, pr.created_by, pr.created_at, pr.updated_at
+		FROM position_recommendations pr
+		LEFT JOIN majors m ON m.id = pr.major_id
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY sort_order ASC, created_at DESC
+		ORDER BY pr.sort_order ASC, pr.created_at DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
@@ -129,7 +131,7 @@ func (h *RecommendHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Major == "" || req.CareerPositionID == "" || req.PositionType == "" {
+	if req.MajorID == nil || *req.MajorID == "" || req.CareerPositionID == "" || req.PositionType == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
 	}
@@ -137,9 +139,9 @@ func (h *RecommendHandler) Create(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO position_recommendations (
-			id, major, career_position_id, position_type, reason, sort_order, is_visible, created_by
+			id, major_id, career_position_id, position_type, reason, sort_order, is_visible, created_by
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, id, req.Major, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsVisible, claims.UserID)
+	`, id, req.MajorID, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsVisible, claims.UserID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create recommendation")
 		return
@@ -167,17 +169,17 @@ func (h *RecommendHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Major == "" || req.CareerPositionID == "" || req.PositionType == "" {
+	if req.MajorID == nil || *req.MajorID == "" || req.CareerPositionID == "" || req.PositionType == "" {
 		respondError(w, http.StatusBadRequest, "missing required fields")
 		return
 	}
 
 	_, err := h.DB.Exec(r.Context(), `
 		UPDATE position_recommendations SET
-			major = $1, career_position_id = $2, position_type = $3, reason = $4,
+			major_id = $1, career_position_id = $2, position_type = $3, reason = $4,
 			sort_order = $5, is_visible = $6, updated_at = NOW()
 		WHERE id = $7
-	`, req.Major, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsVisible, id)
+	`, req.MajorID, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsVisible, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update recommendation")
 		return
@@ -212,11 +214,14 @@ func (h *RecommendHandler) fetchRecommend(ctx context.Context, id string) (domai
 	var reason *string
 
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, major, career_position_id, position_type, reason, sort_order,
-			is_visible, created_by, created_at, updated_at
-		FROM position_recommendations WHERE id = $1
+		SELECT pr.id, pr.major_id, COALESCE(m.name, '') AS major_name,
+			pr.career_position_id, pr.position_type, pr.reason, pr.sort_order,
+			pr.is_visible, pr.created_by, pr.created_at, pr.updated_at
+		FROM position_recommendations pr
+		LEFT JOIN majors m ON m.id = pr.major_id
+		WHERE pr.id = $1
 	`, id).Scan(
-		&rec.ID, &rec.Major, &rec.CareerPositionID, &rec.PositionType, &reason, &rec.SortOrder,
+		&rec.ID, &rec.MajorID, &rec.MajorName, &rec.CareerPositionID, &rec.PositionType, &reason, &rec.SortOrder,
 		&rec.IsVisible, &rec.CreatedBy, &rec.CreatedAt, &rec.UpdatedAt,
 	)
 	if err != nil {
@@ -232,7 +237,7 @@ func (h *RecommendHandler) scanRecommendRows(rows pgx.Rows) ([]domain.PositionRe
 		var rec domain.PositionRecommendation
 		var reason *string
 		if err := rows.Scan(
-			&rec.ID, &rec.Major, &rec.CareerPositionID, &rec.PositionType, &reason, &rec.SortOrder,
+			&rec.ID, &rec.MajorID, &rec.MajorName, &rec.CareerPositionID, &rec.PositionType, &reason, &rec.SortOrder,
 			&rec.IsVisible, &rec.CreatedBy, &rec.CreatedAt, &rec.UpdatedAt,
 		); err != nil {
 			return nil, err

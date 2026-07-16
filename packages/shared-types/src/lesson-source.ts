@@ -26,7 +26,8 @@ export interface Course {
   createDate?: string
   coCreator?: string
   coCreatorIds?: string[]
-  batchGroup?: string
+  batchId?: string
+  batchName?: string
   /** 混合课程：线上学时 */
   onlineHours?: number
   /** 混合课程：线下学时 */

@@ -37,13 +37,14 @@ func (h *LandingHandler) ListExams(w http.ResponseWriter, r *http.Request) {
 		SELECT e.id, e.name, COALESCE(e.description, ''), e.duration,
 			COALESCE((SELECT COUNT(*) FROM exam_questions eq WHERE eq.exam_id = e.id), 0),
 			eu.start_time, eu.end_time,
-			COALESCE(eu.major, ''),
+			COALESCE(m.name, ''),
 			COALESCE(eu.class_name, ''),
 			COALESCE(eu.grade, ''),
 			COALESCE(org.name, ''),
 			COALESCE(parent_org.name, '')
 		FROM exams e
 		JOIN exam_usages eu ON eu.exam_id = e.id
+		LEFT JOIN majors m ON m.id = eu.major_id
 		LEFT JOIN org_nodes org ON org.id = eu.target_id AND eu.target_type = 'org_node'
 		LEFT JOIN org_nodes parent_org ON parent_org.id = org.parent_id
 		WHERE e.status = 'published'

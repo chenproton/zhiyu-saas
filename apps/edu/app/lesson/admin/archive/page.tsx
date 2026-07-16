@@ -80,7 +80,7 @@ export default function LessonArchivePage() {
     return result
   }, [courses, selectedMajor, search])
 
-  const batchMap = useMemo(() => new Map(batches.map((b) => [b.name, b])), [batches])
+  const batchMap = useMemo(() => new Map(batches.map((b) => [b.id, b])), [batches])
 
   const handleRestore = async (course: Course) => {
     try {
@@ -246,7 +246,7 @@ export default function LessonArchivePage() {
                       <TableCell className="text-sm">{course.type === "system" ? "体系课" : course.type === "granular" ? "颗粒课" : "混合课"}</TableCell>
                       <TableCell className="text-sm">{course.version || "-"}</TableCell>
                       <TableCell className="text-sm">{course.major || "-"}</TableCell>
-                      <TableCell className="text-sm">{course.batchGroup ? batchMap.get(course.batchGroup)?.name || course.batchGroup : "-"}</TableCell>
+                      <TableCell className="text-sm">{course.batchId ? batchMap.get(course.batchId)?.name || course.batchId : "-"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(course.updatedAt).toLocaleDateString()}
                       </TableCell>

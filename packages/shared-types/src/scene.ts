@@ -159,7 +159,7 @@ export interface SceneBatch {
   code?: string
   orgNodeId?: string
   majorId?: string
-  major?: string // Deprecated
+  majorName?: string // Deprecated
   workflowId?: string
   status: "open" | "closed"
   scenarioCount?: number

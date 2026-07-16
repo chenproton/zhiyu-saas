@@ -17,7 +17,7 @@ type BatchCreateRequest struct {
 	Name       string  `json:"name"`
 	Code       *string `json:"code"`
 	OrgNodeID  *string `json:"orgNodeId"`
-	Major      *string `json:"major"`
+	MajorID    *string `json:"majorId"`
 	WorkflowID *string `json:"workflowId"`
 	Status     string  `json:"status"`
 }
@@ -26,7 +26,7 @@ type BatchUpdateRequest struct {
 	Name       string  `json:"name"`
 	Code       *string `json:"code"`
 	OrgNodeID  *string `json:"orgNodeId"`
-	Major      *string `json:"major"`
+	MajorID    *string `json:"majorId"`
 	WorkflowID *string `json:"workflowId"`
 	Status     string  `json:"status"`
 }
@@ -203,8 +203,8 @@ func (h *BatchHandler) Create(w http.ResponseWriter, r *http.Request) {
 		tenantID = claims.TenantID
 	}
 
-	cols := []string{"id", "name", "code", "org_node_id", "major", "workflow_id", "status"}
-	vals := []any{id, req.Name, req.Code, req.OrgNodeID, req.Major, req.WorkflowID, status}
+	cols := []string{"id", "name", "code", "org_node_id", "major_id", "workflow_id", "status"}
+	vals := []any{id, req.Name, req.Code, req.OrgNodeID, req.MajorID, req.WorkflowID, status}
 	if h.Config.TenantScoped {
 		cols = append(cols, "tenant_id")
 		vals = append(vals, tenantID)
@@ -250,8 +250,8 @@ func (h *BatchHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setClauses := []string{"name = $1", "code = $2", "org_node_id = $3", "major = $4", "workflow_id = $5", "updated_at = NOW()"}
-	args := []any{req.Name, req.Code, req.OrgNodeID, req.Major, req.WorkflowID}
+	setClauses := []string{"name = $1", "code = $2", "org_node_id = $3", "major_id = $4", "workflow_id = $5", "updated_at = NOW()"}
+	args := []any{req.Name, req.Code, req.OrgNodeID, req.MajorID, req.WorkflowID}
 	argIdx := 6
 
 	if h.Config.UpdateWithStatus {

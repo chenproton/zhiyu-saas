@@ -139,23 +139,36 @@ func (h *ExamResultHandler) submit(ctx context.Context, userID, usageID string, 
 
 	// user profile
 	var studentName string
-	var className, grade, major string
+	var className, grade, majorName string
 	_ = h.DB.QueryRow(ctx, `SELECT name FROM users WHERE id = $1`, userID).Scan(&studentName)
 	_ = h.DB.QueryRow(ctx, `
 		SELECT class_name, major_name, CAST(enroll_year AS VARCHAR)
 		FROM graduates WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1
-	`, userID).Scan(&className, &major, &grade)
+	`, userID).Scan(&className, &majorName, &grade)
+
+	var majorID *string
+	if majorName != "" {
+		var id string
+		if err := h.DB.QueryRow(ctx, `SELECT id FROM majors WHERE name = $1`, majorName).Scan(&id); err == nil {
+			majorID = &id
+		}
+	}
+
+	var majorNamePtr *string
+	if majorName != "" {
+		majorNamePtr = &majorName
+	}
 
 	answersJSON := domain.JSONMap(answers)
 	var resultID string
 	var submitTime, createdAt interface{}
 	err = h.DB.QueryRow(ctx, `
-		INSERT INTO exam_results (exam_usage_id, user_id, student_name, class_name, grade, major, score, total_score, is_pass, answers)
+		INSERT INTO exam_results (exam_usage_id, user_id, student_name, class_name, grade, major_id, score, total_score, is_pass, answers)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (exam_usage_id, user_id)
 		DO UPDATE SET score = EXCLUDED.score, total_score = EXCLUDED.total_score, is_pass = EXCLUDED.is_pass, answers = EXCLUDED.answers, submit_time = NOW()
 		RETURNING id, submit_time, created_at
-	`, usageID, userID, studentName, className, grade, major, score, totalScore, isPass, answersJSON).Scan(&resultID, &submitTime, &createdAt)
+	`, usageID, userID, studentName, className, grade, majorID, score, totalScore, isPass, answersJSON).Scan(&resultID, &submitTime, &createdAt)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +180,8 @@ func (h *ExamResultHandler) submit(ctx context.Context, userID, usageID string, 
 		StudentName: studentName,
 		ClassName:   className,
 		Grade:       grade,
-		Major:       major,
+		MajorID:     majorID,
+		MajorName:   majorNamePtr,
 		Score:       roundScore(score),
 		TotalScore:  roundScore(totalScore),
 		IsPass:      isPass,
@@ -177,10 +191,11 @@ func (h *ExamResultHandler) submit(ctx context.Context, userID, usageID string, 
 
 func (h *ExamResultHandler) listByUsage(ctx context.Context, usageID string) ([]domain.ExamResult, error) {
 	rows, err := h.DB.Query(ctx, `
-		SELECT id, exam_usage_id, user_id, student_name, class_name, grade, major, score, total_score, is_pass, answers, submit_time, created_at
-		FROM exam_results
-		WHERE exam_usage_id = $1
-		ORDER BY score DESC, submit_time ASC
+		SELECT er.id, er.exam_usage_id, er.user_id, er.student_name, er.class_name, er.grade, er.major_id, COALESCE(m.name, '') AS major_name, er.score, er.total_score, er.is_pass, er.answers, er.submit_time, er.created_at
+		FROM exam_results er
+		LEFT JOIN majors m ON m.id = er.major_id
+		WHERE er.exam_usage_id = $1
+		ORDER BY er.score DESC, er.submit_time ASC
 	`, usageID)
 	if err != nil {
 		return nil, err
@@ -191,7 +206,7 @@ func (h *ExamResultHandler) listByUsage(ctx context.Context, usageID string) ([]
 	for rows.Next() {
 		var r domain.ExamResult
 		var answers domain.JSONMap
-		if err := rows.Scan(&r.ID, &r.ExamUsageID, &r.UserID, &r.StudentName, &r.ClassName, &r.Grade, &r.Major, &r.Score, &r.TotalScore, &r.IsPass, &answers, &r.SubmitTime, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.ExamUsageID, &r.UserID, &r.StudentName, &r.ClassName, &r.Grade, &r.MajorID, &r.MajorName, &r.Score, &r.TotalScore, &r.IsPass, &answers, &r.SubmitTime, &r.CreatedAt); err != nil {
 			return nil, err
 		}
 		r.Answers = answers

@@ -72,7 +72,7 @@ export default function ApprovalsPage() {
         courseApi.list({ limit: 1000 }),
         lessonBatchApi.list({ limit: 1000 }),
       ])
-      const batchMap = new Map(batchRes.items.map((b) => [b.name, b]))
+      const batchMap = new Map(batchRes.items.map((b) => [b.id, b]))
 
       const mapped: ApprovalView[] = courseRes.items
         .filter((c) => ["pending", "published", "rejected"].includes(c.status))
@@ -84,7 +84,7 @@ export default function ApprovalsPage() {
           version: c.version || "-",
           courseType: c.type,
           major: c.major,
-          batchName: c.batchGroup ? batchMap.get(c.batchGroup)?.name : undefined,
+          batchName: c.batchId ? batchMap.get(c.batchId)?.name : undefined,
           submitterId: c.creatorId,
           submitterName: c.creatorId,
           status: c.status === "published" ? "approved" : (c.status as ApprovalView["status"]),
