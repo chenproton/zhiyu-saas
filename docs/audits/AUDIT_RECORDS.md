@@ -19,6 +19,23 @@
 
 ## 记录
 
+### 2026-07-16 组织用户体系打通
+
+- 审计文档：`docs/audits/backend/user-org.md`、`docs/audits/frontend/admin.md`
+- 审查人：Agent
+- 结论：待审查
+- PASS 检查点数量：— / 总检查点数量：—
+- 备注：
+  - 数据库迁移已补齐 `batches.tenant_id`、`major_id`、外键与触发器；`users.org_node_id` 统一指向组织架构叶子节点（教师→院系/部门，学生→班级）。
+  - 后端 batch handler 增加 `orgNodeId`/`majorId` 校验与租户隔离。
+  - 共享类型 `JobBatch`/`SceneBatch`/`LessonBatch`/`EvaluationBatch` 增加 `tenantId`/`orgNodeId`/`majorId`。
+  - 新增 `useOrgTree`、`OrgNodeSelect`、`MajorSelect`。
+  - 前端教师/学生/账户页改用 `/portal/apps/system/org-user/org-structure` 真实组织架构树。
+  - `/job/batches`、`/scene/batches`、`/lesson/admin/batches` 新建/编辑批次改为选择真实二级学院与专业。
+  - 共建人弹窗按 `user.orgNodeId` 对应的真实组织节点分组。
+  - 本地验证通过：`go vet ./...`、`go test ./...`、`go build ./cmd/server/main.go`、`pnpm exec tsc --noEmit`、`pnpm lint`（0 errors）、`pnpm test`。
+  - 已变更模块需回归审查，确认数据一致性与权限隔离。
+
 ### 2026-07-15 前端基础设施审查
 
 - 审计文档：`docs/audits/frontend/infra.md`
