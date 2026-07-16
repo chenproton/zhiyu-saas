@@ -227,6 +227,11 @@ export default function OrgStructurePage() {
   const [formTypeId, setFormTypeId] = useState("")
   const [formSortOrder, setFormSortOrder] = useState<string>("1")
   const [saving, setSaving] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const buildTypeNameMap = (types: OrgType[]): Record<string, string> => {
     const map: Record<string, string> = {}
@@ -399,6 +404,15 @@ export default function OrgStructurePage() {
   const statEntries = useMemo(() => {
     return Object.entries(typeNames).map(([, name]) => ({ name, count: stats[name] || 0 }))
   }, [typeNames, stats])
+
+  if (!mounted) {
+    return (
+      <div className="flex h-64 items-center justify-center gap-2 text-muted-foreground">
+        <Spinner className="h-5 w-5" />
+        加载中...
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 bg-[#f5f7fa] min-h-full">
