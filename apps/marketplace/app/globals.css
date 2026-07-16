@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@source '../../../packages/ui/src/**/*';
 
 :root {
   /* Base palette: warm slate background with indigo/violet accents */
