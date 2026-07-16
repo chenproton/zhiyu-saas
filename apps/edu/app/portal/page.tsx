@@ -252,10 +252,10 @@ function findByLabel(items: { id: string; icon: string; color: string; title: st
 }
 
 const INTERNAL_ROUTES: Record<string, string> = {
-  career: "/job/positions",
-  scene: "/scene",
+  career: "/job/landing",
+  scene: "/scene/landing",
   ability: "/evaluation/landing",
-  course: "/lesson/admin/system",
+  course: "/lesson/landing",
 }
 
 function resolveTileUrl(id: string, configuredUrl: string): string {
@@ -288,7 +288,8 @@ function GradientTile({
   const style = CARD_STYLES[item.id]
   const isBig = variant === "big"
   const isTall = variant === "tall"
-  const isLocked = item.id === "opc" || item.id === "research" || item.id === "decision"
+  const landingIds = ["career", "scene", "ability", "course"]
+  const isLocked = !landingIds.includes(item.id)
   const effectiveUrl = resolveTileUrl(item.id, url)
   const isRelative = effectiveUrl.startsWith("/")
   const isExternal = /^https?:\/\//i.test(effectiveUrl)
