@@ -57,7 +57,7 @@ export default function LessonArchivePage() {
   const majors = useMemo(() => {
     const set = new Set<string>()
     courses.forEach((c) => {
-      if (c.major) set.add(c.major)
+      if (c.majorName) set.add(c.majorName)
     })
     return Array.from(set).sort()
   }, [courses])
@@ -65,7 +65,7 @@ export default function LessonArchivePage() {
   const filtered = useMemo(() => {
     let result = courses
     if (selectedMajor) {
-      result = result.filter((c) => c.major === selectedMajor)
+      result = result.filter((c) => c.majorName === selectedMajor)
     }
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -73,7 +73,7 @@ export default function LessonArchivePage() {
         (c) =>
           c.name.toLowerCase().includes(q) ||
           c.code.toLowerCase().includes(q) ||
-          (c.major || "").toLowerCase().includes(q) ||
+          (c.majorName || "").toLowerCase().includes(q) ||
           (c.category || "").toLowerCase().includes(q)
       )
     }
@@ -238,14 +238,14 @@ export default function LessonArchivePage() {
                         <div>
                           <span className="font-medium">{course.name}</span>
                           <p className="text-xs text-muted-foreground">
-                            {course.category || "-"} · {course.major || "-"}
+                            {course.category || "-"} · {course.majorName || "-"}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{course.code}</TableCell>
                       <TableCell className="text-sm">{course.type === "system" ? "体系课" : course.type === "granular" ? "颗粒课" : "混合课"}</TableCell>
                       <TableCell className="text-sm">{course.version || "-"}</TableCell>
-                      <TableCell className="text-sm">{course.major || "-"}</TableCell>
+                      <TableCell className="text-sm">{course.majorName || "-"}</TableCell>
                       <TableCell className="text-sm">{course.batchId ? batchMap.get(course.batchId)?.name || course.batchId : "-"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(course.updatedAt).toLocaleDateString()}

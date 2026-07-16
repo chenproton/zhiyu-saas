@@ -98,7 +98,7 @@ function AddGranularPageInner() {
           setCourseCode(c.code)
           setHours(String(c.onlineHours ?? c.offlineHours ?? ""))
           setLearningGoal("") // course 表无学习目标字段
-          setMajor(c.major || "")
+          setMajor(c.majorName || "")
           setDifficulty(0)
           setCoverImage(c.coverImage || "")
         } else {
@@ -162,7 +162,7 @@ function AddGranularPageInner() {
         code: courseCode,
         type: "granular",
         category: course?.category || "专业基础",
-        major: major || undefined,
+        majorId: undefined,
         onlineHours: parseInt(hours) || 0,
         offlineHours: 0,
         coverImage: coverImage || undefined,

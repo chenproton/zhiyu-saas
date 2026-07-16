@@ -164,7 +164,7 @@ function HybridCourseAddForm() {
     [FIRST_NODE_ID]: createDefaultNodeModuleData({
       name: claimCourse || existing?.name,
       code: existing?.code,
-      major: existing?.major,
+      major: existing?.majorName,
       semester: existing?.semester,
       category: existing?.category as CourseBasicForm["category"],
     }),
@@ -211,7 +211,7 @@ function HybridCourseAddForm() {
       [newNode.id]: createDefaultNodeModuleData({
         name: claimCourse || existing?.name,
         code: existing?.code,
-        major: existing?.major,
+        major: existing?.majorName,
         semester: existing?.semester,
         category: existing?.category as CourseBasicForm["category"],
       }),
@@ -279,7 +279,7 @@ function HybridCourseAddForm() {
       const next = createDefaultNodeModuleData({
         name: claimCourse || existing?.name,
         code: existing?.code,
-        major: existing?.major,
+        major: existing?.majorName,
         semester: existing?.semester,
         category: existing?.category as CourseBasicForm["category"],
       })
@@ -412,7 +412,7 @@ function HybridCourseAddForm() {
     name: rootForm.name || "",
     type: "hybrid",
     category: rootForm.category || "专业核心课程",
-    major: rootForm.major,
+    majorId: undefined,
     semester: rootForm.semester,
     className: "",
     coverImage: rootForm.coverImage,

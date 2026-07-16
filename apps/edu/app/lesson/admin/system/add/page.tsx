@@ -188,7 +188,7 @@ function AddSystemPageInner() {
       if (course.code) setCourseCode(course.code)
       if (course.description) setCourseDescription(course.description)
       if (course.coverImage) setCoverImage(course.coverImage)
-      if (course.major) setMajor(course.major)
+      if (course.majorName) setMajor(course.majorName)
       if (nodeRes.items?.length) {
         setNodes(nodeRes.items as unknown as SystemCourseNode[])
         setSelectedNodeId(nodeRes.items[0]?.id || null)
@@ -273,7 +273,7 @@ function AddSystemPageInner() {
         id: c.id,
         name: c.name,
         description: c.category,
-        source: c.major || c.creatorId || "",
+        source: c.majorName || c.creatorId || "",
         duration: c.nodeCount,
       })))
     }).catch(() => setGrainCourses([]))

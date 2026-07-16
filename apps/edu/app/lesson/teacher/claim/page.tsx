@@ -117,10 +117,10 @@ export default function ClassClaimPage() {
   const filteredHybrid = useMemo(() =>
     hybridCourses.filter((c) => {
       if (getCourseScope(c) !== cloneScope) return false
-      if (cloneMajor !== "全部" && c.major !== cloneMajor) return false
+      if (cloneMajor !== "全部" && c.majorName !== cloneMajor) return false
       if (cloneCategory !== "全部" && c.category !== cloneCategory) return false
       if (cloneBatch !== "全部" && c.batchId !== cloneBatch) return false
-      if (cloneSearch && !c.name.includes(cloneSearch) && !(c.major || "").includes(cloneSearch)) return false
+      if (cloneSearch && !c.name.includes(cloneSearch) && !(c.majorName || "").includes(cloneSearch)) return false
       return true
     }),
     [hybridCourses, cloneSearch, cloneScope, cloneMajor, cloneCategory, cloneBatch]
@@ -458,8 +458,8 @@ export default function ClassClaimPage() {
                           <span className="text-sm font-medium text-gray-800 truncate flex-1">{c.name}</span>
                         </div>
                         <div className="flex items-center gap-2 mt-1.5 pl-7 text-xs text-gray-500">
-                          {c.major && <span>{c.major}</span>}
-                          {c.major && c.category && <span className="text-gray-300">|</span>}
+                          {c.majorName && <span>{c.majorName}</span>}
+                          {c.majorName && c.category && <span className="text-gray-300">|</span>}
                           {c.category && <span>{c.category}</span>}
                           {c.category && c.batchId && <span className="text-gray-300">|</span>}
                           {c.batchId && <span>{c.batchId}</span>}

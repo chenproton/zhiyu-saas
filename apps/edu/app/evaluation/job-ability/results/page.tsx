@@ -202,7 +202,7 @@ export default function JobAbilityResultsPage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{result.studentId}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{result.className || '-'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{result.major || '-'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{result.majorName || '-'}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{result.department || '-'}</TableCell>
                       <TableCell>
                         <span className="text-sm font-medium">{result.achievementRate}%（{result.achievedAbilityPoints}/{result.totalAbilityPoints} 能力点达成）</span>
@@ -232,7 +232,7 @@ export default function JobAbilityResultsPage() {
         className={selectedStudent?.className || '-'}
         positionId={selectedStudent?.positionId}
         department={selectedStudent?.department}
-        major={selectedStudent?.major}
+        major={selectedStudent?.majorName}
         grade={selectedStudent?.grade}
       />
     </div>

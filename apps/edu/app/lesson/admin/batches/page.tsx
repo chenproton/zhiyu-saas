@@ -323,7 +323,7 @@ export default function BatchesPage() {
                       <TableCell className="font-medium">{batch.name}</TableCell>
                       <TableCell className="text-sm text-gray-600">{batch.code || "-"}</TableCell>
                       <TableCell className="text-sm text-gray-600">{orgMap.get(batch.orgNodeId || '')?.name || "—"}</TableCell>
-                      <TableCell className="text-sm text-gray-600">{majorMap.get(batch.majorId || '')?.name || batch.major || "—"}</TableCell>
+                      <TableCell className="text-sm text-gray-600">{majorMap.get(batch.majorId || '')?.name || batch.majorName || "—"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
                           {batch.workflowName || "-"}

@@ -83,7 +83,7 @@ export default function ApprovalsPage() {
           courseCode: c.code,
           version: c.version || "-",
           courseType: c.type,
-          major: c.major,
+          major: c.majorName,
           batchName: c.batchId ? batchMap.get(c.batchId)?.name : undefined,
           submitterId: c.creatorId,
           submitterName: c.creatorId,
