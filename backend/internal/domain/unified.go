@@ -166,6 +166,7 @@ type Graduate struct {
 	IDCard        *string   `json:"idCard,omitempty"`
 	EnrollYear    *int      `json:"enrollYear,omitempty"`
 	GraduateYear  *int      `json:"graduateYear,omitempty"`
+	MajorID       *string   `json:"majorId,omitempty"`
 	MajorName     *string   `json:"majorName,omitempty"`
 	ClassName     *string   `json:"className,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`

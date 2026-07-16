@@ -31,7 +31,7 @@ type CreateGraduateRequest struct {
 	IDCard       *string `json:"idCard"`
 	EnrollYear   *int    `json:"enrollYear"`
 	GraduateYear *int    `json:"graduateYear"`
-	MajorName    *string `json:"majorName"`
+	MajorID      *string `json:"majorId"`
 	ClassName    *string `json:"className"`
 }
 
@@ -42,7 +42,7 @@ type UpdateGraduateRequest struct {
 	IDCard       *string `json:"idCard"`
 	EnrollYear   *int    `json:"enrollYear"`
 	GraduateYear *int    `json:"graduateYear"`
-	MajorName    *string `json:"majorName"`
+	MajorID      *string `json:"majorId"`
 	ClassName    *string `json:"className"`
 }
 
@@ -81,8 +81,9 @@ func (h *GraduateHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, tenant_id, user_id, name, student_no, id_card, enroll_year, graduate_year, major_name, class_name, created_at
-		FROM graduates
+		SELECT g.id, g.tenant_id, g.user_id, g.name, g.student_no, g.id_card, g.enroll_year, g.graduate_year, g.major_id, COALESCE(m.name, '') AS major_name, g.class_name, g.created_at
+		FROM graduates g
+		LEFT JOIN majors m ON m.id = g.major_id
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
@@ -133,9 +134,9 @@ func (h *GraduateHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO graduates (id, tenant_id, user_id, name, student_no, id_card, enroll_year, graduate_year, major_name, class_name)
+		INSERT INTO graduates (id, tenant_id, user_id, name, student_no, id_card, enroll_year, graduate_year, major_id, class_name)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, id, req.TenantID, req.UserID, req.Name, req.StudentNo, req.IDCard, req.EnrollYear, req.GraduateYear, req.MajorName, req.ClassName)
+	`, id, req.TenantID, req.UserID, req.Name, req.StudentNo, req.IDCard, req.EnrollYear, req.GraduateYear, req.MajorID, req.ClassName)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create graduate")
 		return
@@ -170,9 +171,9 @@ func (h *GraduateHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.DB.Exec(r.Context(), `
 		UPDATE graduates SET user_id = $1, name = $2, student_no = $3, id_card = $4,
-			enroll_year = $5, graduate_year = $6, major_name = $7, class_name = $8
+			enroll_year = $5, graduate_year = $6, major_id = $7, class_name = $8
 		WHERE id = $9
-	`, req.UserID, req.Name, req.StudentNo, req.IDCard, req.EnrollYear, req.GraduateYear, req.MajorName, req.ClassName, id)
+	`, req.UserID, req.Name, req.StudentNo, req.IDCard, req.EnrollYear, req.GraduateYear, req.MajorID, req.ClassName, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update graduate")
 		return
@@ -225,14 +226,16 @@ func (h *GraduateHandler) currentIdentityCode(r *http.Request) string {
 
 func (h *GraduateHandler) fetchGraduate(ctx context.Context, id string) (domain.Graduate, error) {
 	var g domain.Graduate
-	var userID, studentNo, idCard, majorName, className *string
+	var userID, studentNo, idCard, majorID, majorName, className *string
 	var enrollYear, graduateYear *int
 
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, tenant_id, user_id, name, student_no, id_card, enroll_year, graduate_year, major_name, class_name, created_at
-		FROM graduates WHERE id = $1
+		SELECT g.id, g.tenant_id, g.user_id, g.name, g.student_no, g.id_card, g.enroll_year, g.graduate_year, g.major_id, COALESCE(m.name, '') AS major_name, g.class_name, g.created_at
+		FROM graduates g
+		LEFT JOIN majors m ON m.id = g.major_id
+		WHERE g.id = $1
 	`, id).Scan(
-		&g.ID, &g.TenantID, &userID, &g.Name, &studentNo, &idCard, &enrollYear, &graduateYear, &majorName, &className, &g.CreatedAt,
+		&g.ID, &g.TenantID, &userID, &g.Name, &studentNo, &idCard, &enrollYear, &graduateYear, &majorID, &majorName, &className, &g.CreatedAt,
 	)
 	if err != nil {
 		return g, err
@@ -242,6 +245,7 @@ func (h *GraduateHandler) fetchGraduate(ctx context.Context, id string) (domain.
 	g.IDCard = idCard
 	g.EnrollYear = enrollYear
 	g.GraduateYear = graduateYear
+	g.MajorID = majorID
 	g.MajorName = majorName
 	g.ClassName = className
 	return g, nil
@@ -251,10 +255,10 @@ func (h *GraduateHandler) scanGraduateRows(rows pgx.Rows) ([]domain.Graduate, er
 	items := make([]domain.Graduate, 0)
 	for rows.Next() {
 		var g domain.Graduate
-		var userID, studentNo, idCard, majorName, className *string
+		var userID, studentNo, idCard, majorID, majorName, className *string
 		var enrollYear, graduateYear *int
 		if err := rows.Scan(
-			&g.ID, &g.TenantID, &userID, &g.Name, &studentNo, &idCard, &enrollYear, &graduateYear, &majorName, &className, &g.CreatedAt,
+			&g.ID, &g.TenantID, &userID, &g.Name, &studentNo, &idCard, &enrollYear, &graduateYear, &majorID, &majorName, &className, &g.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -263,6 +267,7 @@ func (h *GraduateHandler) scanGraduateRows(rows pgx.Rows) ([]domain.Graduate, er
 		g.IDCard = idCard
 		g.EnrollYear = enrollYear
 		g.GraduateYear = graduateYear
+		g.MajorID = majorID
 		g.MajorName = majorName
 		g.ClassName = className
 		items = append(items, g)

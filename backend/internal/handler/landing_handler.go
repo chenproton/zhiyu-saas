@@ -38,8 +38,6 @@ func (h *LandingHandler) ListExams(w http.ResponseWriter, r *http.Request) {
 			COALESCE((SELECT COUNT(*) FROM exam_questions eq WHERE eq.exam_id = e.id), 0),
 			eu.start_time, eu.end_time,
 			COALESCE(m.name, ''),
-			COALESCE(eu.class_name, ''),
-			COALESCE(eu.grade, ''),
 			COALESCE(org.name, ''),
 			COALESCE(parent_org.name, '')
 		FROM exams e
@@ -62,13 +60,13 @@ func (h *LandingHandler) ListExams(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var item LandingExamItem
 		var startTime, endTime interface{}
-		var major, className, grade, orgName, collegeName string
+		var major, orgName, collegeName string
 
 		if err := rows.Scan(
 			&item.ID, &item.Name, &item.Description, &item.Duration,
 			&item.QuestionCount,
 			&startTime, &endTime,
-			&major, &className, &grade,
+			&major,
 			&orgName, &collegeName,
 		); err != nil {
 			continue
@@ -84,14 +82,7 @@ func (h *LandingHandler) ListExams(w http.ResponseWriter, r *http.Request) {
 			item.Major = orgName
 		}
 
-		parts := []string{}
-		if grade != "" {
-			parts = append(parts, grade)
-		}
-		if className != "" {
-			parts = append(parts, className)
-		}
-		item.TargetAudience = joinStrings(parts, " ")
+		item.TargetAudience = ""
 
 		if t, ok := startTime.(time.Time); ok {
 			item.Time = t.Format("2006-01-02 15:04")
