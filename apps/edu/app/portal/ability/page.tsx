@@ -225,7 +225,7 @@ function ExamCard({ item }: { item: Exam }) {
               <Clock className="w-3 h-3" />
               {item.duration} 分钟
             </span>
-            <span>题目：{item.questions.length} 道</span>
+            <span>题目：{(item.questions ?? []).length} 道</span>
             <span>总分：{item.totalScore} 分</span>
           </div>
         </CardContent>

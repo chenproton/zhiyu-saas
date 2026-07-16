@@ -52,6 +52,11 @@ function PortalAuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!isLoginPage && (!user || user.platform !== "portal")) {
+    // 服务端渲染时返回 children，避免 SSR 阶段把整页判定为 404；
+    // 客户端 useEffect 会在未登录时重定向到登录页。
+    if (typeof window === "undefined") {
+      return <>{children}</>
+    }
     return null
   }
 
