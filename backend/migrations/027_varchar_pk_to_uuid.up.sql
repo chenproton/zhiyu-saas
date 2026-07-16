@@ -74,39 +74,39 @@ ALTER TABLE banners ADD PRIMARY KEY (new_id);
 
 -- PART 5: 删除旧 FK，设新 FK
 -- institutions.institution_expertise_tags
-ALTER TABLE institution_expertise_tags DROP CONSTRAINT IF EXISTS IF EXISTS institution_expertise_tags_institution_id_fkey;
+ALTER TABLE institution_expertise_tags DROP CONSTRAINT IF EXISTS institution_expertise_tags_institution_id_fkey;
 ALTER TABLE institution_expertise_tags ADD FOREIGN KEY (institution_id_new) REFERENCES institutions(new_id) ON DELETE CASCADE;
 
 -- resources.institution_id
-ALTER TABLE resources DROP CONSTRAINT IF EXISTS IF EXISTS resources_institution_id_fkey;
+ALTER TABLE resources DROP CONSTRAINT IF EXISTS resources_institution_id_fkey;
 ALTER TABLE resources ADD FOREIGN KEY (institution_id_new) REFERENCES institutions(new_id) ON DELETE SET NULL;
 
 -- resource_tags.resource_id
-ALTER TABLE resource_tags DROP CONSTRAINT IF EXISTS IF EXISTS resource_tags_resource_id_fkey;
+ALTER TABLE resource_tags DROP CONSTRAINT IF EXISTS resource_tags_resource_id_fkey;
 ALTER TABLE resource_tags ADD FOREIGN KEY (resource_id_new) REFERENCES resources(new_id) ON DELETE CASCADE;
 
 -- orders FKs
-ALTER TABLE orders DROP CONSTRAINT IF EXISTS IF EXISTS orders_resource_id_fkey;
-ALTER TABLE orders DROP CONSTRAINT IF EXISTS IF EXISTS orders_buyer_id_fkey;
-ALTER TABLE orders DROP CONSTRAINT IF EXISTS IF EXISTS orders_seller_id_fkey;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_resource_id_fkey;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_buyer_id_fkey;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_seller_id_fkey;
 ALTER TABLE orders ADD FOREIGN KEY (resource_id_new) REFERENCES resources(new_id);
 ALTER TABLE orders ADD FOREIGN KEY (buyer_id_new) REFERENCES institutions(new_id);
 ALTER TABLE orders ADD FOREIGN KEY (seller_id_new) REFERENCES institutions(new_id);
 
 -- authorizations FKs
-ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS IF EXISTS authorizations_order_id_fkey;
-ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS IF EXISTS authorizations_buyer_id_fkey;
-ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS IF EXISTS authorizations_resource_id_fkey;
+ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS authorizations_order_id_fkey;
+ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS authorizations_buyer_id_fkey;
+ALTER TABLE authorizations DROP CONSTRAINT IF EXISTS authorizations_resource_id_fkey;
 ALTER TABLE authorizations ADD FOREIGN KEY (order_id_new) REFERENCES orders(new_id) ON DELETE CASCADE;
 ALTER TABLE authorizations ADD FOREIGN KEY (buyer_id_new) REFERENCES institutions(new_id);
 ALTER TABLE authorizations ADD FOREIGN KEY (resource_id_new) REFERENCES resources(new_id);
 
 -- withdrawals.institution_id
-ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS IF EXISTS withdrawals_institution_id_fkey;
+ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_institution_id_fkey;
 ALTER TABLE withdrawals ADD FOREIGN KEY (institution_id_new) REFERENCES institutions(new_id);
 
 -- users.institution_id
-ALTER TABLE users DROP CONSTRAINT IF EXISTS IF EXISTS users_institution_id_fkey;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_institution_id_fkey;
 ALTER TABLE users ADD FOREIGN KEY (institution_id_new) REFERENCES institutions(new_id) ON DELETE SET NULL;
 
 -- PART 6: 交换列名
