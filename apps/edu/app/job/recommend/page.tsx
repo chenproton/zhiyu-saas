@@ -56,7 +56,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { PositionType, Position, Batch, PositionRecommendation } from '@/lib/types/job-source'
 import { POSITION_TYPE_LABELS } from '@/lib/types/job-source'
-import { positionApi, batchApi, recommendApi } from '@/lib/api'
+import { positionApi, batchApi, recommendApi, majorApi } from '@/lib/api'
 import {
   convertCareerPositionToPosition,
   convertJobBatchToBatch,
@@ -78,6 +78,7 @@ export default function PostRecommendPage() {
   const [positions, setPositions] = useState<Position[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
   const [recommendations, setRecommendations] = useState<PositionRecommendation[]>([])
+  const [majorNameToId, setMajorNameToId] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
 
   const [selectedMajor, setSelectedMajor] = useState<string>('')
@@ -90,14 +91,18 @@ export default function PostRecommendPage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [posRes, batchRes, recRes] = await Promise.all([
+      const [posRes, batchRes, recRes, majorRes] = await Promise.all([
         positionApi.list({ limit: 1000 }),
         batchApi.list({ limit: 1000 }),
         recommendApi.list({ limit: 1000 }),
+        majorApi.list({ limit: 1000 }),
       ])
       setPositions(posRes.items.map(convertCareerPositionToPosition))
       setBatches(batchRes.items.map(convertJobBatchToBatch))
       setRecommendations(recRes.items.map(convertApiRecommendationToLocal))
+      const nameToId: Record<string, string> = {}
+      majorRes.items.forEach((m) => { if (m.name) nameToId[m.name] = m.id })
+      setMajorNameToId(nameToId)
     } catch (err: any) {
       toast({ variant: 'destructive', title: '加载失败', description: err?.message || '请稍后重试' })
     } finally {
@@ -111,10 +116,11 @@ export default function PostRecommendPage() {
 
   const majorOptions = useMemo(() => {
     const set = new Set<string>()
-    batches.forEach((b) => set.add(b.major))
+    Object.keys(majorNameToId).forEach((name) => set.add(name))
+    batches.forEach((b) => { if (b.major) set.add(b.major) })
     positions.forEach((p) => p.majors.forEach((m) => set.add(m)))
     return Array.from(set).sort()
-  }, [batches, positions])
+  }, [batches, positions, majorNameToId])
 
   const currentMajor = selectedMajor || majorOptions[0] || ''
 
@@ -153,7 +159,7 @@ export default function PostRecommendPage() {
           const newOrder = idx + 1
           if (newOrder === rec.order) return
           await recommendApi.update(id, {
-            majorId: rec.major || undefined,
+            majorId: majorNameToId[currentMajor] || undefined,
             careerPositionId: rec.positionId,
             positionType: rec.positionType,
             reason: rec.reason,
@@ -183,7 +189,7 @@ export default function PostRecommendPage() {
     if (!rec) return
     try {
       await recommendApi.update(id, {
-        majorId: rec.major || undefined,
+        majorId: majorNameToId[currentMajor] || undefined,
         careerPositionId: rec.positionId,
         positionType: rec.positionType,
         reason: rec.reason,
@@ -204,7 +210,7 @@ export default function PostRecommendPage() {
     try {
       const majorRecs = recommendations.filter((r) => r.major === currentMajor)
       await recommendApi.create({
-        major: currentMajor,
+        majorId: majorNameToId[currentMajor] || undefined,
         careerPositionId: position.id,
         positionType: position.positionType,
         reason: reason.trim() || undefined,
