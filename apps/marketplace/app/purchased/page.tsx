@@ -205,7 +205,7 @@ export default function PurchasedResourcesPage() {
 
         {/* Authorization Certificate Dialog */}
         <Dialog open={!!selectedAuth} onOpenChange={() => setSelectedAuth(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5 text-accent" />

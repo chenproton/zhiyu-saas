@@ -251,7 +251,7 @@ export default function ScenarioTasksPage() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[540px]">
+        <DialogContent size="default">
           <DialogHeader>
             <DialogTitle>{editingTask ? "编辑任务" : "添加任务"}</DialogTitle>
             <DialogDescription>配置任务基础信息</DialogDescription>

@@ -125,7 +125,7 @@ export function DeliverableConfig({
             添加交付物
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>添加交付物定义</DialogTitle>
             <DialogDescription>

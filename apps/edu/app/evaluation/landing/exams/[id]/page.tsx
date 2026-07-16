@@ -462,7 +462,7 @@ export default function ExamDetailPage() {
 
       {/* 考试对象名单弹窗 */}
       <Dialog open={showAudienceDialog} onOpenChange={setShowAudienceDialog}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>考试范围详情</DialogTitle>
             <DialogDescription>

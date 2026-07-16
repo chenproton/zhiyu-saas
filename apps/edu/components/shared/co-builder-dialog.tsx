@@ -198,7 +198,7 @@ export function CoBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[640px] max-h-[80vh] overflow-hidden flex flex-col" annotationContext={annotationContext} annotationContainerRef={leftScrollRef}>
+      <DialogContent size="lg" className="max-h-[80vh] overflow-hidden flex flex-col" annotationContext={annotationContext} annotationContainerRef={leftScrollRef}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

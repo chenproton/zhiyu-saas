@@ -87,7 +87,7 @@ export function ActionBar({
                 取消审批
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent size="sm">
               <AlertDialogHeader>
                 <AlertDialogTitle>确定取消审批？</AlertDialogTitle>
                 <AlertDialogDescription>
@@ -113,7 +113,7 @@ export function ActionBar({
                 取消发布
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent size="sm">
               <AlertDialogHeader>
                 <AlertDialogTitle>确定取消发布？</AlertDialogTitle>
                 <AlertDialogDescription>

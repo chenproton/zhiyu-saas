@@ -479,7 +479,7 @@ export function TeachingResourceSelector({ items, onChange }: TeachingResourceSe
 
             {/* Upload Type Picker Dialog */}
             <Dialog open={showUploadTypePicker} onOpenChange={setShowUploadTypePicker}>
-              <DialogContent className="sm:max-w-lg">
+              <DialogContent>
                 <DialogHeader>
                   <DialogTitle>选择资源类型</DialogTitle>
                   <DialogDescription>请选择要上传的资源类型</DialogDescription>
@@ -507,7 +507,7 @@ export function TeachingResourceSelector({ items, onChange }: TeachingResourceSe
 
             {/* Upload Resource Dialog */}
             <Dialog open={showUploadRes} onOpenChange={setShowUploadRes}>
-              <DialogContent className="sm:max-w-md">
+              <DialogContent size="sm">
                 <DialogHeader>
                   <DialogTitle>上传资源到公共库</DialogTitle>
                   <DialogDescription>

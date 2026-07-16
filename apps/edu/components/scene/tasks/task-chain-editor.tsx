@@ -98,7 +98,7 @@ export function TaskChainEditor({
               添加任务节点
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent size="sm">
             <DialogHeader>
               <DialogTitle>添加任务节点</DialogTitle>
               <DialogDescription>

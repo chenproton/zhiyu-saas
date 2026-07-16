@@ -302,7 +302,7 @@ export default function StudentArchivesPage() {
 
       {/* 上传文档弹窗 */}
       <Dialog open={addOpen} onOpenChange={(open) => !open && setAddOpen(false)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>上传文档</DialogTitle></DialogHeader>
           <div className="py-2">
             <div className="grid gap-3">
@@ -330,7 +330,7 @@ export default function StudentArchivesPage() {
 
       {/* 整改回复弹窗 */}
       <Dialog open={rectifyResponseOpen} onOpenChange={(open) => !open && setRectifyResponseOpen(false)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>提交整改结果</DialogTitle></DialogHeader>
           <div className="py-4">
             <div className="mb-3 rounded-md bg-red-50 p-3 text-sm">

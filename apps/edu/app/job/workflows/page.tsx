@@ -264,7 +264,7 @@ export default function WorkflowsPage() {
               新建流程
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>新建审批流程</DialogTitle>
               <DialogDescription>创建一个新的审批流程模板</DialogDescription>
@@ -362,7 +362,7 @@ export default function WorkflowsPage() {
       )}
 
       <Dialog open={!!editingWorkflow} onOpenChange={(open) => !open && setEditingWorkflow(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>编辑审批流程</DialogTitle>
             <DialogDescription>修改审批流程配置</DialogDescription>

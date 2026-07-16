@@ -573,7 +573,7 @@ export default function SceneHallPage() {
                   配置批次分组
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+              <DialogContent size="lg" className="max-h-[85vh] overflow-hidden flex flex-col">
                 <DialogHeader>
                   <div>
                     <DialogTitle>批次分组管理</DialogTitle>
@@ -589,7 +589,7 @@ export default function SceneHallPage() {
                           新增批次
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-[500px]">
+                      <DialogContent size="default">
                         <DialogHeader>
                           <div>
                             <DialogTitle>新增批次</DialogTitle>
@@ -1004,7 +1004,7 @@ export default function SceneHallPage() {
 
       {/* Resource Import Dialog */}
       <Dialog open={isResourceImportDialogOpen} onOpenChange={setIsResourceImportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>资源包导入</DialogTitle>
             <DialogDescription>导入包含场景、任务和资源的完整资源包</DialogDescription>
@@ -1025,7 +1025,7 @@ export default function SceneHallPage() {
 
       {/* Approval Workflow Config Dialog */}
       <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent size="lg" className="max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <div>
               <DialogTitle>配置审批流程</DialogTitle>
@@ -1072,7 +1072,7 @@ export default function SceneHallPage() {
 
       {/* Export Dialog */}
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>批量导出场景</DialogTitle>
             <DialogDescription>已选择 {selectedIds.length} 个场景，请选择导出格式</DialogDescription>
@@ -1106,7 +1106,7 @@ export default function SceneHallPage() {
 
       {/* Batch Move Dialog */}
       <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>调整批次分组</DialogTitle>
             <DialogDescription>将选中的 {selectedIds.length} 个场景移动到指定批次</DialogDescription>
@@ -1134,7 +1134,7 @@ export default function SceneHallPage() {
 
       {/* Clone Rename Dialog */}
       <Dialog open={isCloneRenameDialogOpen} onOpenChange={setIsCloneRenameDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>克隆场景</DialogTitle>
             <DialogDescription>请为克隆后的场景命名</DialogDescription>
@@ -1155,7 +1155,7 @@ export default function SceneHallPage() {
 
       {/* Reject Reason Dialog */}
       <Dialog open={isRejectReasonDialogOpen} onOpenChange={setIsRejectReasonDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>驳回原因</DialogTitle>
             <DialogDescription>

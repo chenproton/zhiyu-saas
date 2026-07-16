@@ -236,7 +236,7 @@ export default function EvaluationMethodsPage() {
 
       {/* 场景任务列表弹窗 */}
       <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>关联场景任务列表</DialogTitle>
           </DialogHeader>
@@ -267,7 +267,7 @@ export default function EvaluationMethodsPage() {
 
       {/* 编辑弹窗 */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>编辑测评方式</DialogTitle>
           </DialogHeader>

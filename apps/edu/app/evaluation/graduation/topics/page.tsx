@@ -378,7 +378,7 @@ export default function GraduationProjectTopicsPage() {
 
       {/* 发布/编辑弹窗 - 变大 */}
       <Dialog open={formOpen} onOpenChange={(open) => { if (!open) { setFormOpen(false); resetForm() } }}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent size="xl" className="max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingTopic ? '编辑选题' : '发布选题'}</DialogTitle><DialogDescription>配置选题基础信息、关联场景/能力模型、指导团队</DialogDescription></DialogHeader>
           <div className="grid grid-cols-12 gap-6 py-4">
             {/* 左侧：选题来源配置 + 关联岗位 + 能力要求 */}
@@ -481,7 +481,7 @@ export default function GraduationProjectTopicsPage() {
 
       {/* 指导教师搜索弹窗 */}
       <Dialog open={advisorSearchOpen} onOpenChange={(open) => !open && setAdvisorSearchOpen(false)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>选择指导教师</DialogTitle></DialogHeader>
           <div className="py-2">
             <Input placeholder="搜索教师姓名或学院..." value={advisorSearchQuery} onChange={(e) => setAdvisorSearchQuery(e.target.value)} className="mb-3" />
@@ -506,7 +506,7 @@ export default function GraduationProjectTopicsPage() {
 
       {/* 企业导师搜索弹窗 */}
       <Dialog open={mentorSearchOpen} onOpenChange={(open) => !open && setMentorSearchOpen(false)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>选择企业导师</DialogTitle></DialogHeader>
           <div className="py-2">
             <Input placeholder="搜索导师姓名或企业..." value={mentorSearchQuery} onChange={(e) => setMentorSearchQuery(e.target.value)} className="mb-3" />
@@ -531,7 +531,7 @@ export default function GraduationProjectTopicsPage() {
 
       {/* 查看详情弹窗 */}
       <Dialog open={!!viewTopic} onOpenChange={(open) => !open && setViewTopic(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent>
           <DialogHeader><DialogTitle>选题详情</DialogTitle></DialogHeader>
           {viewTopic && (
             <div className="space-y-3 py-4 text-sm">
@@ -576,7 +576,7 @@ export default function GraduationProjectTopicsPage() {
 
       {/* 删除确认弹窗 */}
       <Dialog open={!!deleteTopic} onOpenChange={(open) => !open && setDeleteTopic(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>确认删除</DialogTitle><DialogDescription>确定要删除选题「{deleteTopic?.name}」吗？此操作不可撤销。</DialogDescription></DialogHeader>
           <DialogFooter><Button variant="outline" onClick={() => setDeleteTopic(null)}>取消</Button><Button variant="destructive" onClick={handleDelete}><Trash2 className="mr-2 size-4" />删除</Button></DialogFooter>
         </DialogContent>
@@ -584,7 +584,7 @@ export default function GraduationProjectTopicsPage() {
 
       {/* 锁定确认弹窗 */}
       <Dialog open={!!lockTopic} onOpenChange={(open) => !open && setLockTopic(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>确认锁定选题</DialogTitle><DialogDescription>锁定后选题将不可再申请，并自动生成毕设项目档案。确定要锁定「{lockTopic?.name}」吗？</DialogDescription></DialogHeader>
           <DialogFooter><Button variant="outline" onClick={() => setLockTopic(null)}>取消</Button><Button onClick={handleLock}><Lock className="mr-2 size-4" />确认锁定</Button></DialogFooter>
         </DialogContent>
@@ -592,7 +592,7 @@ export default function GraduationProjectTopicsPage() {
 
       {/* 查看申请列表弹窗 */}
       <Dialog open={!!viewApplications} onOpenChange={(open) => !open && setViewApplications(null)}>
-        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent size="xl" className="max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>「{viewApplications?.name}」选题申请列表</DialogTitle></DialogHeader>
           <div className="py-2">
             {viewApplications && topicApps(viewApplications.id).length === 0 ? (

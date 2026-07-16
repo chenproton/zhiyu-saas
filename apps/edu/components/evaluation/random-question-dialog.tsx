@@ -367,7 +367,7 @@ export function RandomQuestionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[720px]" annotationContext="random-question">
+      <DialogContent size="lg" annotationContext="random-question">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shuffle className="size-5" />

@@ -148,7 +148,7 @@ export function ExamFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" annotationContext="exam-form" annotationContainerRef={fieldGroupRef}>
+      <DialogContent annotationContext="exam-form" annotationContainerRef={fieldGroupRef}>
         <DialogHeader>
           <DialogTitle>{exam ? "编辑试卷" : "新建试卷"}</DialogTitle>
           <DialogDescription>

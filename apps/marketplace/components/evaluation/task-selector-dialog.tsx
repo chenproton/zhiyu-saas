@@ -97,7 +97,7 @@ export function TaskSelectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg" annotationContext="task-selector" annotationContainerRef={scrollRef}>
+      <DialogContent annotationContext="task-selector" annotationContainerRef={scrollRef}>
         <DialogHeader>
           <DialogTitle>选择关联任务</DialogTitle>
           <DialogDescription>

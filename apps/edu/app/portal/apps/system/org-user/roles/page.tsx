@@ -425,7 +425,7 @@ export default function RolesPage() {
 
       {/* 权限配置 */}
       <Dialog open={isPermDialogOpen} onOpenChange={setIsPermDialogOpen}>
-        <DialogContent className="sm:max-w-[1100px] lg:max-w-6xl !max-h-[85vh] overflow-y-auto">
+        <DialogContent size="xl" className="!max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>权限配置 - {selectedRole?.name}</DialogTitle>
             <DialogDescription>配置角色的系统权限、菜单权限和数据权限</DialogDescription>

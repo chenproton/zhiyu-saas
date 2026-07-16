@@ -206,7 +206,7 @@ export default function UserFieldsPage() {
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>编辑扩展字段</DialogTitle>
           </DialogHeader>

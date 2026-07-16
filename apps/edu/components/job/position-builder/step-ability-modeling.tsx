@@ -671,7 +671,7 @@ export function StepAbilityModeling({ position, onUpdate, aiMode = false }: Step
 
       {/* Create Custom Ability Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="rounded-xl border-gray-200">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-gray-800">新建能力点</DialogTitle>
             <DialogDescription className="text-gray-400">

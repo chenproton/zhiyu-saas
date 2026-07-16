@@ -31,7 +31,7 @@ export function AiProgressDialog({
 }: AiProgressDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-xl border-gray-200">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-gray-800">
             <Sparkles className="h-5 w-5 text-purple-500" />

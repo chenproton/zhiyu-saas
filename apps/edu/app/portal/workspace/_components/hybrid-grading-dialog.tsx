@@ -141,7 +141,7 @@ export function HybridGradingDialog({ open, onOpenChange, sessionTitle, classNam
 
   return (
     <Dialog open={open} onOpenChange={innerOpenChange}>
-      <DialogContent className="sm:max-w-6xl max-h-[95vh] h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-h-[95vh] h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-0 shrink-0">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <GraduationCap className="h-5 w-5 text-amber-600" />

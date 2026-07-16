@@ -20,7 +20,7 @@ export function StudentPortraitModal({
 }: StudentPortraitModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!w-[95vw] !max-w-none !p-0 !gap-0 overflow-hidden" style={{ height: '92vh' }} annotationContext="student-portrait">
+      <DialogContent size="full" style={{ height: '92vh' }} annotationContext="student-portrait">
         <DialogHeader className="px-6 pt-4 pb-2 shrink-0">
           <DialogTitle className="text-lg">学生能力画像详情</DialogTitle>
         </DialogHeader>

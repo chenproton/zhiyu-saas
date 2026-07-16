@@ -108,7 +108,7 @@ export function ResourceUploader({ resources, onResourceAdd, onResourceDelete }:
             添加资源
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>添加支撑资源</DialogTitle>
             <DialogDescription>

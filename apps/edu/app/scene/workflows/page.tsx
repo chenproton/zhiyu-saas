@@ -239,7 +239,7 @@ export default function WorkflowsPage() {
               新增审批流程
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent size="default">
             <DialogHeader>
               <DialogTitle>新增审批流程</DialogTitle>
               <DialogDescription>创建新的审批流程模板，定义审批步骤和角色。</DialogDescription>
@@ -256,7 +256,7 @@ export default function WorkflowsPage() {
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent size="default">
           <DialogHeader>
             <DialogTitle>编辑审批流程</DialogTitle>
             <DialogDescription>修改审批流程的名称、说明和审批步骤。</DialogDescription>

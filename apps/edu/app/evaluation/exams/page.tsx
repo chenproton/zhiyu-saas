@@ -783,7 +783,7 @@ export default function ExamsPage() {
                   配置批次分组
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+              <DialogContent size="lg" className="max-h-[85vh] overflow-hidden flex flex-col">
                 <DialogHeader>
                   <DialogTitle>批次分组管理</DialogTitle>
                   <DialogDescription>管理试卷建设批次分组，关联审批流程</DialogDescription>
@@ -797,7 +797,7 @@ export default function ExamsPage() {
                           新增批次
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-[500px]">
+                      <DialogContent size="default">
                         <DialogHeader>
                           <DialogTitle>新增批次</DialogTitle>
                           <DialogDescription>创建新的试卷建设批次分组，并关联审批流程。</DialogDescription>
@@ -1129,7 +1129,7 @@ export default function ExamsPage() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>新建试卷</DialogTitle>
             <DialogDescription>创建一个新的试卷</DialogDescription>
@@ -1189,7 +1189,7 @@ export default function ExamsPage() {
 
       {/* Approval Workflow Config Dialog */}
       <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent size="lg" className="max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <div>
               <DialogTitle>配置审批流程</DialogTitle>
@@ -1270,7 +1270,7 @@ export default function ExamsPage() {
 
       {/* Export Dialog */}
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>导出试卷</DialogTitle>
             <DialogDescription>将选中的试卷数据导出为文件</DialogDescription>
@@ -1295,7 +1295,7 @@ export default function ExamsPage() {
 
       {/* Batch Move Dialog */}
       <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>调整批次分组</DialogTitle>
             <DialogDescription>将选中的 {selectedIds.length} 个试卷移动到指定批次</DialogDescription>
@@ -1323,7 +1323,7 @@ export default function ExamsPage() {
 
       {/* Clone Rename Dialog */}
       <Dialog open={isCloneRenameDialogOpen} onOpenChange={setIsCloneRenameDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>克隆试卷</DialogTitle>
             <DialogDescription>为克隆的试卷命名</DialogDescription>

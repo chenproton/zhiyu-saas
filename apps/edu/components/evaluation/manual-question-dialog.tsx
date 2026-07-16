@@ -104,7 +104,7 @@ export function ManualQuestionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex h-[80vh] max-w-3xl flex-col p-0" annotationContext="manual-question" annotationContainerRef={scrollRef}>
+      <DialogContent size="xl" className="flex h-[80vh] flex-col p-0" annotationContext="manual-question" annotationContainerRef={scrollRef}>
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>手动抽题</DialogTitle>
           <DialogDescription>

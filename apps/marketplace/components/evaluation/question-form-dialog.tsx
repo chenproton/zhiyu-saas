@@ -246,7 +246,7 @@ export function QuestionFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" annotationContext="question-form" annotationContainerRef={scrollRef}>
+      <DialogContent size="lg" className="max-h-[90vh] overflow-y-auto" annotationContext="question-form" annotationContainerRef={scrollRef}>
         <div ref={scrollRef} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{question ? "编辑题目" : "新建题目"}</DialogTitle>

@@ -245,7 +245,7 @@ export function AddQuestionToExamDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[85vh] max-w-3xl flex-col overflow-hidden p-0" annotationContext="add-question-to-exam" annotationContainerRef={scrollRef}>
+      <DialogContent size="xl" className="flex h-[85vh] flex-col overflow-hidden p-0" annotationContext="add-question-to-exam" annotationContainerRef={scrollRef}>
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>新增题目</DialogTitle>
           <DialogDescription>

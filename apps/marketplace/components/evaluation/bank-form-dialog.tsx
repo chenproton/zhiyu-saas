@@ -147,7 +147,7 @@ export function BankFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" annotationContext="bank-form" annotationContainerRef={fieldGroupRef}>
+      <DialogContent annotationContext="bank-form" annotationContainerRef={fieldGroupRef}>
         <DialogHeader>
           <DialogTitle>{bank ? "编辑题库" : "新建题库"}</DialogTitle>
           <DialogDescription>

@@ -85,7 +85,7 @@ export function PrepAssociateDialog({
         setConfirmed(false)
       }
     }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-blue-600" />

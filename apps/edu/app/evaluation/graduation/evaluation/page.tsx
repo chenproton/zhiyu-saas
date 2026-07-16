@@ -293,7 +293,7 @@ export default function GraduationProjectEvaluationPage() {
 
       {/* 查看详情弹窗 */}
       <Dialog open={!!viewEval} onOpenChange={(open) => !open && setViewEval(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>评价详情</DialogTitle></DialogHeader>
           {viewEval && (
             <div className="space-y-3 py-4 text-sm">
@@ -313,7 +313,7 @@ export default function GraduationProjectEvaluationPage() {
 
       {/* 评价弹窗 */}
       <Dialog open={evalOpen} onOpenChange={(open) => !open && setEvalOpen(false)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>提交评价 — {evalItem?.topicName}</DialogTitle>
           </DialogHeader>
@@ -333,7 +333,7 @@ export default function GraduationProjectEvaluationPage() {
 
       {/* 评价标准配置弹窗 */}
       <Dialog open={configOpen} onOpenChange={(open) => !open && setConfigOpen(false)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent>
           <DialogHeader><DialogTitle>评价标准配置</DialogTitle></DialogHeader>
           <div className="py-4">
             <div className="mb-3">
@@ -363,7 +363,7 @@ export default function GraduationProjectEvaluationPage() {
 
       {/* 认定弹窗 - 可勾选同步选项 */}
       <Dialog open={confirmOpen} onOpenChange={(open) => !open && setConfirmOpen(false)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>评价结果认定</DialogTitle></DialogHeader>
           {confirmEval && (
             <div className="space-y-4 py-2">

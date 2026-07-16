@@ -793,7 +793,7 @@ export default function QuestionBanksPage() {
                   配置批次分组
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+              <DialogContent size="lg" className="max-h-[85vh] overflow-hidden flex flex-col">
                 <DialogHeader>
                   <DialogTitle>批次分组管理</DialogTitle>
                   <DialogDescription>管理题库建设批次分组，关联审批流程</DialogDescription>
@@ -807,7 +807,7 @@ export default function QuestionBanksPage() {
                           新增批次
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-[500px]">
+                      <DialogContent size="default">
                         <DialogHeader>
                           <DialogTitle>新增批次</DialogTitle>
                           <DialogDescription>创建新的题库建设批次分组，并关联审批流程。</DialogDescription>
@@ -1129,7 +1129,7 @@ export default function QuestionBanksPage() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>新建题库</DialogTitle>
             <DialogDescription>创建一个新的题库来管理题目</DialogDescription>
@@ -1179,7 +1179,7 @@ export default function QuestionBanksPage() {
 
       {/* Approval Workflow Config Dialog */}
       <Dialog open={isApprovalWorkflowDialogOpen} onOpenChange={setIsApprovalWorkflowDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent size="lg" className="max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <div>
               <DialogTitle>配置审批流程</DialogTitle>
@@ -1260,7 +1260,7 @@ export default function QuestionBanksPage() {
 
       {/* Export Dialog */}
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>导出题库</DialogTitle>
             <DialogDescription>将选中的题库数据导出为文件</DialogDescription>
@@ -1285,7 +1285,7 @@ export default function QuestionBanksPage() {
 
       {/* Batch Move Dialog */}
       <Dialog open={isBatchMoveDialogOpen} onOpenChange={setIsBatchMoveDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>调整批次分组</DialogTitle>
             <DialogDescription>将选中的 {selectedIds.length} 个题库移动到指定批次</DialogDescription>
@@ -1313,7 +1313,7 @@ export default function QuestionBanksPage() {
 
       {/* Clone Rename Dialog */}
       <Dialog open={isCloneRenameDialogOpen} onOpenChange={setIsCloneRenameDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>克隆题库</DialogTitle>
             <DialogDescription>为克隆的题库命名</DialogDescription>

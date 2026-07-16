@@ -535,7 +535,7 @@ function WeightConfigDialog({
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={variant === 'table' ? 'sm:max-w-4xl w-[900px]' : 'sm:max-w-lg'} annotationContext="certification-rule">
+      <DialogContent size={variant === 'table' ? 'xl' : 'default'} annotationContext="certification-rule">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
@@ -1055,7 +1055,7 @@ export function CertificationRulePage({ isGlobal = false, positionId }: Certific
         </main>
 
         <Dialog open={!!editingTaskMapping} onOpenChange={(open) => !open && setEditingTaskMapping(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>配置自定义等级映射</DialogTitle>
               <DialogDescription>为能力点「{editingTaskMapping?.taskName}」配置自定义等级映射规则</DialogDescription>
@@ -1107,7 +1107,7 @@ export function CertificationRulePage({ isGlobal = false, positionId }: Certific
         />
 
         <Dialog open={overrideConfirmOpen} onOpenChange={(open) => !open && setOverrideConfirmOpen(false)}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent size="sm">
             <DialogHeader>
               <DialogTitle>确认覆盖</DialogTitle>
               <DialogDescription>确定要用当前全局等级映射覆盖该岗位下所有能力点的自定义配置吗？此操作不可撤销。</DialogDescription>

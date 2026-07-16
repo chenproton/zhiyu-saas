@@ -122,7 +122,7 @@ export function InviteCollaboratorDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]" annotationContext="invite-collaborator">
+      <DialogContent size="sm" annotationContext="invite-collaborator">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="size-5" />

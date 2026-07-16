@@ -396,7 +396,7 @@ export default function ResourceDetailPage() {
 
         {/* Institution Dialog */}
         <Dialog open={institutionOpen} onOpenChange={setInstitutionOpen}>
-          <DialogContent className="max-w-lg rounded-2xl">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>{institution.name}</DialogTitle>
               <DialogDescription>机构详情</DialogDescription>

@@ -264,7 +264,7 @@ export default function OrdersPage() {
 
         {/* Order Detail Dialog */}
         <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>订单详情</DialogTitle>
               <DialogDescription>订单号：{selectedOrder?.orderNo}</DialogDescription>

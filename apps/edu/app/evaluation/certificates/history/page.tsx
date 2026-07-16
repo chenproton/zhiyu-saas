@@ -246,7 +246,7 @@ export default function MicroCertHistoryPage() {
 
       {/* Revoke Dialog */}
       <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>撤销证书</DialogTitle>
             <DialogDescription>

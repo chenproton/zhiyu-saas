@@ -251,7 +251,7 @@ export default function GraduationProjectArchivesPage() {
 
         {/* 档案详情弹窗 - 纯展示 */}
         <Dialog open={!!detailArchive} onOpenChange={(open) => !open && setDetailArchive(null)}>
-          <DialogContent className="sm:max-w-6xl max-h-[92vh] overflow-y-auto p-0">
+          <DialogContent className="max-h-[92vh] overflow-y-auto p-0">
             {detailArchive && (
               <div className="p-6">
                 <DialogHeader className="mb-4">

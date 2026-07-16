@@ -368,7 +368,7 @@ export default function ApprovalCenterPage() {
 
       {/* 同意弹窗 */}
       <Dialog open={approveDialog.open} onOpenChange={(open) => !open && setApproveDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>审批通过</DialogTitle>
             <DialogDescription>
@@ -398,7 +398,7 @@ export default function ApprovalCenterPage() {
 
       {/* 驳回弹窗 */}
       <Dialog open={rejectDialog.open} onOpenChange={(open) => !open && setRejectDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>审批驳回</DialogTitle>
             <DialogDescription>
@@ -428,7 +428,7 @@ export default function ApprovalCenterPage() {
 
       {/* 查看详情弹窗 */}
       <Dialog open={detailDialog.open} onOpenChange={(open) => !open && setDetailDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>审批详情</DialogTitle>
             <DialogDescription>

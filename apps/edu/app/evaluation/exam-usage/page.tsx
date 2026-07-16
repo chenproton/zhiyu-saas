@@ -406,7 +406,7 @@ export default function ExamUsagePage() {
 
       {/* 创建考试使用弹窗 */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>创建考试使用</DialogTitle>
             <DialogDescription>选择试卷并配置考试使用信息</DialogDescription>

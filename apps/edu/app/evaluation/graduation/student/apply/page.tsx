@@ -118,7 +118,7 @@ export default function StudentTopicApplyPage() {
 
       {/* 申请弹窗 */}
       <Dialog open={!!applyTopic} onOpenChange={(open) => !open && setApplyTopic(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>申请选题</DialogTitle></DialogHeader>
           <div className="py-4">
             <div className="mb-3 rounded-lg bg-muted p-3 text-sm"><span className="font-medium">选题：</span>{applyTopic?.name}</div>
@@ -137,7 +137,7 @@ export default function StudentTopicApplyPage() {
 
       {/* 查看选题详情弹窗 */}
       <Dialog open={!!viewDetailTopic} onOpenChange={(open) => !open && setViewDetailTopic(null)}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent size="xl" className="max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>选题详情</DialogTitle></DialogHeader>
           {viewDetailTopic && (
             <div className="grid grid-cols-12 gap-6 py-4">

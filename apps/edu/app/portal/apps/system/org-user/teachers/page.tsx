@@ -382,7 +382,7 @@ export default function TeachersPage() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>新建教师</DialogTitle>
             <DialogDescription>填写教职工基本信息</DialogDescription>

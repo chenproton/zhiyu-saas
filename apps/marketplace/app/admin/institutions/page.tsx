@@ -312,7 +312,7 @@ export default function AdminInstitutionsPage() {
 
         {/* Details Dialog */}
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent size="lg">
             <DialogHeader>
               <DialogTitle>{selectedInstitution?.name}</DialogTitle>
               <DialogDescription>机构详情与审核操作</DialogDescription>

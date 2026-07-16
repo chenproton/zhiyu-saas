@@ -190,7 +190,7 @@ export default function AdminResourcesPage() {
 
         {/* Details Dialog */}
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent size="lg">
             <DialogHeader>
               <DialogTitle>资源详情</DialogTitle>
               <DialogDescription>审核与管理资源信息</DialogDescription>

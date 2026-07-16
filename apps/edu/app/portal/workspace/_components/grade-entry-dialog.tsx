@@ -75,7 +75,7 @@ export function GradeEntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (v) initData() }}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PenLine className="h-5 w-5 text-amber-600" />

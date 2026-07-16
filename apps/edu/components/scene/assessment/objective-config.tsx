@@ -172,7 +172,7 @@ export function ObjectiveConfigEditor({ config, onChange }: ObjectiveConfigEdito
             添加题目
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent size="default">
           <DialogHeader>
             <DialogTitle>添加题目</DialogTitle>
             <DialogDescription>

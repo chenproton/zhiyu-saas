@@ -507,7 +507,7 @@ export default function MicroCertIssuancePage() {
 
       {/* Success Dialog */}
       <Dialog open={successOpen} onOpenChange={setSuccessOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>颁发成功</DialogTitle>
             <DialogDescription>{successMessage}</DialogDescription>

@@ -429,7 +429,7 @@ export default function ApprovalsPage() {
       </Card>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent size="lg">
           <DialogHeader>
             <DialogTitle>审批详情</DialogTitle>
             <DialogDescription>

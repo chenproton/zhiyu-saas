@@ -421,7 +421,7 @@ export function Step1BasicInfo({ draft, onUpdate, onNext }: Step1BasicInfoProps)
 
       {/* Certificate Selector Dialog */}
       <Dialog open={certSelectorOpen} onOpenChange={setCertSelectorOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>从证书库选择证书</DialogTitle>
             <DialogDescription>选择与该岗位相关的职业资格证书</DialogDescription>

@@ -219,7 +219,7 @@ export function CoBuilderSelector({ selectedIds, onChange }: CoBuilderSelectorPr
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[680px] p-0 overflow-hidden">
+        <DialogContent size="lg" className="p-0 overflow-hidden">
           <DialogHeader className="px-6 pt-6 pb-2">
             <DialogTitle>选择共建人/共建部门</DialogTitle>
             <DialogDescription>从组织架构中选择共建人，选中的用户将参与该场景的建设</DialogDescription>

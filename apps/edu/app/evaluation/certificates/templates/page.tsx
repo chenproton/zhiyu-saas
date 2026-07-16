@@ -333,7 +333,7 @@ export default function MicroCertTemplatesPage() {
 
       {/* Create/Edit Form Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent size="lg">
           <DialogHeader>
             <DialogTitle>{editingTemplate ? "编辑模板" : "新建模板"}</DialogTitle>
             <DialogDescription>
@@ -513,7 +513,7 @@ export default function MicroCertTemplatesPage() {
 
       {/* Delete Confirmation */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>确认删除</DialogTitle>
             <DialogDescription>
@@ -533,7 +533,7 @@ export default function MicroCertTemplatesPage() {
 
       {/* Certification Type Config Dialog */}
       <Dialog open={typeConfigOpen} onOpenChange={setTypeConfigOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>认证类型字典配置</DialogTitle>
             <DialogDescription>

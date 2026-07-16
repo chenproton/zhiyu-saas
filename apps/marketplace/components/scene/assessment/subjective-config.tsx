@@ -222,7 +222,7 @@ export function SubjectiveConfigEditor({ config, onChange }: SubjectiveConfigEdi
             添加测评点
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>添加测评点</DialogTitle>
             <DialogDescription>

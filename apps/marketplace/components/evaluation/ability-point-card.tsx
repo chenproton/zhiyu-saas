@@ -206,7 +206,7 @@ export function AbilityPointCard({
 
       {/* 查看全局规则弹窗 */}
       <Dialog open={viewGlobalDialogOpen} onOpenChange={setViewGlobalDialogOpen}>
-        <DialogContent className="max-w-md" annotationContext="ability-point">
+        <DialogContent size="sm" annotationContext="ability-point">
           <DialogHeader>
             <DialogTitle>全局等级映射规则</DialogTitle>
           </DialogHeader>

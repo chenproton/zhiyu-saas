@@ -40,7 +40,7 @@ export function AiGenerateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent size="lg" className="max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-500" />
