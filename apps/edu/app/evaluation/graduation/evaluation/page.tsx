@@ -1,7 +1,13 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search, Award, CheckCircle2, Clock, Star, TrendingUp, Eye, Pencil, Settings, Send, ClipboardCheck, Bookmark, Lightbulb, Sparkles, FileCheck } from "lucide-react"
+import { Search, Award, CheckCircle2, Clock, Star, TrendingUp, Eye, Pencil, Settings, Send, ClipboardCheck, Bookmark, Lightbulb, Sparkles, FileCheck, MoreHorizontal } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -30,6 +36,12 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 import { useData } from "@/components/providers/data-provider"
 import { useToast } from "@/hooks/use-toast"

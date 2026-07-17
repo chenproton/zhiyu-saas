@@ -9,7 +9,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Pencil, Trash2, Plus, Loader2 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Search, Pencil, Trash2, Plus, Loader2, MoreHorizontal } from "lucide-react"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { portalRequest, buildQuery, type ListResponse } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"

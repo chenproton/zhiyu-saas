@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search, Link as LinkIcon, FileText, Pencil, ExternalLink } from "lucide-react"
+import { Search, Link as LinkIcon, FileText, Pencil, ExternalLink, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
@@ -16,6 +16,12 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useData } from "@/components/providers/data-provider"
 import { PageHeaderCard } from "@/components/shared/page-header-card"
 import type { EvaluationMethod } from "@/lib/types"

@@ -23,7 +23,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Plus, Trash2, GripVertical, ArrowRight, GitBranch, Pencil, FolderKanban, Loader2 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Plus, Trash2, GripVertical, ArrowRight, GitBranch, Pencil, FolderKanban, Loader2, MoreHorizontal } from 'lucide-react'
 import { ROLE_LABELS, type UserRole, type Workflow, type WorkflowStep } from '@/lib/types/job-source'
 import { convertApiWorkflowToLocal, convertJobBatchToBatch } from '@/lib/stores/job-converters'
 import { workflowApi, batchApi } from '@/lib/api'

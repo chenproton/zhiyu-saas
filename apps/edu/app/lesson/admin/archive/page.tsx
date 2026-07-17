@@ -14,12 +14,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Search,
   Pencil,
   Archive,
   GraduationCap,
   Building2,
   RotateCcw,
+  MoreHorizontal,
 } from "lucide-react"
 import { courseApi, lessonBatchApi } from "@/lib/api"
 import type { Course, LessonBatch } from "@/lib/types/lesson"

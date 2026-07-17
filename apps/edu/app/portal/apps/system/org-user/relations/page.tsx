@@ -38,7 +38,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Plus, Pencil, Trash2, Search, ChevronsUpDown, Check, Loader2 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Plus, Pencil, Trash2, Search, ChevronsUpDown, Check, Loader2, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { portalUserRelationApi, portalUserManagementApi } from "@/lib/api"
 import type { User } from "@/lib/api"

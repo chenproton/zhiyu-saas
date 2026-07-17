@@ -31,11 +31,17 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { OrgNodeSelect } from '@/components/shared/org-node-select'
 import { MajorSelect } from '@/components/shared/major-select'
 import { useAuth } from '@/components/auth-provider'
 import { useOrgTree } from '@/hooks/use-org-tree'
-import { Plus, Search, Pencil, Trash2, FolderOpen, GitBranch, Loader2 } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, FolderOpen, GitBranch, Loader2, MoreHorizontal } from 'lucide-react'
 import Link from 'next/link'
 import { batchApi, workflowApi, majorApi } from '@/lib/api'
 import { convertJobBatchToBatch, convertApiWorkflowToLocal } from '@/lib/stores/job-converters'

@@ -9,10 +9,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { portalIdentityTypeApi, portalUserExtensionFieldApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import { Pencil, AlertCircle, Loader2, RotateCcw } from "lucide-react"
+import { Pencil, AlertCircle, Loader2, RotateCcw, MoreHorizontal } from "lucide-react"
 import type { IdentityType, UserExtensionField } from "@/lib/types/backend"
 
 interface ExtendField {

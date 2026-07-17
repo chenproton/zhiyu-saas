@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search, Plus, BookOpen, Briefcase, MapPin, Users, Lock, Unlock, CheckCircle2, Clock, XCircle, Trash2, Pencil, Eye, GraduationCap, UserCheck, ArrowRightLeft, Settings, Layers, Lightbulb, UserCircle, Building2, Send, RotateCcw } from "lucide-react"
+import { Search, Plus, BookOpen, Briefcase, MapPin, Users, Lock, Unlock, CheckCircle2, Clock, XCircle, Trash2, Pencil, Eye, GraduationCap, UserCheck, ArrowRightLeft, Settings, Layers, Lightbulb, UserCircle, Building2, Send, RotateCcw, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -32,6 +32,12 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useData } from "@/components/providers/data-provider"
 import { useToast } from "@/hooks/use-toast"
 import type { GraduationProjectTopic, TopicStatus, TopicApplication } from "@/lib/types"

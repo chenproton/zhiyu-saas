@@ -21,7 +21,13 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Spinner } from "@/components/ui/spinner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Plus, Pencil, Trash2, Search, AlertCircle } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Plus, Pencil, Trash2, Search, AlertCircle, MoreHorizontal } from "lucide-react"
 import { identityTypeApi } from "@/lib/api"
 import type { IdentityType } from "@/lib/types/backend"
 import { usePortalAuth } from "@/contexts/portal-auth-context"

@@ -15,12 +15,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Search,
   Pencil,
   Archive,
   GraduationCap,
   Building2,
   RotateCcw,
+  MoreHorizontal,
 } from "lucide-react"
 import { scenarioApi, sceneBatchApi } from "@/lib/api"
 import type { Scenario, SceneBatch } from "@/lib/types/scene"
