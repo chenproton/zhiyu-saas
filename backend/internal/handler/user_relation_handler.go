@@ -88,9 +88,9 @@ func (h *UserRelationHandler) List(w http.ResponseWriter, r *http.Request) {
 			r.relation_type, r.created_at
 		FROM user_relations r
 		LEFT JOIN users init_u ON init_u.id = r.initiator_id
-		LEFT JOIN org_nodes init_org ON init_org.id = r.initiator_org_node_id
+		LEFT JOIN organizations init_org ON init_org.id = r.initiator_org_node_id
 		LEFT JOIN users tgt_u ON tgt_u.id = r.target_id
-		LEFT JOIN org_nodes tgt_org ON tgt_org.id = r.target_org_node_id
+		LEFT JOIN organizations tgt_org ON tgt_org.id = r.target_org_node_id
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY r.created_at DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
