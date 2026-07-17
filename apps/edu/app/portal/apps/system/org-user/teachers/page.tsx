@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
@@ -17,7 +18,8 @@ import { useOrgTree } from "@/hooks/use-org-tree"
 import { OrgNodePicker } from "@/components/shared/org-node-picker"
 import { OrgFilterTree, collectOrgSubtreeIds } from "@/components/shared/org-filter-tree"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
-import { portalUserManagementApi } from "@/lib/api"
+import { portalUserManagementApi, portalStaffTitleApi } from "@/lib/api"
+import type { StaffTitle } from "@/lib/types/backend"
 import { useToast } from "@/hooks/use-toast"
 import {
   Plus, MoreHorizontal, Power, Trash2, Search, Filter, Upload, Download,
@@ -71,6 +73,8 @@ export default function TeachersPage() {
   const [formUsername, setFormUsername] = useState("")
   const [formPassword, setFormPassword] = useState("")
   const [formOrgNodeId, setFormOrgNodeId] = useState<string>("")
+  const [formTitleIds, setFormTitleIds] = useState<string[]>([])
+  const [staffTitles, setStaffTitles] = useState<StaffTitle[]>([])
 
   useEffect(() => {
     setTeachers(
@@ -91,6 +95,19 @@ export default function TeachersPage() {
     )
   }, [users, identityTypeMap, institution, orgMap])
 
+  useEffect(() => {
+    if (!tenantId) return
+    portalStaffTitleApi.list({ tenantId, limit: 1000 }).then((res) => {
+      setStaffTitles(res.items)
+    }).catch(() => {})
+  }, [tenantId])
+
+  const titleNameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    staffTitles.forEach((t) => map.set(t.id, t.name))
+    return map
+  }, [staffTitles])
+
   const selectedOrgIds = useMemo(() => {
     if (!selectedOrgNodeId) return null
     return collectOrgSubtreeIds(orgMap, selectedOrgNodeId)
@@ -109,6 +126,7 @@ export default function TeachersPage() {
     setFormUsername("")
     setFormPassword("")
     setFormOrgNodeId("")
+    setFormTitleIds([])
   }
 
   const openCreateDialog = () => {
@@ -123,6 +141,7 @@ export default function TeachersPage() {
     setFormUsername(teacher.loginAccount)
     setFormPassword("")
     setFormOrgNodeId(teacher.orgNodeId || "")
+    setFormTitleIds(teacher.positions)
     setIsDialogOpen(true)
   }
 
@@ -150,7 +169,7 @@ export default function TeachersPage() {
         studentNo: original.studentNo,
         workId: original.workId,
         idCard: original.idCard,
-        titleIds: original.titleIds,
+        titleIds: formTitleIds,
       })
       toast({ title: "保存成功" })
       setIsDialogOpen(false)
@@ -188,6 +207,7 @@ export default function TeachersPage() {
         password: formPassword.trim(),
         name: formName.trim(),
         orgNodeId: formOrgNodeId || undefined,
+        titleIds: formTitleIds.length > 0 ? formTitleIds : undefined,
       })
       toast({ title: "创建成功" })
       setIsDialogOpen(false)
@@ -372,7 +392,7 @@ export default function TeachersPage() {
                           {teacher.positions.length > 0 ? (
                             <div className="flex gap-1 flex-wrap">
                               {teacher.positions.map((pos, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs">{pos}</Badge>
+                                <Badge key={i} variant="secondary" className="text-xs">{titleNameMap.get(pos) || pos}</Badge>
                               ))}
                             </div>
                           ) : <span className="text-muted-foreground">—</span>}
@@ -457,6 +477,38 @@ export default function TeachersPage() {
                 placeholder="选择所属组织节点"
                 title="选择所属组织节点"
               />
+            </div>
+            <div className="grid gap-2">
+              <Label>职位</Label>
+              {staffTitles.length === 0 ? (
+                <p className="text-sm text-muted-foreground">暂无可选职位</p>
+              ) : (
+                <ScrollArea className="h-40 border rounded-md p-2">
+                  <div className="space-y-1">
+                    {staffTitles.map((title) => (
+                      <div key={title.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`title-${title.id}`}
+                          checked={formTitleIds.includes(title.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setFormTitleIds((prev) => [...prev, title.id])
+                            } else {
+                              setFormTitleIds((prev) => prev.filter((id) => id !== title.id))
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`title-${title.id}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          {title.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
             </div>
           </div>
           <DialogFooter>
