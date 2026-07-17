@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -189,7 +190,7 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 为新租户自动创建默认套餐，避免后续页面报 subscription not found
-	_, _ = h.DB.Exec(r.Context(), `
+	if _, err := h.DB.Exec(r.Context(), `
 		INSERT INTO subscription_packages (tenant_id, name, valid_until, modules, status)
 		VALUES ($1, '默认全功能套餐', NULL, $2, 'active')
 	`, id, domain.JSONMap{
@@ -205,7 +206,9 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 		"opc":      true,
 		"decision": true,
 		"research": true,
-	})
+	}); err != nil {
+		log.Printf("[ERROR] createTenant: failed to insert default subscription package for tenant %s (%s): %v", id, req.Code, err)
+	}
 
 	// 为新租户初始化默认组织类型
 	_, _ = h.DB.Exec(r.Context(), `

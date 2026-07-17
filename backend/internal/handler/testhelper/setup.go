@@ -83,6 +83,13 @@ func SetupTestEnv(t *testing.T) *TestEnv {
 		r.Get("/resources", resourceHandler.List)
 		r.Get("/resources/{id}", resourceHandler.Get)
 
+		tenantHandler := &handler.TenantHandler{DB: pool}
+		r.Get("/admin/tenants", tenantHandler.AdminList)
+		r.Post("/admin/tenants", tenantHandler.AdminCreate)
+		r.Put("/admin/tenants/{id}", tenantHandler.AdminUpdate)
+		r.Post("/admin/tenants/{id}/status", tenantHandler.AdminUpdateStatus)
+		r.Delete("/admin/tenants/{id}", tenantHandler.AdminDelete)
+
 		r.Group(func(r chi.Router) {
 			r.Use(auth)
 

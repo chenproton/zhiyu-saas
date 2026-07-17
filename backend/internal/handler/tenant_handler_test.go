@@ -216,3 +216,35 @@ func TestTenant_UpdateStatus_Invalid(t *testing.T) {
 		t.Fatalf("expected 400, got %d", w.Code)
 	}
 }
+
+func TestTenant_AdminCreate_CreatesSubscription(t *testing.T) {
+	env := testhelper.SetupTestEnv(t)
+	defer env.Cleanup()
+	ctx := context.Background()
+
+	w := env.DoNoAuth("POST", "/api/v1/admin/tenants", map[string]string{
+		"name": "Admin Tenant Sub",
+		"code": "admin-sub-test",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
+	}
+
+	resp, err := testhelper.Unmarshal[createTenantResp](w)
+	if err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	tenant := resp.Tenant
+	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", tenant.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", tenant.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM subscription_packages WHERE tenant_id = $1", tenant.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", tenant.ID)
+
+	var subID string
+	err = env.DB.QueryRow(ctx,
+		`SELECT id FROM subscription_packages WHERE tenant_id = $1`, tenant.ID,
+	).Scan(&subID)
+	if err != nil {
+		t.Fatalf("subscription not found for admin-created tenant: %v", err)
+	}
+}

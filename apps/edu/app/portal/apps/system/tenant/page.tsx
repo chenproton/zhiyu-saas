@@ -37,10 +37,7 @@ import {
 } from "@/components/ui/select"
 import {
   MoreHorizontal,
-  Pencil,
   Plus,
-  Power,
-  Trash2,
   Search,
   Filter,
   Shield,
@@ -359,15 +356,12 @@ export default function TenantPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => { setSelectedTenant(tenant); loadTenantToForm(tenant); setIsCreateDialogOpen(true) }}>
-                            <Pencil className="mr-2 h-4 w-4" />
                             编辑
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(tenant)}>
-                            <Power className="h-4 w-4 mr-1" />
                             {tenant.status === "active" ? "停用" : "启用"}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDelete(tenant)} className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
                             删除
                           </DropdownMenuItem>
                         </DropdownMenuContent>
