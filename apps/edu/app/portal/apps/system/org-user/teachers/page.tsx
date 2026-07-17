@@ -172,7 +172,11 @@ export default function TeachersPage() {
   }
 
   const handleCreate = async () => {
-    if (!tenantId || !institutionId || !formName.trim() || !formUsername.trim() || !formPassword.trim()) return
+    if (!tenantId) {
+      toast({ variant: "destructive", title: "创建失败", description: "未获取到租户信息，请重新登录" })
+      return
+    }
+    if (!formName.trim() || !formUsername.trim() || !formPassword.trim()) return
     const teacherType = Array.from(identityTypeMap.values()).find((it) => it.code === "teacher")
     if (!teacherType) {
       toast({ variant: "destructive", title: "创建失败", description: "未找到教职工身份类型" })
