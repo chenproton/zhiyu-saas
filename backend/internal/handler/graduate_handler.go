@@ -66,17 +66,17 @@ func (h *GraduateHandler) List(w http.ResponseWriter, r *http.Request) {
 		offset = v
 	}
 
-	where := []string{"tenant_id = $1"}
+	where := []string{"g.tenant_id = $1"}
 	args := []interface{}{tenantID}
 	argIdx := 2
 
 	if search != "" {
-		where = append(where, "(name ILIKE $"+itoa(argIdx)+" OR student_no ILIKE $"+itoa(argIdx)+")")
+		where = append(where, "(g.name ILIKE $"+itoa(argIdx)+" OR g.student_no ILIKE $"+itoa(argIdx)+")")
 		args = append(args, "%"+search+"%")
 		argIdx++
 	}
 
-	countQuery := "SELECT COUNT(*) FROM graduates WHERE " + strings.Join(where, " AND ")
+	countQuery := "SELECT COUNT(*) FROM graduates g WHERE " + strings.Join(where, " AND ")
 	var total int
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
@@ -85,7 +85,7 @@ func (h *GraduateHandler) List(w http.ResponseWriter, r *http.Request) {
 		FROM graduates g
 		LEFT JOIN majors m ON m.id = g.major_id
 		WHERE ` + strings.Join(where, " AND ") + `
-		ORDER BY created_at DESC
+		ORDER BY g.created_at DESC
 		LIMIT $` + itoa(argIdx) + ` OFFSET $` + itoa(argIdx+1)
 	args = append(args, limit, offset)
 
