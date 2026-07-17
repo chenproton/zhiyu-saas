@@ -121,7 +121,8 @@ export default function RelationsPage() {
       setSelectedInitiator("")
       setSelectedTarget("")
       setSelectedType("")
-      loadRelations()
+      setSearchText("")
+      await loadRelations()
     } catch (err) {
       toast({ variant: "destructive", title: "创建失败", description: err instanceof Error ? err.message : "未知错误" })
     } finally {
