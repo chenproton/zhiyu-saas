@@ -79,6 +79,7 @@ type User struct {
 	TitleIDs       []string   `json:"titleIds,omitempty"`
 	Oauth          JSONMap    `json:"oauth,omitempty"`
 	Status         string     `json:"status"`
+	GraduateYear  *int       `json:"graduateYear,omitempty"`
 	LastLoginAt    *time.Time `json:"lastLoginAt,omitempty"`
 	CreatedAt      time.Time  `json:"createdAt"`
 	UpdatedAt      time.Time  `json:"updatedAt"`

@@ -1,68 +1,87 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
-import { portalGraduateApi } from "@/lib/api"
+import { usePortalUsers } from "@/hooks/use-portal-users"
+import { useOrgTree, findOrgAncestor } from "@/hooks/use-org-tree"
+import { OrgNodePicker } from "@/components/shared/org-node-picker"
+import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import { Search, Download, Eye, MoreHorizontal, RotateCcw, Loader2, AlertCircle, Pencil } from "lucide-react"
-import type { Graduate } from "@/lib/types/backend"
+import { Search, Download, MoreHorizontal, RotateCcw, Loader2, Pencil } from "lucide-react"
+import type { Organization } from "@/lib/types/backend"
+
+const DEPT_TYPE = "二级学院"
+const CLASS_TYPE = "班级"
+
+interface DisplayGraduate {
+  id: string
+  name: string
+  loginAccount: string
+  className: string
+  department: string
+  orgNodeId?: string
+  graduateYear?: number
+}
+
+function getOrgTypeName(org: Organization | undefined, orgTypeMap: Map<string, { name: string }>): string | undefined {
+  if (!org) return undefined
+  return orgTypeMap.get(org.typeId)?.name
+}
 
 export default function GraduatesPage() {
-  const { tenantId } = usePortalAuth()
+  const { institution, institutionId, tenantId } = usePortalAuth()
   const { toast } = useToast()
-  const [searchText, setSearchText] = useState("")
-  const [graduates, setGraduates] = useState<Graduate[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string>()
+  const [searchTerm, setSearchTerm] = useState("")
+  const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
+    identityTypeCode: "student",
+    status: "graduated",
+    search: searchTerm || undefined,
+  })
+  const { orgs, orgMap, orgTypeMap, loading: orgLoading } = useOrgTree(tenantId)
+
+  const [graduates, setGraduates] = useState<DisplayGraduate[]>([])
   const [yearFilter, setYearFilter] = useState("all")
-  const [selectedGraduates, setSelectedGraduates] = useState<string[]>([])
+  const [editingGraduate, setEditingGraduate] = useState<DisplayGraduate | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingGraduate, setEditingGraduate] = useState<Graduate | null>(null)
   const [saving, setSaving] = useState(false)
-  const [isReEnrollDialogOpen, setIsReEnrollDialogOpen] = useState(false)
-  const [graduateToReEnroll, setGraduateToReEnroll] = useState<Graduate | null>(null)
 
   const [formName, setFormName] = useState("")
-  const [formStudentNo, setFormStudentNo] = useState("")
-  const [formIdCard, setFormIdCard] = useState("")
-  const [formEnrollYear, setFormEnrollYear] = useState("")
-  const [formGraduateYear, setFormGraduateYear] = useState("")
-  const [formMajorName, setFormMajorName] = useState("")
-  const [formClassName, setFormClassName] = useState("")
-
-  const fetchGraduates = async () => {
-    if (!tenantId) return
-    setLoading(true)
-    setError(undefined)
-    try {
-      const res = await portalGraduateApi.list({ tenantId, search: searchText || undefined, limit: 1000 })
-      setGraduates(res.items)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败")
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [formUsername, setFormUsername] = useState("")
+  const [formClassNodeId, setFormClassNodeId] = useState<string>("")
 
   useEffect(() => {
-    fetchGraduates()
-  }, [tenantId, searchText])
+    setGraduates(
+      users.map((u) => {
+        const classNode = u.orgNodeId ? orgMap.get(u.orgNodeId) : undefined
+        const className = classNode?.name || "—"
 
-  const filteredGraduates = useMemo(() => {
-    return graduates.filter((g) => {
-      const matchYear = yearFilter === "all" || String(g.graduateYear) === yearFilter
-      return matchYear
-    })
-  }, [graduates, yearFilter])
+        let departmentName = institution?.name || "—"
+        if (classNode) {
+          const deptNode = findOrgAncestor(orgMap, classNode.id, (org) => getOrgTypeName(org, orgTypeMap) === DEPT_TYPE)
+          departmentName = deptNode?.name || institution?.name || "—"
+        }
+
+        return {
+          id: u.id,
+          name: u.name,
+          loginAccount: u.loginName || u.username,
+          className,
+          department: departmentName,
+          orgNodeId: u.orgNodeId,
+          graduateYear: u.graduateYear,
+        }
+      })
+    )
+  }, [users, institution, orgMap, orgTypeMap])
 
   const graduateYears = useMemo(() => {
     return [...new Set(graduates.map((g) => g.graduateYear).filter((y): y is number => y !== undefined))]
@@ -70,61 +89,51 @@ export default function GraduatesPage() {
       .map(String)
   }, [graduates])
 
-  const toggleSelectGraduate = (id: string) => {
-    setSelectedGraduates((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
-  }
+  const filteredGraduates = useMemo(() => {
+    return graduates.filter((g) => {
+      if (yearFilter !== "all" && String(g.graduateYear) !== yearFilter) return false
+      return true
+    })
+  }, [graduates, yearFilter])
 
-  const toggleSelectAll = () => {
-    if (selectedGraduates.length === filteredGraduates.length && filteredGraduates.length > 0) {
-      setSelectedGraduates([])
-    } else {
-      setSelectedGraduates(filteredGraduates.map((g) => g.id))
-    }
-  }
-
-  const resetForm = (graduate?: Graduate | null) => {
-    setFormName(graduate?.name || "")
-    setFormStudentNo(graduate?.studentNo || "")
-    setFormIdCard(graduate?.idCard || "")
-    setFormEnrollYear(graduate?.enrollYear !== undefined ? String(graduate.enrollYear) : "")
-    setFormGraduateYear(graduate?.graduateYear !== undefined ? String(graduate.graduateYear) : "")
-    setFormMajorName(graduate?.majorName || "")
-    setFormClassName(graduate?.className || "")
-  }
-
-  const openEditDialog = (graduate: Graduate) => {
+  const openEditDialog = (graduate: DisplayGraduate) => {
     setEditingGraduate(graduate)
-    resetForm(graduate)
+    setFormName(graduate.name)
+    setFormUsername(graduate.loginAccount)
+    setFormClassNodeId(graduate.orgNodeId || "")
     setIsDialogOpen(true)
   }
 
-  const handleSave = async () => {
-    if (!tenantId) {
-      toast({ variant: "destructive", title: "保存失败", description: "未获取到租户信息，请重新登录" })
+  const handleUpdate = async () => {
+    if (!editingGraduate || !formName.trim() || !formUsername.trim()) return
+    const original = users.find((u) => u.id === editingGraduate.id)
+    if (!original) {
+      toast({ variant: "destructive", title: "保存失败", description: "未找到原始用户数据" })
       return
     }
-    if (!formName.trim()) return
     setSaving(true)
     try {
-      const payload = {
-        tenantId,
+      await portalUserManagementApi.update(editingGraduate.id, {
+        institutionId: original.institutionId,
+        identityTypeId: original.identityTypeId,
+        orgNodeId: formClassNodeId || undefined,
+        majorId: original.majorId,
+        role: original.role,
+        loginName: formUsername.trim(),
+        username: formUsername.trim(),
         name: formName.trim(),
-        studentNo: formStudentNo.trim() || undefined,
-        idCard: formIdCard.trim() || undefined,
-        enrollYear: formEnrollYear ? Number(formEnrollYear) : undefined,
-        graduateYear: formGraduateYear ? Number(formGraduateYear) : undefined,
-        majorName: formMajorName.trim() || undefined,
-        className: formClassName.trim() || undefined,
-      }
-      if (editingGraduate) {
-        await portalGraduateApi.update(editingGraduate.id, payload)
-        toast({ title: "保存成功" })
-      } else {
-        await portalGraduateApi.create(payload as Omit<Graduate, "id" | "createdAt">)
-        toast({ title: "创建成功" })
-      }
+        email: original.email,
+        phone: original.phone,
+        avatarUrl: original.avatarUrl,
+        studentNo: original.studentNo,
+        workId: original.workId,
+        idCard: original.idCard,
+        titleIds: original.titleIds,
+      })
+      toast({ title: "保存成功" })
       setIsDialogOpen(false)
-      await fetchGraduates()
+      setEditingGraduate(null)
+      await refetch()
     } catch (err) {
       toast({ variant: "destructive", title: "保存失败", description: err instanceof Error ? err.message : "未知错误" })
     } finally {
@@ -132,19 +141,11 @@ export default function GraduatesPage() {
     }
   }
 
-  const handleReEnroll = (graduate: Graduate) => {
-    setGraduateToReEnroll(graduate)
-    setIsReEnrollDialogOpen(true)
-  }
-
-  const confirmReEnroll = async () => {
-    if (!graduateToReEnroll) return
+  const handleReEnroll = async (graduate: DisplayGraduate) => {
     try {
-      await portalGraduateApi.delete(graduateToReEnroll.id)
+      await portalUserManagementApi.updateStatus(graduate.id, "active")
       toast({ title: "已恢复入学" })
-      setIsReEnrollDialogOpen(false)
-      setGraduateToReEnroll(null)
-      await fetchGraduates()
+      await refetch()
     } catch (err) {
       toast({ variant: "destructive", title: "操作失败", description: err instanceof Error ? err.message : "未知错误" })
     }
@@ -159,20 +160,19 @@ export default function GraduatesPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-1" />
-            导出
+            <Download className="h-4 w-4 mr-1" />导出
           </Button>
         </div>
       </div>
 
       {error && (
         <div className="mb-4 rounded border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <Loader2 className="h-5 w-5 shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="font-medium">加载失败</p>
             <p className="text-sm opacity-90">{error}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchGraduates}>
+          <Button variant="outline" size="sm" onClick={refetch}>
             <RotateCcw className="h-4 w-4 mr-1" />重试
           </Button>
         </div>
@@ -183,8 +183,8 @@ export default function GraduatesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="搜索姓名或学号..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -207,26 +207,19 @@ export default function GraduatesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={selectedGraduates.length === filteredGraduates.length && filteredGraduates.length > 0}
-                  onCheckedChange={toggleSelectAll}
-                />
-              </TableHead>
+              <TableHead>登录账号（学号）</TableHead>
               <TableHead>姓名</TableHead>
-              <TableHead>学号</TableHead>
-              <TableHead>身份证号</TableHead>
-              <TableHead>入学年份</TableHead>
-              <TableHead>毕业年份</TableHead>
-              <TableHead>专业</TableHead>
+              <TableHead>所属院系</TableHead>
               <TableHead>班级</TableHead>
-              <TableHead className="w-24 text-center">操作</TableHead>
+              <TableHead>毕业年份</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-12">
+                <TableCell colSpan={7} className="text-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
                 </TableCell>
@@ -235,24 +228,17 @@ export default function GraduatesPage() {
               <>
                 {filteredGraduates.map((graduate) => (
                   <TableRow key={graduate.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedGraduates.includes(graduate.id)}
-                        onCheckedChange={() => toggleSelectGraduate(graduate.id)}
-                      />
-                    </TableCell>
+                    <TableCell className="font-mono text-sm">{graduate.loginAccount}</TableCell>
                     <TableCell className="font-medium">{graduate.name}</TableCell>
-                    <TableCell className="font-mono text-sm">{graduate.studentNo || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{graduate.idCard || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{graduate.enrollYear !== undefined ? `${graduate.enrollYear}级` : "—"}</Badge>
-                    </TableCell>
+                    <TableCell>{graduate.department}</TableCell>
+                    <TableCell>{graduate.className}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{graduate.graduateYear !== undefined ? `${graduate.graduateYear}届` : "—"}</Badge>
                     </TableCell>
-                    <TableCell>{graduate.majorName || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{graduate.className || "—"}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell>
+                      <Badge>毕业</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -273,8 +259,8 @@ export default function GraduatesPage() {
                 ))}
                 {filteredGraduates.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      {searchText || yearFilter !== "all" ? "未找到匹配的学生" : "暂无数据"}
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      {searchTerm || yearFilter !== "all" ? "未找到匹配的学生" : "暂无数据"}
                     </TableCell>
                   </TableRow>
                 )}
@@ -285,99 +271,47 @@ export default function GraduatesPage() {
       </div>
 
       <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
-        <div>
-          共 {filteredGraduates.length} 条记录 {selectedGraduates.length > 0 && `，已选择 ${selectedGraduates.length} 条`}
-        </div>
+        <span>共 {filteredGraduates.length} 条记录</span>
       </div>
 
-      {/* 新增/编辑毕业学生 */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
-            <DialogTitle>{editingGraduate ? "编辑毕业学生" : "新增毕业学生"}</DialogTitle>
-            <DialogDescription>填写毕业学生档案信息</DialogDescription>
+            <DialogTitle>编辑学生</DialogTitle>
+            <DialogDescription>修改学生基本信息与班级归属</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>姓名 <span className="text-destructive">*</span></Label>
-                <Input placeholder="请输入姓名" value={formName} onChange={(e) => setFormName(e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label>学号</Label>
-                <Input placeholder="如：S2024001" value={formStudentNo} onChange={(e) => setFormStudentNo(e.target.value)} />
-              </div>
+            <div className="grid gap-2">
+              <Label>姓名 <span className="text-destructive">*</span></Label>
+              <Input placeholder="请输入姓名" value={formName} onChange={(e) => setFormName(e.target.value)} />
             </div>
             <div className="grid gap-2">
-              <Label>身份证号</Label>
-              <Input placeholder="请输入身份证号" value={formIdCard} onChange={(e) => setFormIdCard(e.target.value)} />
+              <Label>登录账号（学号） <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：S2024001" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>入学年份</Label>
-                <Input placeholder="如：2020" value={formEnrollYear} onChange={(e) => setFormEnrollYear(e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label>毕业年份</Label>
-                <Input placeholder="如：2024" value={formGraduateYear} onChange={(e) => setFormGraduateYear(e.target.value)} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>专业</Label>
-                <Input placeholder="如：计算机科学与技术" value={formMajorName} onChange={(e) => setFormMajorName(e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label>班级</Label>
-                <Input placeholder="如：计算机2401班" value={formClassName} onChange={(e) => setFormClassName(e.target.value)} />
-              </div>
+            <div className="grid gap-2">
+              <Label>班级 <span className="text-destructive">*</span></Label>
+              <OrgNodePicker
+                tenantId={tenantId}
+                value={formClassNodeId}
+                onChange={(value) => {
+                  setFormClassNodeId(value || "")
+                }}
+                selectableTypes={[CLASS_TYPE]}
+                placeholder="选择班级"
+                title="选择班级"
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>
-              取消
-            </Button>
-            <Button onClick={handleSave} disabled={saving || !formName.trim()}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
+            <Button
+              onClick={handleUpdate}
+              disabled={saving || !formName.trim() || !formUsername.trim() || !formClassNodeId}
+            >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               保存
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 重新入学确认对话框 */}
-      <Dialog open={isReEnrollDialogOpen} onOpenChange={setIsReEnrollDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>确认重新入学</DialogTitle>
-            <DialogDescription>
-              确定要将 <span className="font-medium text-foreground">{graduateToReEnroll?.name}</span> 恢复到学生管理吗？
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="rounded-lg bg-muted/50 p-3 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">学号：</span>
-                <span>{graduateToReEnroll?.studentNo || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">原班级：</span>
-                <span>{graduateToReEnroll?.className || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">毕业年份：</span>
-                <span>{graduateToReEnroll?.graduateYear !== undefined ? `${graduateToReEnroll.graduateYear}届` : "—"}</span>
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              注：重新入学后，该学生将从毕业学生列表中移除，并恢复到学生管理中。
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsReEnrollDialogOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={confirmReEnroll}>确认恢复</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

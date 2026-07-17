@@ -157,21 +157,6 @@ type UserRelation struct {
 	CreatedAt            time.Time `json:"createdAt"`
 }
 
-type Graduate struct {
-	ID            string    `json:"id"`
-	TenantID      string    `json:"tenantId"`
-	UserID        *string   `json:"userId,omitempty"`
-	Name          string    `json:"name"`
-	StudentNo     *string   `json:"studentNo,omitempty"`
-	IDCard        *string   `json:"idCard,omitempty"`
-	EnrollYear    *int      `json:"enrollYear,omitempty"`
-	GraduateYear  *int      `json:"graduateYear,omitempty"`
-	MajorID       *string   `json:"majorId,omitempty"`
-	MajorName     *string   `json:"majorName,omitempty"`
-	ClassName     *string   `json:"className,omitempty"`
-	CreatedAt     time.Time `json:"createdAt"`
-}
-
 type StaffTitle struct {
 	ID          string    `json:"id"`
 	TenantID    string    `json:"tenantId"`

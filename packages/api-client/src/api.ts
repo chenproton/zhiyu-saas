@@ -6,7 +6,6 @@ import type {
   Role,
   UserExtensionField,
   UserRelation,
-  Graduate,
   StaffTitle,
   LoginLog,
   OperationLog,
@@ -161,6 +160,7 @@ export interface User {
   titleIds?: string[]
   oauth?: Record<string, any>
   status: string
+  graduateYear?: number
   lastLoginAt?: string
   createdAt: string
   updatedAt: string
@@ -554,6 +554,8 @@ export const portalUserManagementApi = {
     portalRequest<User>(`/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ password }) }),
   batchCreate: (reqs: CreateUserRequest[]) =>
     portalRequest<{ count: number }>("/users/batch", { method: "POST", body: JSON.stringify({ items: reqs }) }),
+  batchGraduate: (req: { userIds: string[]; graduateYear?: number }) =>
+    portalRequest<{ count: number }>("/users/batch-graduate", { method: "POST", body: JSON.stringify(req) }),
 }
 
 export const portalStaffTitleApi = {
@@ -567,19 +569,6 @@ export const portalStaffTitleApi = {
   delete: (id: string) => portalRequest<{ id: string }>(`/staff-titles/${id}`, { method: "DELETE" }),
   toggleStatus: (id: string, status: string) =>
     portalRequest<StaffTitle>(`/staff-titles/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
-}
-
-export const portalGraduateApi = {
-  list: (params?: { tenantId?: string; search?: string; limit?: number; offset?: number }) =>
-    portalRequest<ListResponse<Graduate>>(`/graduates${buildQuery(params || {})}`),
-  get: (id: string) => portalRequest<Graduate>(`/graduates/${id}`),
-  create: (req: Omit<Graduate, "id" | "createdAt">) =>
-    portalRequest<Graduate>("/graduates", { method: "POST", body: JSON.stringify(req) }),
-  batchCreate: (req: { tenantId: string; userIds: string[]; graduateYear?: number }) =>
-    portalRequest<ListResponse<Graduate>>("/graduates/batch", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Graduate, "id" | "createdAt">>) =>
-    portalRequest<Graduate>(`/graduates/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => portalRequest<{ id: string }>(`/graduates/${id}`, { method: "DELETE" }),
 }
 
 export const portalUserExtensionFieldApi = {

@@ -73,21 +73,6 @@ export interface UserRelation {
   createdAt: string
 }
 
-export interface Graduate {
-  id: string
-  tenantId: string
-  userId?: string
-  name: string
-  studentNo?: string
-  idCard?: string
-  enrollYear?: number
-  graduateYear?: number
-  majorId?: string
-  majorName?: string
-  className?: string
-  createdAt: string
-}
-
 export interface StaffTitle {
   id: string
   tenantId: string

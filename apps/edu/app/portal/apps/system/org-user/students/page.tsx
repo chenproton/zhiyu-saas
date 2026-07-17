@@ -18,7 +18,7 @@ import { useOrgTree, findOrgAncestor } from "@/hooks/use-org-tree"
 import { OrgNodePicker } from "@/components/shared/org-node-picker"
 import { OrgFilterTree, collectOrgSubtreeIds } from "@/components/shared/org-filter-tree"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
-import { portalUserManagementApi, portalGraduateApi } from "@/lib/api"
+import { portalUserManagementApi } from "@/lib/api"
 import type { Organization } from "@/lib/types/backend"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -51,6 +51,7 @@ function mapStudentStatus(status: string): Student["status"] {
   if (status === "active") return "在籍"
   if (status === "inactive") return "休学"
   if (status === "disabled") return "退学"
+  if (status === "graduated") return "毕业"
   return "在籍"
 }
 
@@ -58,6 +59,7 @@ function toBackendStatus(status: Student["status"]): string {
   if (status === "在籍") return "active"
   if (status === "休学") return "inactive"
   if (status === "退学") return "disabled"
+  if (status === "毕业") return "graduated"
   return "active"
 }
 
@@ -192,8 +194,8 @@ export default function StudentsPage() {
 		if (selectedStudents.length === 0 || !tenantId) return
 		setGraduateLoading(true)
 		try {
-			await portalGraduateApi.batchCreate({ tenantId, userIds: selectedStudents })
-			toast({ title: "批量毕业成功", description: `已将 ${selectedStudents.length} 名学生移至毕业列表` })
+			await portalUserManagementApi.batchGraduate({ userIds: selectedStudents })
+			toast({ title: "批量毕业成功", description: `已将 ${selectedStudents.length} 名学生状态改为毕业` })
 			setSelectedStudents([])
 			await refetch()
 		} catch (err) {

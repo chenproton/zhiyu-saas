@@ -58,7 +58,6 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	platformLinkHandler := &handler.PlatformLinkHandler{DB: db}
 	appModuleHandler := &handler.AppModuleHandler{DB: db}
 	staffTitleHandler := &handler.StaffTitleHandler{DB: db}
-	graduateHandler := &handler.GraduateHandler{DB: db}
 	userExtensionFieldHandler := &handler.UserExtensionFieldHandler{DB: db}
 	userRelationHandler := &handler.UserRelationHandler{DB: db}
 
@@ -240,6 +239,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 				r.Post("/users/{id}/status", userManagementHandler.UpdateStatus)
 				r.Post("/users/{id}/reset-password", userManagementHandler.ResetPassword)
 				r.Post("/users/batch", userManagementHandler.BatchCreate)
+				r.Post("/users/batch-graduate", userManagementHandler.BatchGraduate)
 
 				r.Route("/staff-titles", func(r chi.Router) {
 					r.Get("/", staffTitleHandler.List)
@@ -248,15 +248,6 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 					r.Put("/{id}", staffTitleHandler.Update)
 					r.Delete("/{id}", staffTitleHandler.Delete)
 					r.Post("/{id}/status", staffTitleHandler.ToggleStatus)
-				})
-
-				r.Route("/graduates", func(r chi.Router) {
-					r.Get("/", graduateHandler.List)
-					r.Post("/", graduateHandler.Create)
-					r.Post("/batch", graduateHandler.BatchCreate)
-					r.Get("/{id}", graduateHandler.Get)
-					r.Put("/{id}", graduateHandler.Update)
-					r.Delete("/{id}", graduateHandler.Delete)
 				})
 
 				r.Route("/user-extension-fields", func(r chi.Router) {

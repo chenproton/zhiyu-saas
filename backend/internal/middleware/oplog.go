@@ -18,7 +18,6 @@ var moduleNames = map[string]string{
 	"identity-types":        "身份类型",
 	"users":                 "用户管理",
 	"staff-titles":          "教职工职称",
-	"graduates":             "毕业生管理",
 	"user-extension-fields": "用户扩展字段",
 	"user-relations":        "用户关系",
 	"roles":                 "角色权限",

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -72,6 +73,11 @@ type BatchCreateUserRequest struct {
 
 type ResetPasswordRequest struct {
 	Password string `json:"password"`
+}
+
+type BatchGraduateRequest struct {
+	UserIDs      []string `json:"userIds"`
+	GraduateYear *int     `json:"graduateYear"`
 }
 
 func (h *UserManagementHandler) currentIdentityCode(r *http.Request) string {
@@ -167,7 +173,7 @@ func (h *UserManagementHandler) List(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
 			role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
-			student_no, work_id, id_card, title_ids, oauth, status, last_login_at, created_at, updated_at
+			student_no, work_id, id_card, title_ids, oauth, status, graduate_year, last_login_at, created_at, updated_at
 		FROM users
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -319,7 +325,7 @@ func (h *UserManagementHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if req.Status != "active" && req.Status != "inactive" && req.Status != "disabled" {
+	if req.Status != "active" && req.Status != "inactive" && req.Status != "disabled" && req.Status != "graduated" {
 		respondError(w, http.StatusBadRequest, "invalid status")
 		return
 	}
@@ -429,6 +435,49 @@ func (h *UserManagementHandler) BatchCreate(w http.ResponseWriter, r *http.Reque
 	respondJSON(w, http.StatusCreated, UserListResponse{Items: created, Total: len(created)})
 }
 
+func (h *UserManagementHandler) BatchGraduate(w http.ResponseWriter, r *http.Request) {
+	if !h.canManageUsers(r) {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req BatchGraduateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.UserIDs) == 0 {
+		respondError(w, http.StatusBadRequest, "userIds is required")
+		return
+	}
+
+	graduateYear := time.Now().Year()
+	if req.GraduateYear != nil {
+		graduateYear = *req.GraduateYear
+	}
+
+	uuids := make([]uuid.UUID, len(req.UserIDs))
+	for i, id := range req.UserIDs {
+		uid, err := uuid.Parse(id)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid userId: "+id)
+			return
+		}
+		uuids[i] = uid
+	}
+
+	_, err := h.DB.Exec(r.Context(),
+		`UPDATE users SET status = 'graduated', graduate_year = $1, updated_at = NOW() WHERE id = ANY($2::uuid[])`,
+		graduateYear, uuids)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to batch graduate")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]int{"count": len(req.UserIDs)})
+}
+
 func (h *UserManagementHandler) createSingleUser(ctx context.Context, req CreateUserRequest) (domain.User, error) {
 	tx, err := h.DB.Begin(ctx)
 	if err != nil {
@@ -507,13 +556,13 @@ func (h *UserManagementHandler) fetchUser(ctx context.Context, id string) (domai
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
 			role, login_name, username, password_hash, name, email, phone, avatar_url,
-			student_no, work_id, id_card, title_ids, oauth, status, last_login_at, created_at, updated_at
+			student_no, work_id, id_card, title_ids, oauth, status, graduate_year, last_login_at, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID, &tenantID, &institutionID, &identityTypeID, &orgNodeID, &majorID,
 		&user.Role, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
-		&user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+		&user.GraduateYear, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return user, err
@@ -543,13 +592,13 @@ func (h *UserManagementHandler) fetchUserInTx(ctx context.Context, tx pgx.Tx, id
 	err := tx.QueryRow(ctx, `
 		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
 			role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
-			student_no, work_id, id_card, title_ids, oauth, status, last_login_at, created_at, updated_at
+			student_no, work_id, id_card, title_ids, oauth, status, graduate_year, last_login_at, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID, &tenantID, &institutionID, &identityTypeID, &orgNodeID, &majorID,
 		&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
-		&user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+		&user.GraduateYear, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return user, err
@@ -581,7 +630,7 @@ func (h *UserManagementHandler) scanUserRows(rows pgx.Rows) ([]domain.User, erro
 			&user.ID, &tenantID, &institutionID, &identityTypeID, &orgNodeID, &majorID,
 			&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 			&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
-			&user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+			&user.GraduateYear, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
