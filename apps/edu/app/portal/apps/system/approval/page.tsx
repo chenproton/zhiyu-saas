@@ -199,19 +199,15 @@ export default function ApprovalPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
                           查看详情
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEdit(flow)}>
-                          <Pencil className="mr-2 h-4 w-4" />
                           编辑
                         </DropdownMenuItem>
                         <DropdownMenuItem>
-                          <Copy className="mr-2 h-4 w-4" />
                           复制
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => deleteFlow(flow.id)} className="text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" />
                           删除
                         </DropdownMenuItem>
                       </DropdownMenuContent>

@@ -7,8 +7,6 @@ import { useEffect, useMemo, useState } from "react"
 import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { portalRequest, buildQuery } from "@/lib/api"
-import { buildMenuTree } from "@/lib/menu-permissions"
-import type { MenuTreeItem } from "@/lib/menu-permissions"
 import type { SubscriptionPackage } from "@/lib/types/backend"
 
 interface SubModule {
@@ -22,24 +20,51 @@ interface PackageModule {
   subModules: SubModule[]
 }
 
-const SUBSCRIPTION_KEY_TO_PLATFORM: Record<string, string> = {
-  system: "portal-system",
-  course: "lesson-admin",
-  career: "job",
-  scene: "scene",
-  ability: "evaluation",
-}
-
-function collectLeafPages(nodes: MenuTreeItem[]): { id: string; label: string }[] {
-  const pages: { id: string; label: string }[] = []
-  const walk = (items: MenuTreeItem[]) => {
-    for (const item of items) {
-      if (item.href) pages.push({ id: item.id, label: item.label })
-      if (item.children) walk(item.children)
-    }
-  }
-  walk(nodes)
-  return pages
+const SUBSCRIPTION_PLATFORM_DEFS: Record<string, {
+  label: string
+  pages: { id: string; label: string }[]
+}> = {
+  system: {
+    label: "系统管理",
+    pages: [
+      { id: "tenant", label: "租户信息" },
+      { id: "org-user", label: "组织用户" },
+      { id: "resource", label: "系统资源" },
+      { id: "approval", label: "审批流程" },
+      { id: "logs", label: "日志管理" },
+    ],
+  },
+  course: {
+    label: "课程管理",
+    pages: [
+      { id: "resource-center", label: "在线课资源库" },
+      { id: "hybrid-center", label: "混合课资源库" },
+      { id: "course-open", label: "教学空间" },
+    ],
+  },
+  career: {
+    label: "岗位管理",
+    pages: [
+      { id: "positions", label: "岗位管理" },
+      { id: "abilities", label: "能力管理" },
+    ],
+  },
+  scene: {
+    label: "场景管理",
+    pages: [
+      { id: "scenarios", label: "场景管理" },
+      { id: "tasks", label: "任务管理" },
+    ],
+  },
+  ability: {
+    label: "能力测评",
+    pages: [
+      { id: "question-banks", label: "题库管理" },
+      { id: "exams", label: "考试管理" },
+      { id: "certifications", label: "认证管理" },
+      { id: "graduation", label: "毕业管理" },
+    ],
+  },
 }
 
 function buildPackageModules(
@@ -47,25 +72,18 @@ function buildPackageModules(
 ): PackageModule[] {
   if (!modules || typeof modules !== "object") return []
 
-  const menuTree = buildMenuTree()
-
-  return Object.entries(modules)
-    .map(([key, value]) => {
-      const platformId = SUBSCRIPTION_KEY_TO_PLATFORM[key]
-      if (!platformId) return null
-      const platformNode = menuTree.find((n) => n.id === platformId)
-      if (!platformNode) return null
-      const leafPages = collectLeafPages(platformNode.children || [])
+  return Object.entries(SUBSCRIPTION_PLATFORM_DEFS)
+    .map(([key, def]) => {
+      const enabled = Boolean(modules[key])
       return {
-        name: platformNode.label,
-        enabled: Boolean(value),
-        subModules: leafPages.map((p) => ({
+        name: def.label,
+        enabled,
+        subModules: def.pages.map((p) => ({
           name: p.label,
-          enabled: Boolean(value),
+          enabled,
         })),
       }
     })
-    .filter((m): m is PackageModule => m !== null)
 }
 
 export default function PackagePage() {

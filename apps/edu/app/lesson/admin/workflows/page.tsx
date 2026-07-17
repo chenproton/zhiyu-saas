@@ -330,15 +330,13 @@ export default function WorkflowsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openEditDialog(workflow)}>
-                              <Pencil className="mr-2 h-4 w-4" />
                               编辑
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              className="text-red-500 focus:text-red-500"
+                              className="text-destructive"
                               onClick={() => handleDelete(workflow.id)}
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
                               删除
                             </DropdownMenuItem>
                           </DropdownMenuContent>

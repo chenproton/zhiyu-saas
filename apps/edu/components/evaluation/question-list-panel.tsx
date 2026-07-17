@@ -494,12 +494,10 @@ export function QuestionListPanel({ bankId }: QuestionListPanelProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setPreviewQuestion(question)}>
-                          <Eye className="mr-2 size-3.5" />
                           查看详情
                         </DropdownMenuItem>
                         {canEditQuestion(question) && (
                           <DropdownMenuItem onClick={() => handleQuestionEdit(question)}>
-                            <Edit className="mr-2 size-3.5" />
                             编辑
                           </DropdownMenuItem>
                         )}
@@ -514,7 +512,6 @@ export function QuestionListPanel({ bankId }: QuestionListPanelProps) {
                               })
                             }
                           >
-                            <Send className="mr-2 size-3.5" />
                             提交审核
                           </DropdownMenuItem>
                         )}
@@ -529,7 +526,6 @@ export function QuestionListPanel({ bankId }: QuestionListPanelProps) {
                               })
                             }
                           >
-                            <Undo2 className="mr-2 size-3.5" />
                             撤回审批
                           </DropdownMenuItem>
                         )}
@@ -544,7 +540,6 @@ export function QuestionListPanel({ bankId }: QuestionListPanelProps) {
                               })
                             }
                           >
-                            <Rocket className="mr-2 size-3.5" />
                             发布
                           </DropdownMenuItem>
                         )}
@@ -553,9 +548,8 @@ export function QuestionListPanel({ bankId }: QuestionListPanelProps) {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => setDeleteConfirm(question)}
-                              className="text-destructive focus:text-destructive"
+                              className="text-destructive"
                             >
-                              <Trash2 className="mr-2 size-3.5" />
                               删除
                             </DropdownMenuItem>
                           </>

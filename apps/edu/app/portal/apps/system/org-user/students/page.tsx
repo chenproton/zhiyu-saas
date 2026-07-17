@@ -430,14 +430,13 @@ export default function StudentsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => resetPassword(student)}>
-                                <Key className="mr-2 h-4 w-4" />重置密码
+                                重置密码
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => toggleStatus(student)}>
-                                <Power className="mr-2 h-4 w-4" />
                                 {student.status === "在籍" ? "设为休学" : "设为在籍"}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleDeleteClick(student.id)} className="text-destructive">
-                                <Trash2 className="mr-2 h-4 w-4" />删除
+                                删除
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

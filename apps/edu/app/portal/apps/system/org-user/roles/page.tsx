@@ -367,19 +367,15 @@ export default function RolesPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => { setSelectedRole(role); setEditName(role.name); setIsDialogOpen(true) }}>
-                                <Pencil className="mr-2 h-4 w-4" />
                                 编辑
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openPermDialog(role)}>
-                                <Settings className="mr-2 h-4 w-4" />
                                 权限配置
                               </DropdownMenuItem>
                               <DropdownMenuItem>
-                                <Eye className="mr-2 h-4 w-4" />
                                 查看用户
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive" onClick={() => deleteRole(role)}>
-                                <Trash2 className="mr-2 h-4 w-4" />
                                 删除
                               </DropdownMenuItem>
                             </DropdownMenuContent>

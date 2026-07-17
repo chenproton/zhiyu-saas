@@ -363,13 +363,11 @@ export default function ExamUsagePage() {
                           <DropdownMenuContent align="end">
                             {canStart(usage.status) && (
                               <DropdownMenuItem onClick={() => handleStart(usage.id)}>
-                                <PlayCircle className="mr-2 size-4" />
                                 开始考试
                               </DropdownMenuItem>
                             )}
                             {canFinish(usage.status) && (
                               <DropdownMenuItem onClick={() => handleFinish(usage.id)}>
-                                <CheckCircle2 className="mr-2 size-4" />
                                 结束考试
                               </DropdownMenuItem>
                             )}
@@ -379,16 +377,14 @@ export default function ExamUsagePage() {
                                   router.push(`/evaluation/exam-usage/results?usageId=${usage.id}`)
                                 }
                               >
-                                <Eye className="mr-2 size-4" />
                                 查看考试结果
                               </DropdownMenuItem>
                             )}
                             {canDelete(usage.status) && (
                               <DropdownMenuItem
-                                className="text-red-500 focus:text-red-500"
+                                className="text-destructive"
                                 onClick={() => openDeleteDialog(usage.id)}
                               >
-                                <Trash2 className="mr-2 size-4" />
                                 删除
                               </DropdownMenuItem>
                             )}

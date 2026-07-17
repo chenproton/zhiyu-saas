@@ -158,19 +158,16 @@ export default function AccountsPage() {
                       <DropdownMenuContent align="end">
                         {hasPermission("portal_system", "accounts", "reset_password") && (
                           <DropdownMenuItem onClick={() => handleResetPassword(account.id, account.name)}>
-                            <Key className="h-4 w-4 mr-2" />
                             重置密码
                           </DropdownMenuItem>
                         )}
                         {hasPermission("portal_system", "accounts", "disable") && (
                           account.statusLabel === "正常" ? (
                             <DropdownMenuItem className="text-destructive" onClick={() => handleToggleStatus(account.id, account.status)}>
-                              <Ban className="h-4 w-4 mr-2" />
                               禁用账户
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem onClick={() => handleToggleStatus(account.id, account.status)}>
-                              <CheckCircle className="h-4 w-4 mr-2" />
                               启用账户
                             </DropdownMenuItem>
                           )

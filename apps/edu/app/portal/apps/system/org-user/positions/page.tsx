@@ -209,19 +209,15 @@ export default function PositionsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => openDialog(position)}>
-                          <Pencil className="mr-2 h-4 w-4" />
                           编辑
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openUsersDialog(position)}>
-                          <Eye className="mr-2 h-4 w-4" />
                           查看用户
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => toggleStatus(position)}>
-                          <Power className="mr-2 h-4 w-4" />
                           {position.status === "active" ? "停用" : "启用"}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => deletePosition(position.id)} className="text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" />
                           删除
                         </DropdownMenuItem>
                       </DropdownMenuContent>

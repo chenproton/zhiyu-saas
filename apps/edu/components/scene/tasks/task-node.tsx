@@ -91,12 +91,10 @@ export function TaskNode({ task, scenarioId, isActive, onEdit, onDelete }: TaskN
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-32">
             <DropdownMenuItem onClick={onEdit}>
-              <Pencil className="mr-2 h-4 w-4" />
               编辑
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-red-500 focus:text-red-500">
-              <Trash2 className="mr-2 h-4 w-4" />
+            <DropdownMenuItem onClick={onDelete} className="text-destructive">
               删除
             </DropdownMenuItem>
           </DropdownMenuContent>

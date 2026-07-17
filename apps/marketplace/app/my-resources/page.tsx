@@ -317,32 +317,27 @@ export default function MyResourcesPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => router.push(`/resources/${resource.id}`)}>
-                                <Eye className="mr-2 h-4 w-4" />
                                 查看
                               </DropdownMenuItem>
                               {(resource.status === "draft" || resource.status === "rejected") && (
                                 <DropdownMenuItem asChild>
                                   <Link href={`/my-resources/${resource.id}/edit`}>
-                                    <Pencil className="mr-2 h-4 w-4" />
                                     编辑
                                   </Link>
                                 </DropdownMenuItem>
                               )}
                               {resource.status === "draft" && (
                                 <DropdownMenuItem onClick={() => handleAction("提交审核", resource.id)}>
-                                  <Upload className="mr-2 h-4 w-4" />
                                   提交审核
                                 </DropdownMenuItem>
                               )}
                               {resource.status === "pending_publish" && (
                                 <DropdownMenuItem onClick={() => handleAction("上架", resource.id)}>
-                                  <Upload className="mr-2 h-4 w-4" />
                                   上架
                                 </DropdownMenuItem>
                               )}
                               {resource.status === "published" && (
                                 <DropdownMenuItem onClick={() => handleAction("下架", resource.id)}>
-                                  <Download className="mr-2 h-4 w-4" />
                                   下架
                                 </DropdownMenuItem>
                               )}
@@ -351,7 +346,6 @@ export default function MyResourcesPage() {
                                   className="text-destructive"
                                   onClick={() => handleAction("删除", resource.id)}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" />
                                   删除
                                 </DropdownMenuItem>
                               )}

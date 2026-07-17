@@ -340,15 +340,13 @@ export default function BatchesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openEdit(batch)}>
-                              <Pencil className="mr-2 h-4 w-4" />
                               编辑
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              className="text-red-500 focus:text-red-500"
+                              className="text-destructive"
                               onClick={() => handleDeleteBatch(batch.id)}
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
                               删除
                             </DropdownMenuItem>
                           </DropdownMenuContent>

@@ -319,15 +319,12 @@ export default function SuperAdminPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openEdit(t)}>
-                            <Pencil className="mr-2 h-4 w-4" />
                             编辑
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleToggleClick(t)}>
-                            <Power className="mr-2 h-4 w-4" />
                             {t.status === "active" ? "停用" : "启用"}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDeleteClick(t)} className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
                             删除
                           </DropdownMenuItem>
                         </DropdownMenuContent>

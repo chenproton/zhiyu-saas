@@ -267,11 +267,9 @@ export default function GraduatesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openEditDialog(graduate)}>
-                            <Pencil className="mr-2 h-4 w-4" />
                             编辑
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleReEnroll(graduate)}>
-                            <RotateCcw className="mr-2 h-4 w-4" />
                             重新入学
                           </DropdownMenuItem>
                         </DropdownMenuContent>

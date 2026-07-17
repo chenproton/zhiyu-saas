@@ -404,18 +404,16 @@ export default function TeachersPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => openEditDialog(teacher)}>
-                                  <Pencil className="mr-2 h-4 w-4" />编辑
+                                  编辑
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => toggleStatus(teacher)}>
-                                  <Power className="mr-2 h-4 w-4" />
                                   {teacher.status === "在职" ? "设为离职" : "设为在职"}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => resetPassword(teacher)}>
-                                  <Key className="mr-2 h-4 w-4" />
                                   重置密码
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDeleteClick(teacher.id)} className="text-destructive">
-                                  <Trash2 className="mr-2 h-4 w-4" />删除
+                                  删除
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

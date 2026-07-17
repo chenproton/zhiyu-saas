@@ -162,24 +162,19 @@ function TreeNode({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onAction("addChild", node)}>
-              <Plus className="mr-2 h-4 w-4" />
               添加子节点
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onAction("addParent", node)}>
-              <ArrowUp className="mr-2 h-4 w-4" />
               添加父节点
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onAction("edit", node)}>
-              <Pencil className="mr-2 h-4 w-4" />
               编辑
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onAction("members", node)}>
-              <Users className="mr-2 h-4 w-4" />
               成员管理
             </DropdownMenuItem>
             {node.type === "班级" && (
               <DropdownMenuItem onClick={() => onAction("graduate", node)}>
-                <GraduationCap className="mr-2 h-4 w-4" />
                 批量毕业
               </DropdownMenuItem>
             )}
@@ -188,7 +183,6 @@ function TreeNode({
               onClick={() => onAction("delete", node)}
               className="text-destructive"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
               删除
             </DropdownMenuItem>
           </DropdownMenuContent>
