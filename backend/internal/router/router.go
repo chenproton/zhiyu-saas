@@ -143,6 +143,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 
 		r.Group(func(r chi.Router) {
 			r.Use(auth)
+			r.Use(authmw.OperationLog(db))
 
 			// Public authenticated routes
 			r.Get("/auth/me", authHandler.SaasMe)

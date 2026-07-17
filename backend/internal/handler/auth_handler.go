@@ -90,11 +90,13 @@ func (h *AuthHandler) loginWithPlatform(w http.ResponseWriter, r *http.Request, 
 	user.Oauth = oauth
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		h.recordLoginLog(r, &user, "failed")
 		respondError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 
 	_, _ = h.DB.Exec(r.Context(), `UPDATE users SET last_login_at = $1 WHERE id = $2`, time.Now(), user.ID)
+	h.recordLoginLog(r, &user, "success")
 
 	identityTypeCode := h.fetchIdentityTypeCode(r.Context(), user.IdentityTypeID)
 	perms := h.fetchMergedPermissions(r.Context(), user.ID)
@@ -111,6 +113,24 @@ func (h *AuthHandler) loginWithPlatform(w http.ResponseWriter, r *http.Request, 
 
 	user.PasswordHash = ""
 	respondJSON(w, http.StatusOK, LoginResponse{Token: token, User: user})
+}
+
+func (h *AuthHandler) recordLoginLog(r *http.Request, user *domain.User, status string) {
+	if user.TenantID == nil || *user.TenantID == "" {
+		return
+	}
+	userName := user.Name
+	if userName == "" {
+		userName = user.Username
+	}
+	device := r.UserAgent()
+	if len(device) > 256 {
+		device = device[:256]
+	}
+	_, _ = h.DB.Exec(r.Context(), `
+		INSERT INTO login_logs (tenant_id, user_id, user_name, ip, device, status)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, *user.TenantID, user.ID, userName, middleware.ClientIP(r), device, status)
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
