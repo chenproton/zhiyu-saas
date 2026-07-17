@@ -123,9 +123,9 @@ function TreeNode({
       <div
         className={cn(
           "flex items-center gap-2 py-2 px-3 hover:bg-muted rounded-lg group transition-colors",
-          level > 0 && "ml-6",
           isHighlighted && "bg-yellow-100 ring-1 ring-yellow-300"
         )}
+        style={{ marginLeft: level * 24 }}
       >
         <button
           onClick={() => onToggle(node.id)}
