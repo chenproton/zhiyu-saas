@@ -46,7 +46,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Plus, Pencil, Trash2, Search, ChevronsUpDown, Check, Loader2, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { portalUserRelationApi, portalUserManagementApi } from "@/lib/api"
+import { portalUserRelationApi, portalUserManagementApi, portalIdentityTypeApi } from "@/lib/api"
 import type { User } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
@@ -77,6 +77,7 @@ export default function RelationsPage() {
   const [selectedType, setSelectedType] = useState("")
   const [saving, setSaving] = useState(false)
   const [userSearch, setUserSearch] = useState("")
+  const [studentIdentityTypeIds, setStudentIdentityTypeIds] = useState<Set<string>>(new Set())
 
   const loadRelations = useCallback(async () => {
     setLoading(true)
@@ -97,15 +98,25 @@ export default function RelationsPage() {
   const loadUsers = useCallback(async (search?: string) => {
     try {
       const res = await portalUserManagementApi.list({ search, limit: 50 })
-      setUsers(res.items)
+      setUsers(res.items.filter((u) => !studentIdentityTypeIds.has(u.identityTypeId || "")))
     } catch {
       // ignore user list load failures
     }
-  }, [])
+  }, [studentIdentityTypeIds])
 
   useEffect(() => {
     loadUsers()
   }, [loadUsers])
+
+  useEffect(() => {
+    portalIdentityTypeApi.list({ limit: 100 }).then((res) => {
+      const ids = new Set<string>()
+      res.items.forEach((it) => {
+        if (it.code === "student") ids.add(it.id)
+      })
+      setStudentIdentityTypeIds(ids)
+    }).catch(() => {})
+  }, [])
 
   const handleCreate = async () => {
     if (!selectedInitiator || !selectedTarget || !selectedType) return
