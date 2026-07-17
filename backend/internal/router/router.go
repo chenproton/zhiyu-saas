@@ -134,6 +134,13 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 		r.Get("/platform-links", platformLinkHandler.List)
 		r.Get("/app-modules", appModuleHandler.List)
 
+		// Superadmin console (internal hidden page, unauthenticated by product decision)
+		r.Get("/admin/tenants", tenantHandler.AdminList)
+		r.Post("/admin/tenants", tenantHandler.AdminCreate)
+		r.Put("/admin/tenants/{id}", tenantHandler.AdminUpdate)
+		r.Post("/admin/tenants/{id}/status", tenantHandler.AdminUpdateStatus)
+		r.Delete("/admin/tenants/{id}", tenantHandler.AdminDelete)
+
 		r.Group(func(r chi.Router) {
 			r.Use(auth)
 

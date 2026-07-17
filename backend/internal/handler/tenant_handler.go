@@ -136,6 +136,10 @@ func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.createTenant(w, r)
+}
+
+func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 	var req CreateTenantRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body")
@@ -200,6 +204,10 @@ func (h *TenantHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.updateTenant(w, r)
+}
+
+func (h *TenantHandler) updateTenant(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if _, err := h.fetchTenant(r.Context(), id); err != nil {
 		respondError(w, http.StatusNotFound, "tenant not found")
@@ -238,6 +246,10 @@ func (h *TenantHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.updateTenantStatus(w, r)
+}
+
+func (h *TenantHandler) updateTenantStatus(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if _, err := h.fetchTenant(r.Context(), id); err != nil {
 		respondError(w, http.StatusNotFound, "tenant not found")
