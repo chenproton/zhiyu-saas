@@ -23,7 +23,7 @@ function mapAccountStatus(status: string): { label: string; className: string } 
 
 export default function AccountsPage() {
   const { toast } = useToast()
-  const { hasPermission, tenantId } = usePortalAuth()
+  const { tenantId } = usePortalAuth()
   const [searchText, setSearchText] = useState("")
   const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
     search: searchText || undefined,
@@ -196,32 +196,24 @@ export default function AccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {hasPermission("portal_system", "accounts", "edit") && (
-                          <DropdownMenuItem onClick={() => openEditDialog(account.id, account.name, account.rawLoginName)}>
-                            <Pencil className="h-4 w-4" />编辑
+                        <DropdownMenuItem onClick={() => openEditDialog(account.id, account.name, account.rawLoginName)}>
+                          <Pencil className="h-4 w-4" />编辑
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleResetPassword(account.id, account.name)}>
+                          重置密码
+                        </DropdownMenuItem>
+                        {account.status === "active" ? (
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleToggleStatus(account.id, account.status)}>
+                            禁用账户
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => handleToggleStatus(account.id, account.status)}>
+                            启用账户
                           </DropdownMenuItem>
                         )}
-                        {hasPermission("portal_system", "accounts", "reset_password") && (
-                          <DropdownMenuItem onClick={() => handleResetPassword(account.id, account.name)}>
-                            重置密码
-                          </DropdownMenuItem>
-                        )}
-                        {hasPermission("portal_system", "accounts", "disable") && (
-                          account.status === "active" ? (
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleToggleStatus(account.id, account.status)}>
-                              禁用账户
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => handleToggleStatus(account.id, account.status)}>
-                              启用账户
-                            </DropdownMenuItem>
-                          )
-                        )}
-                        {hasPermission("portal_system", "accounts", "delete") && (
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(account.id, account.name)}>
-                            <Trash2 className="h-4 w-4" />删除
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(account.id, account.name)}>
+                          <Trash2 className="h-4 w-4" />删除
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
