@@ -372,14 +372,6 @@ export default function TenantPage() {
                             <Pencil className="mr-2 h-4 w-4" />
                             编辑
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openAdminDialog(tenant)}>
-                            <Users className="mr-2 h-4 w-4" />
-                            管理员管理
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setSelectedTenant(tenant); setIsPermissionDialogOpen(true) }}>
-                            <Shield className="mr-2 h-4 w-4" />
-                            权限资源管理
-                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(tenant)}>
                             <Power className="h-4 w-4 mr-1" />
                             {tenant.status === "active" ? "停用" : "启用"}

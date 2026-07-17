@@ -268,9 +268,17 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 
 func (h *TenantHandler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.CurrentUser(r)
-	if !canManagePlatform(claims) {
+	if !canManagePortal(claims) && !canManagePlatform(claims) {
 		respondError(w, http.StatusForbidden, "permission denied")
 		return
+	}
+
+	if !canManagePlatform(claims) {
+		id := chi.URLParam(r, "id")
+		if claims.TenantID == nil || *claims.TenantID != id {
+			respondError(w, http.StatusForbidden, "can only update own tenant")
+			return
+		}
 	}
 
 	h.updateTenant(w, r)
