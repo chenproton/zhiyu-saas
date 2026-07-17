@@ -2,9 +2,7 @@ package handler
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
-	"math/big"
 	"net/http"
 	"strings"
 
@@ -167,19 +165,6 @@ func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 	h.createTenant(w, r)
 }
 
-func generatePassword(length int) (string, error) {
-	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
-	result := make([]byte, length)
-	for i := range result {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
-		if err != nil {
-			return "", err
-		}
-		result[i] = chars[n.Int64()]
-	}
-	return string(result), nil
-}
-
 func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 	var req CreateTenantRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -253,10 +238,7 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 	if schoolAdminIdentityTypeID != "" {
 		adminID := uuid.NewString()
 		adminUsername := "admin-" + req.Code
-		adminPassword, pwErr := generatePassword(12)
-		if pwErr != nil {
-			adminPassword = "Admin@123456"
-		}
+			adminPassword := "admin123"
 
 		hash, hashErr := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 		if hashErr == nil {

@@ -40,7 +40,7 @@ BEGIN
             'school', 'portal',
             'admin-' || tenant.id::text,
             'admin-' || tenant.id::text,
-            '$2a$10$LkM99npGAiWch6ZpsYxxcO6mY0550rTwR5wm8oWwpEFxLlK.6L0uS',
+            '$2a$10$cg21n3Zs/C1ZYJ6fQ49MwuwvFsGVweCckG40Z3HWcZ20I1VWSepqC',
             tenant.name || '管理员', NULL, NULL, NULL, NULL, NULL, NULL, '{}'::uuid[], '{}', 'active');
 
         UPDATE tenants SET admin_ids = ARRAY[admin_id] WHERE id = tenant.id;
