@@ -247,7 +247,10 @@ export default function StudentsPage() {
   }
 
   const handleCreate = async () => {
-    if (!tenantId || !institutionId || !formName.trim() || !formUsername.trim() || !formPassword.trim()) return
+    if (!tenantId) {
+      toast({ variant: "destructive", title: "创建失败", description: "未获取到租户信息，请重新登录" })
+      return
+    }
     if (!formClassNodeId || !formMajorId) {
       toast({ variant: "destructive", title: "创建失败", description: "请选择班级和专业" })
       return
@@ -509,7 +512,7 @@ export default function StudentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
-            <Button onClick={handleCreate} disabled={saving || !formName.trim() || !formUsername.trim() || !formPassword.trim() || !formClassNodeId || !formMajorId}>
+            <Button onClick={handleCreate} disabled={saving || !tenantId || !formName.trim() || !formUsername.trim() || !formPassword.trim() || !formClassNodeId || !formMajorId}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               保存
             </Button>
