@@ -15,11 +15,10 @@ import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree, findOrgAncestor } from "@/hooks/use-org-tree"
-import { OrgNodeSelect } from "@/components/shared/org-node-select"
+import { OrgNodePicker } from "@/components/shared/org-node-picker"
 import { OrgFilterTree, collectOrgSubtreeIds } from "@/components/shared/org-filter-tree"
-import { MajorSelect } from "@/components/shared/major-select"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
-import { portalUserManagementApi, majorApi, portalGraduateApi } from "@/lib/api"
+import { portalUserManagementApi, portalGraduateApi } from "@/lib/api"
 import type { Organization } from "@/lib/types/backend"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -28,23 +27,15 @@ import {
 } from "lucide-react"
 
 const DEPT_TYPE = "二级学院"
-const MAJOR_TYPE = "专业"
 const CLASS_TYPE = "班级"
-
-interface Major {
-  id: string
-  name: string
-}
 
 interface Student {
   id: string
   name: string
-  studentNo: string
+  loginAccount: string
   className: string
-  major: string
   department: string
   orgNodeId?: string
-  majorId?: string
   status: "在籍" | "休学" | "退学" | "毕业" | "结业"
 }
 
@@ -101,56 +92,16 @@ export default function StudentsPage() {
 	const [graduateLoading, setGraduateLoading] = useState(false)
 	const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
-  const [majors, setMajors] = useState<Major[]>([])
-
   const [formName, setFormName] = useState("")
   const [formUsername, setFormUsername] = useState("")
   const [formPassword, setFormPassword] = useState("")
-  const [formStudentNo, setFormStudentNo] = useState("")
   const [formClassNodeId, setFormClassNodeId] = useState<string>("")
-  const [formMajorId, setFormMajorId] = useState<string>("")
-
-  useEffect(() => {
-    if (!tenantId) {
-      setMajors([])
-      return
-    }
-    let cancelled = false
-    majorApi.list({ tenantId, limit: 1000 })
-      .then((res) => {
-        if (cancelled) return
-        setMajors(res.items.map((m) => ({ id: m.id, name: m.name })))
-      })
-      .catch((err) => {
-        if (cancelled) return
-        toast({ variant: "destructive", title: "加载专业失败", description: err instanceof Error ? err.message : "未知错误" })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [tenantId, toast])
-
-  const majorMap = useMemo(() => {
-    const map = new Map<string, Major>()
-    majors.forEach((m) => map.set(m.id, m))
-    return map
-  }, [majors])
-
-
 
   useEffect(() => {
     setStudents(
       users.map((u) => {
         const classNode = u.orgNodeId ? orgMap.get(u.orgNodeId) : undefined
         const className = classNode?.name || "—"
-
-        let majorName = "—"
-        if (u.majorId && majorMap.has(u.majorId)) {
-          majorName = majorMap.get(u.majorId)!.name
-        } else if (classNode) {
-          const majorNode = findOrgAncestor(orgMap, classNode.id, (org) => getOrgTypeName(org, orgTypeMap) === MAJOR_TYPE)
-          majorName = majorNode?.name || "—"
-        }
 
         let departmentName = institution?.name || "—"
         if (classNode) {
@@ -161,17 +112,15 @@ export default function StudentsPage() {
         return {
           id: u.id,
           name: u.name,
-          studentNo: u.studentNo || u.username,
+          loginAccount: u.loginName || u.username,
           className,
-          major: majorName,
           department: departmentName,
           orgNodeId: u.orgNodeId,
-          majorId: u.majorId,
           status: mapStudentStatus(u.status),
         }
       })
     )
-  }, [users, institution, orgMap, orgTypeMap, majorMap])
+  }, [users, institution, orgMap, orgTypeMap])
 
   const selectedOrgIds = useMemo(() => {
     if (!selectedOrgNodeId) return null
@@ -258,9 +207,7 @@ export default function StudentsPage() {
     setFormName("")
     setFormUsername("")
     setFormPassword("")
-    setFormStudentNo("")
     setFormClassNodeId("")
-    setFormMajorId("")
   }
 
   const openCreateDialog = () => {
@@ -272,16 +219,14 @@ export default function StudentsPage() {
   const openEditDialog = (student: Student) => {
     setSelectedStudent(student)
     setFormName(student.name)
-    setFormUsername("")
+    setFormUsername(student.loginAccount)
     setFormPassword("")
-    setFormStudentNo(student.studentNo)
     setFormClassNodeId(student.orgNodeId || "")
-    setFormMajorId(student.majorId || "")
     setIsDialogOpen(true)
   }
 
   const handleUpdate = async () => {
-    if (!selectedStudent || !formName.trim()) return
+    if (!selectedStudent || !formName.trim() || !formUsername.trim()) return
     const original = users.find((u) => u.id === selectedStudent.id)
     if (!original) {
       toast({ variant: "destructive", title: "保存失败", description: "未找到原始用户数据" })
@@ -293,15 +238,15 @@ export default function StudentsPage() {
         institutionId: original.institutionId,
         identityTypeId: original.identityTypeId,
         orgNodeId: formClassNodeId || undefined,
-        majorId: formMajorId || undefined,
+        majorId: original.majorId,
         role: original.role,
-        loginName: original.loginName || original.username,
-        username: original.username,
+        loginName: formUsername.trim(),
+        username: formUsername.trim(),
         name: formName.trim(),
         email: original.email,
         phone: original.phone,
         avatarUrl: original.avatarUrl,
-        studentNo: formStudentNo.trim() || undefined,
+        studentNo: original.studentNo,
         workId: original.workId,
         idCard: original.idCard,
         titleIds: original.titleIds,
@@ -323,8 +268,8 @@ export default function StudentsPage() {
       toast({ variant: "destructive", title: "创建失败", description: "未获取到租户信息，请重新登录" })
       return
     }
-    if (!formClassNodeId || !formMajorId) {
-      toast({ variant: "destructive", title: "创建失败", description: "请选择班级和专业" })
+    if (!formClassNodeId) {
+      toast({ variant: "destructive", title: "创建失败", description: "请选择班级" })
       return
     }
     const studentType = Array.from(identityTypeMap.values()).find((it) => it.code === "student")
@@ -344,9 +289,7 @@ export default function StudentsPage() {
         username: formUsername.trim(),
         password: formPassword.trim(),
         name: formName.trim(),
-        studentNo: formStudentNo.trim() || undefined,
         orgNodeId: formClassNodeId,
-        majorId: formMajorId,
       })
       toast({ title: "创建成功" })
       setIsDialogOpen(false)
@@ -433,7 +376,7 @@ export default function StudentsPage() {
             <div className="flex items-center gap-4">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="搜索姓名、学号..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+                <Input placeholder="搜索姓名、登录账号..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-32">
@@ -464,10 +407,9 @@ export default function StudentsPage() {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>学号</TableHead>
+                  <TableHead>登录账号（学号）</TableHead>
                   <TableHead>姓名</TableHead>
                   <TableHead>所属院系</TableHead>
-                  <TableHead>专业</TableHead>
                   <TableHead>班级</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead className="text-right">操作</TableHead>
@@ -476,7 +418,7 @@ export default function StudentsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12">
+                    <TableCell colSpan={7} className="text-center py-12">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
                     </TableCell>
@@ -488,10 +430,9 @@ export default function StudentsPage() {
                         <TableCell>
                           <Checkbox checked={selectedStudents.includes(student.id)} onCheckedChange={() => toggleSelectStudent(student.id)} />
                         </TableCell>
-                        <TableCell className="font-mono text-sm">{student.studentNo}</TableCell>
+                        <TableCell className="font-mono text-sm">{student.loginAccount}</TableCell>
                         <TableCell className="font-medium">{student.name}</TableCell>
                         <TableCell>{student.department}</TableCell>
-                        <TableCell className="text-muted-foreground">{student.major}</TableCell>
                         <TableCell>{student.className}</TableCell>
                         <TableCell>
                           <Badge variant={classBadge(statusColor[student.status])}>{student.status}</Badge>
@@ -523,7 +464,7 @@ export default function StudentsPage() {
                     ))}
                     {filteredStudents.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                           {searchTerm ? "未找到匹配的学生" : "暂无学生数据"}
                         </TableCell>
                       </TableRow>
@@ -544,48 +485,34 @@ export default function StudentsPage() {
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle>{selectedStudent ? "编辑学生" : "新生录入"}</DialogTitle>
-            <DialogDescription>{selectedStudent ? "修改学生基本信息与班级、专业归属" : "填写学生基本信息，并关联到真实班级与专业"}</DialogDescription>
+            <DialogDescription>{selectedStudent ? "修改学生基本信息与班级归属" : "填写学生基本信息，并关联到真实班级"}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>姓名 <span className="text-destructive">*</span></Label>
               <Input placeholder="请输入姓名" value={formName} onChange={(e) => setFormName(e.target.value)} />
             </div>
+            <div className="grid gap-2">
+              <Label>登录账号（学号） <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：S2024001" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} />
+            </div>
             {!selectedStudent && (
-              <>
-                <div className="grid gap-2">
-                  <Label>登录账号 <span className="text-destructive">*</span></Label>
-                  <Input placeholder="如：zhangsan" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>密码 <span className="text-destructive">*</span></Label>
-                  <Input type="password" placeholder="请输入密码" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
-                </div>
-              </>
+              <div className="grid gap-2">
+                <Label>密码 <span className="text-destructive">*</span></Label>
+                <Input type="password" placeholder="请输入密码" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
+              </div>
             )}
             <div className="grid gap-2">
-              <Label>学号</Label>
-              <Input placeholder="如：S2024001" value={formStudentNo} onChange={(e) => setFormStudentNo(e.target.value)} />
-            </div>
-            <div className="grid gap-2">
               <Label>班级 <span className="text-destructive">*</span></Label>
-              <OrgNodeSelect
+              <OrgNodePicker
                 tenantId={tenantId}
                 value={formClassNodeId}
                 onChange={(value) => {
                   setFormClassNodeId(value || "")
                 }}
-                allowedTypes={[CLASS_TYPE]}
+                selectableTypes={[CLASS_TYPE]}
                 placeholder="选择班级"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>专业 <span className="text-destructive">*</span></Label>
-              <MajorSelect
-                tenantId={tenantId}
-                value={formMajorId}
-                onChange={(value) => setFormMajorId(value || "")}
-                placeholder="选择专业"
+                title="选择班级"
               />
             </div>
           </div>
@@ -593,22 +520,19 @@ export default function StudentsPage() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
             <Button
               onClick={selectedStudent ? handleUpdate : handleCreate}
-              disabled={saving || !tenantId || !formName.trim() || !formClassNodeId || !formMajorId || (!selectedStudent && (!formUsername.trim() || !formPassword.trim()))}
+              disabled={saving || !tenantId || !formName.trim() || !formUsername.trim() || !formClassNodeId || (!selectedStudent && !formPassword.trim())}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               保存
             </Button>
           </DialogFooter>
-          {!saving && !formClassNodeId && (
+          {!saving && !formUsername.trim() && (
+            <p className="text-xs text-muted-foreground">请填写登录账号（学号）</p>
+          )}
+          {!saving && formUsername.trim() && !formClassNodeId && (
             <p className="text-xs text-muted-foreground">请选择班级</p>
           )}
-          {!saving && formClassNodeId && !formMajorId && (
-            <p className="text-xs text-muted-foreground">请选择专业</p>
-          )}
-          {!saving && !selectedStudent && formClassNodeId && formMajorId && !formUsername.trim() && (
-            <p className="text-xs text-muted-foreground">请填写登录账号</p>
-          )}
-          {!saving && !selectedStudent && formClassNodeId && formMajorId && formUsername.trim() && !formPassword.trim() && (
+          {!saving && !selectedStudent && formUsername.trim() && formClassNodeId && !formPassword.trim() && (
             <p className="text-xs text-muted-foreground">请填写密码</p>
           )}
         </DialogContent>

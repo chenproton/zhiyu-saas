@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree } from "@/hooks/use-org-tree"
-import { OrgNodeSelect } from "@/components/shared/org-node-select"
+import { OrgNodePicker } from "@/components/shared/org-node-picker"
 import { OrgFilterTree, collectOrgSubtreeIds } from "@/components/shared/org-filter-tree"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { portalUserManagementApi } from "@/lib/api"
@@ -27,7 +27,7 @@ import {
 interface Teacher {
   id: string
   name: string
-  workNo: string
+  loginAccount: string
   department: string
   orgNodeId?: string
   roles: string[]
@@ -70,7 +70,6 @@ export default function TeachersPage() {
   const [formName, setFormName] = useState("")
   const [formUsername, setFormUsername] = useState("")
   const [formPassword, setFormPassword] = useState("")
-  const [formWorkId, setFormWorkId] = useState("")
   const [formOrgNodeId, setFormOrgNodeId] = useState<string>("")
 
   useEffect(() => {
@@ -81,7 +80,7 @@ export default function TeachersPage() {
         return {
           id: u.id,
           name: u.name,
-          workNo: u.workId || u.username,
+          loginAccount: u.loginName || u.username,
           department: orgNode?.name || institution?.name || "—",
           orgNodeId: u.orgNodeId,
           roles: idType ? [idType.name] : [],
@@ -109,7 +108,6 @@ export default function TeachersPage() {
     setFormName("")
     setFormUsername("")
     setFormPassword("")
-    setFormWorkId("")
     setFormOrgNodeId("")
   }
 
@@ -122,15 +120,14 @@ export default function TeachersPage() {
   const openEditDialog = (teacher: Teacher) => {
     setSelectedTeacher(teacher)
     setFormName(teacher.name)
-    setFormUsername("")
+    setFormUsername(teacher.loginAccount)
     setFormPassword("")
-    setFormWorkId(teacher.workNo)
     setFormOrgNodeId(teacher.orgNodeId || "")
     setIsDialogOpen(true)
   }
 
   const handleUpdate = async () => {
-    if (!selectedTeacher || !formName.trim()) return
+    if (!selectedTeacher || !formName.trim() || !formUsername.trim()) return
     const original = users.find((u) => u.id === selectedTeacher.id)
     if (!original) {
       toast({ variant: "destructive", title: "保存失败", description: "未找到原始用户数据" })
@@ -144,14 +141,14 @@ export default function TeachersPage() {
         orgNodeId: formOrgNodeId || undefined,
         majorId: original.majorId,
         role: original.role,
-        loginName: original.loginName || original.username,
-        username: original.username,
+        loginName: formUsername.trim(),
+        username: formUsername.trim(),
         name: formName.trim(),
         email: original.email,
         phone: original.phone,
         avatarUrl: original.avatarUrl,
         studentNo: original.studentNo,
-        workId: formWorkId.trim() || undefined,
+        workId: original.workId,
         idCard: original.idCard,
         titleIds: original.titleIds,
       })
@@ -190,7 +187,6 @@ export default function TeachersPage() {
         username: formUsername.trim(),
         password: formPassword.trim(),
         name: formName.trim(),
-        workId: formWorkId.trim() || undefined,
         orgNodeId: formOrgNodeId || undefined,
       })
       toast({ title: "创建成功" })
@@ -315,7 +311,7 @@ export default function TeachersPage() {
             <div className="flex items-center gap-4">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="搜索姓名或工号..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+                <Input placeholder="搜索姓名或登录账号..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-32">
@@ -339,7 +335,7 @@ export default function TeachersPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border">
-                  <TableHead>工号</TableHead>
+                  <TableHead>登录账号（工号）</TableHead>
                   <TableHead>姓名</TableHead>
                   <TableHead>所属院系</TableHead>
                   <TableHead>关联角色</TableHead>
@@ -360,7 +356,7 @@ export default function TeachersPage() {
                   <>
                     {filteredTeachers.map((teacher) => (
                       <TableRow key={teacher.id} className="border-border">
-                        <TableCell className="font-mono text-sm">{teacher.workNo}</TableCell>
+                        <TableCell className="font-mono text-sm">{teacher.loginAccount}</TableCell>
                         <TableCell className="font-medium">{teacher.name}</TableCell>
                         <TableCell>{teacher.department}</TableCell>
                         <TableCell>
@@ -442,29 +438,24 @@ export default function TeachersPage() {
               <Label>姓名 <span className="text-destructive">*</span></Label>
               <Input placeholder="请输入姓名" value={formName} onChange={(e) => setFormName(e.target.value)} />
             </div>
+            <div className="grid gap-2">
+              <Label>登录账号（工号） <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：T001" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} />
+            </div>
             {!selectedTeacher && (
-              <>
-                <div className="grid gap-2">
-                  <Label>登录账号 <span className="text-destructive">*</span></Label>
-                  <Input placeholder="如：zhangsan" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>密码 <span className="text-destructive">*</span></Label>
-                  <Input type="password" placeholder="请输入密码" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
-                </div>
-              </>
+              <div className="grid gap-2">
+                <Label>密码 <span className="text-destructive">*</span></Label>
+                <Input type="password" placeholder="请输入密码" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
+              </div>
             )}
             <div className="grid gap-2">
-              <Label>工号</Label>
-              <Input placeholder="如：T001" value={formWorkId} onChange={(e) => setFormWorkId(e.target.value)} />
-            </div>
-            <div className="grid gap-2">
               <Label>所属组织节点</Label>
-              <OrgNodeSelect
+              <OrgNodePicker
                 tenantId={tenantId}
                 value={formOrgNodeId}
                 onChange={(value) => setFormOrgNodeId(value || "")}
                 placeholder="选择所属组织节点"
+                title="选择所属组织节点"
               />
             </div>
           </div>
@@ -472,7 +463,7 @@ export default function TeachersPage() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
             <Button
               onClick={selectedTeacher ? handleUpdate : handleCreate}
-              disabled={saving || !formName.trim() || (!selectedTeacher && (!formUsername.trim() || !formPassword.trim()))}
+              disabled={saving || !formName.trim() || !formUsername.trim() || (!selectedTeacher && !formPassword.trim())}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               保存
