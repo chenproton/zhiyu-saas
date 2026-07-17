@@ -20,7 +20,6 @@ DO $$ BEGIN ALTER TABLE question_banks   DROP CONSTRAINT IF EXISTS fk_question_b
 DO $$ BEGIN ALTER TABLE exams            DROP CONSTRAINT IF EXISTS fk_exams_creator;            ALTER TABLE exams            ADD CONSTRAINT fk_exams_creator             FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE exam_usages      DROP CONSTRAINT IF EXISTS fk_exam_usages_creator;      ALTER TABLE exam_usages      ADD CONSTRAINT fk_exam_usages_creator       FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE courses          DROP CONSTRAINT IF EXISTS fk_courses_creator;          ALTER TABLE courses          ADD CONSTRAINT fk_courses_creator           FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN ALTER TABLE career_positions DROP CONSTRAINT IF EXISTS fk_career_positions_creator; ALTER TABLE career_positions ADD CONSTRAINT fk_career_positions_creator  FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 3) users.tenant_id 改回 SET NULL
 ALTER TABLE users DROP CONSTRAINT fk_users_tenant;
