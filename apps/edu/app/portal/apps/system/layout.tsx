@@ -54,7 +54,6 @@ const menuItems = [
       { id: "students", label: "学生管理", href: "/portal/apps/system/org-user/students" },
       { id: "teachers", label: "教职工管理", href: "/portal/apps/system/org-user/teachers" },
       { id: "accounts", label: "账户列表", href: "/portal/apps/system/org-user/accounts" },
-      { id: "identity-types", label: "身份类型管理", href: "/portal/apps/system/org-user/identity-types" },
       { id: "fields", label: "用户字段扩展", href: "/portal/apps/system/org-user/fields" },
       { id: "relations", label: "关系类型管理", href: "/portal/apps/system/org-user/relations" },
       { id: "graduates", label: "毕业学生管理", href: "/portal/apps/system/org-user/graduates" },

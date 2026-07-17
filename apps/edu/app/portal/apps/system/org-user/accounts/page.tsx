@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree } from "@/hooks/use-org-tree"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
-import { Search, MoreHorizontal, Trash2, Loader2, AlertCircle, RotateCcw } from "lucide-react"
+import { Search, MoreHorizontal, Trash2, Loader2, AlertCircle, RotateCcw, Tags } from "lucide-react"
+import IdentityTypesPanel from "../identity-types/identity-types-panel"
 
 function mapAccountStatus(status: string): { label: string; className: string } {
   if (status === "active") {
@@ -31,6 +33,7 @@ export default function AccountsPage() {
 
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
   const [batchDeleting, setBatchDeleting] = useState(false)
+  const [showIdentityTypes, setShowIdentityTypes] = useState(false)
 
   const handleResetPassword = async (id: string, name: string) => {
     const password = window.prompt(`请输入 ${name} 的新密码：`)
@@ -133,12 +136,18 @@ export default function AccountsPage() {
             />
           </div>
         </div>
-        {selectedAccounts.length > 0 && (
-          <Button variant="destructive" size="sm" disabled={batchDeleting} onClick={handleBatchDelete}>
-            {batchDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
-            批量删除({selectedAccounts.length})
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowIdentityTypes(true)}>
+            <Tags className="h-4 w-4 mr-1" />
+            身份类型管理
           </Button>
-        )}
+          {selectedAccounts.length > 0 && (
+            <Button variant="destructive" size="sm" disabled={batchDeleting} onClick={handleBatchDelete}>
+              {batchDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              批量删除({selectedAccounts.length})
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -245,6 +254,15 @@ export default function AccountsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={showIdentityTypes} onOpenChange={setShowIdentityTypes}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>身份类型管理</DialogTitle>
+          </DialogHeader>
+          <IdentityTypesPanel />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
