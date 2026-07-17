@@ -2,161 +2,195 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Search, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Search, Pencil, Trash2, Plus, Loader2 } from "lucide-react"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { portalRequest, buildQuery, type ListResponse } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 import type { Industry } from "@/lib/types/backend"
-
-interface SubIndustry {
-  id: string
-  code: string
-  name: string
-  enabled: boolean
-}
-
-interface GroupedIndustry {
-  id: string
-  code: string
-  name: string
-  subIndustries: SubIndustry[]
-}
-
-function groupIndustries(items: Industry[]): GroupedIndustry[] {
-  const topMap = new Map<string, GroupedIndustry>()
-  const subs: Industry[] = []
-
-  for (const item of items) {
-    if (!item.parentId) {
-      topMap.set(item.id, {
-        id: item.id,
-        code: item.code,
-        name: item.name,
-        subIndustries: [],
-      })
-    } else {
-      subs.push(item)
-    }
-  }
-
-  for (const sub of subs) {
-    const parent = sub.parentId ? topMap.get(sub.parentId) : undefined
-    if (parent) {
-      parent.subIndustries.push({
-        id: sub.id,
-        code: sub.code,
-        name: sub.name,
-        enabled: sub.enabled,
-      })
-    } else {
-      // orphan child: show as top-level with itself as sub
-      topMap.set(sub.id, {
-        id: sub.id,
-        code: sub.code,
-        name: sub.name,
-        subIndustries: [
-          { id: sub.id, code: sub.code, name: sub.name, enabled: sub.enabled },
-        ],
-      })
-    }
-  }
-
-  return Array.from(topMap.values()).sort((a, b) => a.code.localeCompare(b.code))
-}
 
 export default function IndustriesPage() {
   const { tenantId, loading: authLoading } = usePortalAuth()
-  const [rawIndustries, setRawIndustries] = useState<Industry[]>([])
+  const { toast } = useToast()
+  const [industries, setIndustries] = useState<Industry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [expandedIndustries, setExpandedIndustries] = useState<string[]>([])
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null)
+  const [dialogCode, setDialogCode] = useState("")
+  const [dialogName, setDialogName] = useState("")
+  const [dialogParentId, setDialogParentId] = useState("")
+  const [dialogSortOrder, setDialogSortOrder] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Industry | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const fetchIndustries = async () => {
+    if (!tenantId) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await portalRequest<ListResponse<Industry>>(`/industries${buildQuery({ tenantId, limit: 1000 })}`)
+      setIndustries(res.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载行业数据失败")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (authLoading || !tenantId) return
-
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-
-    portalRequest<ListResponse<Industry>>(`/industries${buildQuery({ tenantId, limit: 1000 })}`)
-      .then((res) => {
-        if (!cancelled) {
-          setRawIndustries(res.items)
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "加载行业数据失败")
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
+    fetchIndustries()
   }, [tenantId, authLoading])
 
-  const industries = useMemo(() => groupIndustries(rawIndustries), [rawIndustries])
-
-  const toggleExpand = (id: string) => {
-    setExpandedIndustries((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    )
-  }
-
-  const toggleSubIndustry = (industryId: string, subId: string) => {
-    setRawIndustries((prev) =>
-      prev.map((item) =>
-        item.id === subId ? { ...item, enabled: !item.enabled } : item
-      )
-    )
-  }
+  const parentMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const ind of industries) {
+      if (ind.parentId) {
+        const parent = industries.find((i) => i.id === ind.parentId)
+        map.set(ind.parentId, parent?.name ?? ind.parentId)
+      }
+    }
+    return map
+  }, [industries])
 
   const filteredIndustries = useMemo(
     () =>
-      industries.filter(
-        (industry) =>
-          industry.name.includes(searchTerm) ||
-          industry.code.includes(searchTerm) ||
-          industry.subIndustries.some(
-            (sub) => sub.name.includes(searchTerm) || sub.code.includes(searchTerm)
-          )
-      ),
-    [industries, searchTerm]
+      industries.filter((ind) => {
+        if (!searchTerm) return true
+        const parentName = ind.parentId ? parentMap.get(ind.parentId) : ""
+        return (
+          ind.name.includes(searchTerm) ||
+          ind.code.includes(searchTerm) ||
+          (parentName ?? "").includes(searchTerm)
+        )
+      }),
+    [industries, searchTerm, parentMap]
   )
 
-  const totalEnabled = industries.reduce(
-    (acc, ind) => acc + ind.subIndustries.filter((s) => s.enabled).length,
-    0
-  )
-  const totalSub = industries.reduce((acc, ind) => acc + ind.subIndustries.length, 0)
+  const openCreateDialog = () => {
+    setSelectedIndustry(null)
+    setDialogCode("")
+    setDialogName("")
+    setDialogParentId("")
+    setDialogSortOrder(0)
+    setIsDialogOpen(true)
+  }
+
+  const openEditDialog = (industry: Industry) => {
+    setSelectedIndustry(industry)
+    setDialogCode(industry.code)
+    setDialogName(industry.name)
+    setDialogParentId(industry.parentId || "")
+    setDialogSortOrder(industry.sortOrder)
+    setIsDialogOpen(true)
+  }
+
+  const handleSave = async () => {
+    if (!tenantId || !dialogCode.trim() || !dialogName.trim()) return
+    setSaving(true)
+    try {
+      if (selectedIndustry) {
+        await portalRequest(`/industries/${selectedIndustry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            code: dialogCode.trim(),
+            name: dialogName.trim(),
+            parentId: dialogParentId || null,
+            enabled: selectedIndustry.enabled,
+            sortOrder: dialogSortOrder,
+          }),
+        })
+        toast({ title: "保存成功", description: "行业信息已更新" })
+      } else {
+        await portalRequest("/industries", {
+          method: "POST",
+          body: JSON.stringify({
+            tenantId,
+            code: dialogCode.trim(),
+            name: dialogName.trim(),
+            parentId: dialogParentId || null,
+            enabled: true,
+            sortOrder: dialogSortOrder,
+          }),
+        })
+        toast({ title: "创建成功", description: "新行业已添加" })
+      }
+      setIsDialogOpen(false)
+      await fetchIndustries()
+    } catch (err) {
+      toast({ variant: "destructive", title: selectedIndustry ? "保存失败" : "创建失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggleEnabled = async (industry: Industry) => {
+    try {
+      await portalRequest(`/industries/${industry.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          code: industry.code,
+          name: industry.name,
+          parentId: industry.parentId || null,
+          enabled: !industry.enabled,
+          sortOrder: industry.sortOrder,
+        }),
+      })
+      toast({ title: !industry.enabled ? "已启用" : "已关闭" })
+      await fetchIndustries()
+    } catch (err) {
+      toast({ variant: "destructive", title: "操作失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await portalRequest(`/industries/${deleteTarget.id}`, { method: "DELETE" })
+      toast({ title: "删除成功" })
+      setDeleteTarget(null)
+      await fetchIndustries()
+    } catch (err) {
+      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const candidateParents = useMemo(() => {
+    if (selectedIndustry) {
+      return industries.filter((i) => i.id !== selectedIndustry.id)
+    }
+    return industries
+  }, [industries, selectedIndustry])
 
   return (
-    <div className="p-6 bg-[#f5f7fa] min-h-full">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-foreground">行业管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          管理系统中的行业分类（参考国民经济行业分类），仅可启用或关闭二级行业
-        </p>
+    <div className="p-6 min-h-full">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">行业管理</h1>
+          <p className="mt-1 text-sm text-muted-foreground">管理行业分类，可为行业设置上级行业并启用/关闭</p>
+        </div>
+        <Button size="sm" onClick={openCreateDialog}>
+          <Plus className="h-4 w-4 mr-1" />
+          新增行业
+        </Button>
       </div>
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4">
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="搜索行业名称或代码..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="text-sm text-muted-foreground">
-          已启用 <span className="text-primary font-medium">{totalEnabled}</span> / {totalSub} 个二级行业
+          <Input placeholder="搜索行业代码、名称或上级行业..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
         </div>
       </div>
 
@@ -174,74 +208,130 @@ export default function IndustriesPage() {
 
       {!loading && (
         <>
-          <div className="rounded-lg border border-gray-100 bg-white shadow-sm overflow-hidden">
-            {filteredIndustries.map((industry) => {
-              const isExpanded = expandedIndustries.includes(industry.id)
-              const enabledCount = industry.subIndustries.filter((s) => s.enabled).length
-
-              return (
-                <div key={industry.id} className="border-b border-gray-100 last:border-b-0">
-                  {/* 一级行业 - 不可选中，只作为分组 */}
-                  <button
-                    onClick={() => toggleExpand(industry.id)}
-                    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      {isExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                      )}
-                      <span className="font-mono text-sm text-muted-foreground w-8">{industry.code}</span>
-                      <span className="font-medium text-foreground">{industry.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {enabledCount}/{industry.subIndustries.length} 已启用
+          <div className="rounded-lg border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border">
+                  <TableHead className="w-28">行业代码</TableHead>
+                  <TableHead>行业名称</TableHead>
+                  <TableHead>上级行业</TableHead>
+                  <TableHead className="w-20 text-center">排序</TableHead>
+                  <TableHead className="w-24 text-center">状态</TableHead>
+                  <TableHead className="w-24 text-center">启用/关闭</TableHead>
+                  <TableHead className="w-20 text-center">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredIndustries.map((industry) => (
+                  <TableRow key={industry.id} className="border-border">
+                    <TableCell className="font-mono text-sm">{industry.code}</TableCell>
+                    <TableCell className="font-medium">{industry.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {industry.parentId ? (parentMap.get(industry.parentId) ?? industry.parentId) : <span className="text-gray-300">-</span>}
+                    </TableCell>
+                    <TableCell className="text-center text-sm text-muted-foreground">{industry.sortOrder}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={industry.enabled ? "default" : "secondary"}>
+                        {industry.enabled ? "已启用" : "已关闭"}
                       </Badge>
-                    </div>
-                  </button>
-
-                  {/* 二级行业列表 */}
-                  {isExpanded && (
-                    <div className="bg-gray-50/50 border-t border-gray-100">
-                      {industry.subIndustries.map((sub) => (
-                        <div
-                          key={sub.id}
-                          className="flex items-center justify-between px-4 py-3 pl-12 border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="font-mono text-xs text-muted-foreground w-8">{sub.code}</span>
-                            <span className={cn("text-sm", sub.enabled ? "text-foreground" : "text-muted-foreground")}>
-                              {sub.name}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Badge variant={sub.enabled ? "default" : "secondary"} className="text-xs">
-                              {sub.enabled ? "已启用" : "已关闭"}
-                            </Badge>
-                            <Switch
-                              checked={sub.enabled}
-                              onCheckedChange={() => toggleSubIndustry(industry.id, sub.id)}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-            {filteredIndustries.length === 0 && (
-              <div className="text-center py-8 text-sm text-muted-foreground">暂无行业数据</div>
-            )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Switch checked={industry.enabled} onCheckedChange={() => toggleEnabled(industry)} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(industry)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteTarget(industry)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredIndustries.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
+                      暂无行业数据
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
 
-          <div className="mt-4 text-sm text-muted-foreground">
-            共 {filteredIndustries.length} 个一级行业，{totalSub} 个二级行业
-          </div>
+          <div className="mt-4 text-sm text-muted-foreground">共 {filteredIndustries.length} 条记录</div>
         </>
       )}
+
+      {/* 新增/编辑行业 */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedIndustry ? "编辑行业" : "新增行业"}</DialogTitle>
+            <DialogDescription>
+              {selectedIndustry ? "修改行业信息" : "添加新行业"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>行业代码 <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：IT" value={dialogCode} onChange={(e) => setDialogCode(e.target.value)} disabled={!!selectedIndustry} />
+            </div>
+            <div className="grid gap-2">
+              <Label>行业名称 <span className="text-destructive">*</span></Label>
+              <Input placeholder="如：信息技术" value={dialogName} onChange={(e) => setDialogName(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>上级行业</Label>
+              <Select value={dialogParentId || "__none__"} onValueChange={(val) => setDialogParentId(val === "__none__" ? "" : val)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="无（顶级行业）" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">无（顶级行业）</SelectItem>
+                  {candidateParents.map((ind) => (
+                    <SelectItem key={ind.id} value={ind.id}>
+                      {ind.name} ({ind.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>排序</Label>
+              <Input type="number" placeholder="0" value={dialogSortOrder} onChange={(e) => setDialogSortOrder(Number(e.target.value) || 0)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
+            <Button onClick={handleSave} disabled={saving || !dialogCode.trim() || !dialogName.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除确认 */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>
+              确定要删除行业 <span className="font-medium">{deleteTarget?.name}</span>（{deleteTarget?.code}）吗？此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>取消</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
