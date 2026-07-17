@@ -3,14 +3,16 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree } from "@/hooks/use-org-tree"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
-import { Search, MoreHorizontal, Key, Ban, CheckCircle, Loader2, AlertCircle, RotateCcw } from "lucide-react"
+import { Search, MoreHorizontal, Pencil, Trash2, Loader2, AlertCircle, RotateCcw } from "lucide-react"
 
 function mapAccountStatus(status: string): { label: string; className: string } {
   if (status === "active") {
@@ -27,6 +29,11 @@ export default function AccountsPage() {
     search: searchText || undefined,
   })
   const { orgMap, orgTypeMap } = useOrgTree(tenantId)
+
+  const [editTarget, setEditTarget] = useState<{ id: string; name: string; loginName: string } | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editLoginName, setEditLoginName] = useState("")
+  const [saving, setSaving] = useState(false)
 
   const handleResetPassword = async (id: string, name: string) => {
     const password = window.prompt(`请输入 ${name} 的新密码：`)
@@ -51,6 +58,38 @@ export default function AccountsPage() {
     }
   }
 
+  const openEditDialog = (id: string, name: string, loginName: string) => {
+    setEditTarget({ id, name, loginName })
+    setEditName(name)
+    setEditLoginName(loginName)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return
+    setSaving(true)
+    try {
+      await portalUserManagementApi.update(editTarget.id, { name: editName, loginName: editLoginName })
+      toast({ title: "编辑成功" })
+      setEditTarget(null)
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "编辑失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`确定要删除账户「${name}」吗？此操作不可撤销。`)) return
+    try {
+      await portalUserManagementApi.delete(id)
+      toast({ title: "删除成功" })
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
+    }
+  }
+
   const accounts = users.map((user) => {
     const idType = user.identityTypeId ? identityTypeMap.get(user.identityTypeId) : undefined
     const statusStyle = mapAccountStatus(user.status)
@@ -62,7 +101,8 @@ export default function AccountsPage() {
       identityType: idType?.name || "—",
       orgNodeName: orgNode?.name || "—",
       orgTypeName: orgTypeName || undefined,
-      loginName: user.loginName || user.username,
+      loginName: user.loginName || user.username || "",
+      rawLoginName: user.loginName || "",
       status: user.status,
       statusLabel: statusStyle.label,
       statusClassName: statusStyle.className,
@@ -156,13 +196,18 @@ export default function AccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {hasPermission("portal_system", "accounts", "edit") && (
+                          <DropdownMenuItem onClick={() => openEditDialog(account.id, account.name, account.rawLoginName)}>
+                            <Pencil className="h-4 w-4" />编辑
+                          </DropdownMenuItem>
+                        )}
                         {hasPermission("portal_system", "accounts", "reset_password") && (
                           <DropdownMenuItem onClick={() => handleResetPassword(account.id, account.name)}>
                             重置密码
                           </DropdownMenuItem>
                         )}
                         {hasPermission("portal_system", "accounts", "disable") && (
-                          account.statusLabel === "正常" ? (
+                          account.status === "active" ? (
                             <DropdownMenuItem className="text-destructive" onClick={() => handleToggleStatus(account.id, account.status)}>
                               禁用账户
                             </DropdownMenuItem>
@@ -171,6 +216,11 @@ export default function AccountsPage() {
                               启用账户
                             </DropdownMenuItem>
                           )
+                        )}
+                        {hasPermission("portal_system", "accounts", "delete") && (
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(account.id, account.name)}>
+                            <Trash2 className="h-4 w-4" />删除
+                          </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -181,6 +231,30 @@ export default function AccountsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={editTarget !== null} onOpenChange={(open) => { if (!open) setEditTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑账户</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">姓名</Label>
+              <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="请输入姓名" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-login">登录名</Label>
+              <Input id="edit-login" value={editLoginName} onChange={(e) => setEditLoginName(e.target.value)} placeholder="请输入登录名" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={saving}>取消</Button>
+            <Button onClick={handleSaveEdit} disabled={saving || !editName.trim() || !editLoginName.trim()}>
+              {saving ? "保存中..." : "保存"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
