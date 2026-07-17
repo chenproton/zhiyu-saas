@@ -20,6 +20,7 @@ import { OrgFilterTree, collectOrgSubtreeIds } from "@/components/shared/org-fil
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { portalUserManagementApi, portalStaffTitleApi } from "@/lib/api"
 import type { StaffTitle } from "@/lib/types/backend"
+import { MultiSelectSearch } from "@/components/ui/multi-select-search"
 import { useToast } from "@/hooks/use-toast"
 import {
   Plus, MoreHorizontal, Power, Trash2, Search, Filter, Upload, Download,
@@ -528,35 +529,14 @@ export default function TeachersPage() {
             </div>
             <div className="grid gap-2">
               <Label>职位</Label>
-              {staffTitles.length === 0 ? (
-                <p className="text-sm text-muted-foreground">暂无可选职位</p>
-              ) : (
-                <ScrollArea className="h-40 border rounded-md p-2">
-                  <div className="space-y-1">
-                    {staffTitles.map((title) => (
-                      <div key={title.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`title-${title.id}`}
-                          checked={formTitleIds.includes(title.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormTitleIds((prev) => [...prev, title.id])
-                            } else {
-                              setFormTitleIds((prev) => prev.filter((id) => id !== title.id))
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor={`title-${title.id}`}
-                          className="text-sm cursor-pointer"
-                        >
-                          {title.name}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              )}
+              <MultiSelectSearch
+                options={staffTitles.map((t) => ({ label: t.name, value: t.id }))}
+                selected={formTitleIds}
+                onChange={setFormTitleIds}
+                placeholder="选择职位"
+                searchPlaceholder="搜索职位..."
+                emptyText="未找到匹配的职位"
+              />
             </div>
           </div>
           <DialogFooter>
