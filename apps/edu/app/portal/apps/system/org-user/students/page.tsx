@@ -19,7 +19,7 @@ import { useOrgTree, findOrgAncestor } from "@/hooks/use-org-tree"
 import { OrgNodeSelect } from "@/components/shared/org-node-select"
 import { MajorSelect } from "@/components/shared/major-select"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
-import { portalUserManagementApi, majorApi } from "@/lib/api"
+import { portalUserManagementApi, majorApi, portalGraduateApi } from "@/lib/api"
 import type { Organization } from "@/lib/types/backend"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -97,8 +97,9 @@ export default function StudentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+	const [saving, setSaving] = useState(false)
+	const [graduateLoading, setGraduateLoading] = useState(false)
+	const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const [majors, setMajors] = useState<Major[]>([])
 
@@ -225,13 +226,28 @@ export default function StudentsPage() {
     setSelectedStudents((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
   }
 
-  const toggleSelectAll = () => {
-    if (selectedStudents.length === filteredStudents.length && filteredStudents.length > 0) {
-      setSelectedStudents([])
-    } else {
-      setSelectedStudents(filteredStudents.map((s) => s.id))
-    }
-  }
+	const toggleSelectAll = () => {
+		if (selectedStudents.length === filteredStudents.length && filteredStudents.length > 0) {
+			setSelectedStudents([])
+		} else {
+			setSelectedStudents(filteredStudents.map((s) => s.id))
+		}
+	}
+
+	const handleBatchGraduate = async () => {
+		if (selectedStudents.length === 0 || !tenantId) return
+		setGraduateLoading(true)
+		try {
+			await portalGraduateApi.batchCreate({ tenantId, userIds: selectedStudents })
+			toast({ title: "批量毕业成功", description: `已将 ${selectedStudents.length} 名学生移至毕业列表` })
+			setSelectedStudents([])
+			await refetch()
+		} catch (err) {
+			toast({ variant: "destructive", title: "批量毕业失败", description: err instanceof Error ? err.message : "未知错误" })
+		} finally {
+			setGraduateLoading(false)
+		}
+	}
 
   const resetForm = () => {
     setFormName("")
@@ -352,9 +368,10 @@ export default function StudentsPage() {
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-1" />导出
           </Button>
-          <Button variant="outline" size="sm" onClick={() => toast({ title: "批量毕业", description: "请使用毕业学生管理页面进行单个或批量毕业操作" })}>
-            <Award className="h-4 w-4 mr-1" />批量毕业
-          </Button>
+			<Button variant="outline" size="sm" disabled={selectedStudents.length === 0 || graduateLoading} onClick={handleBatchGraduate}>
+				{graduateLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Award className="h-4 w-4 mr-1" />}
+				{selectedStudents.length > 0 ? `批量毕业(${selectedStudents.length})` : "批量毕业"}
+			</Button>
           <Button size="sm" onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-1" />新生录入
           </Button>

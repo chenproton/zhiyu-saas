@@ -575,6 +575,8 @@ export const portalGraduateApi = {
   get: (id: string) => portalRequest<Graduate>(`/graduates/${id}`),
   create: (req: Omit<Graduate, "id" | "createdAt">) =>
     portalRequest<Graduate>("/graduates", { method: "POST", body: JSON.stringify(req) }),
+  batchCreate: (req: { tenantId: string; userIds: string[]; graduateYear?: number }) =>
+    portalRequest<ListResponse<Graduate>>("/graduates/batch", { method: "POST", body: JSON.stringify(req) }),
   update: (id: string, req: Partial<Omit<Graduate, "id" | "createdAt">>) =>
     portalRequest<Graduate>(`/graduates/${id}`, { method: "PUT", body: JSON.stringify(req) }),
   delete: (id: string) => portalRequest<{ id: string }>(`/graduates/${id}`, { method: "DELETE" }),

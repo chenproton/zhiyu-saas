@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -44,6 +45,12 @@ type UpdateGraduateRequest struct {
 	GraduateYear *int    `json:"graduateYear"`
 	MajorID      *string `json:"majorId"`
 	ClassName    *string `json:"className"`
+}
+
+type BatchCreateGraduateRequest struct {
+	TenantID     string   `json:"tenantId"`
+	UserIDs      []string `json:"userIds"`
+	GraduateYear *int     `json:"graduateYear"`
 }
 
 func (h *GraduateHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -201,6 +208,63 @@ func (h *GraduateHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"id": id})
+}
+
+func (h *GraduateHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
+	if !h.canManageUsers(r) {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	var req BatchCreateGraduateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.TenantID == "" || len(req.UserIDs) == 0 {
+		respondError(w, http.StatusBadRequest, "tenantId and userIds are required")
+		return
+	}
+
+	graduateYear := time.Now().Year()
+	if req.GraduateYear != nil {
+		graduateYear = *req.GraduateYear
+	}
+
+	uuids := make([]uuid.UUID, len(req.UserIDs))
+	for i, id := range req.UserIDs {
+		uid, err := uuid.Parse(id)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid userId: "+id)
+			return
+		}
+		uuids[i] = uid
+	}
+
+	query := `
+		INSERT INTO graduates (id, tenant_id, user_id, name, student_no, id_card, enroll_year, graduate_year, major_id, class_name)
+		SELECT gen_random_uuid(), u.tenant_id, u.id, u.name, u.student_no, u.id_card, NULL, $2, u.major_id, COALESCE(o.name, '')
+		FROM users u
+		LEFT JOIN organizations o ON o.id = u.org_node_id
+		WHERE u.id = ANY($1::uuid[]) AND u.tenant_id = $3
+		RETURNING id, tenant_id, user_id, name, student_no, id_card, enroll_year, graduate_year, major_id, ''::varchar AS major_name, class_name, created_at
+	`
+
+	rows, err := h.DB.Query(r.Context(), query, uuids, graduateYear, req.TenantID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to batch create graduates")
+		return
+	}
+	defer rows.Close()
+
+	items, err := h.scanGraduateRows(rows)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to scan graduates")
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, GraduateListResponse{Items: items, Total: len(items)})
 }
 
 func (h *GraduateHandler) canManageUsers(r *http.Request) bool {

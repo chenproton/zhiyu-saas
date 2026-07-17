@@ -253,6 +253,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 				r.Route("/graduates", func(r chi.Router) {
 					r.Get("/", graduateHandler.List)
 					r.Post("/", graduateHandler.Create)
+					r.Post("/batch", graduateHandler.BatchCreate)
 					r.Get("/{id}", graduateHandler.Get)
 					r.Put("/{id}", graduateHandler.Update)
 					r.Delete("/{id}", graduateHandler.Delete)
