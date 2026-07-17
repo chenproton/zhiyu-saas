@@ -328,7 +328,7 @@ export default function TenantPage() {
                   <TableHead className="text-muted-foreground">企业名称</TableHead>
                   <TableHead className="text-muted-foreground">联系人</TableHead>
                   <TableHead className="text-muted-foreground">联系电话</TableHead>
-                  <TableHead className="text-muted-foreground">管理员</TableHead>
+
                   <TableHead className="text-muted-foreground">用户数量</TableHead>
                   <TableHead className="text-muted-foreground">状态</TableHead>
                   <TableHead className="text-muted-foreground">创建时间</TableHead>
@@ -342,17 +342,7 @@ export default function TenantPage() {
                     <TableCell className="font-medium">{tenant.enterpriseName}</TableCell>
                     <TableCell>{tenant.contact}</TableCell>
                     <TableCell className="text-muted-foreground">{tenant.phone}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto py-1 px-2 text-primary"
-                        onClick={() => openAdminDialog(tenant)}
-                      >
-                        <Users className="h-3 w-3 mr-1" />
-                        {tenant.admins.length}人
-                      </Button>
-                    </TableCell>
+
                     <TableCell>{tenant.userCount}</TableCell>
                     <TableCell>
                       <Badge variant={tenant.status === "active" ? "default" : "secondary"}>
@@ -387,7 +377,7 @@ export default function TenantPage() {
                 ))}
                 {filteredTenants.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
                       暂无租户信息
                     </TableCell>
                   </TableRow>
