@@ -625,19 +625,6 @@ export const logApi = {
 
 export const workflowApi = createCrudApi<Workflow, Omit<Workflow, "id" | "usageCount" | "createdAt">, Partial<Omit<Workflow, "id" | "usageCount" | "createdAt">>>("/workflows")
 
-// Portal-scoped APIs (use the portal JWT). These hit the same backend
-// endpoints as the SaaS versions above, but are called from /portal/* pages.
-export const portalWorkflowApi = {
-  list: (params?: Record<string, string | number | boolean | undefined>) =>
-    portalRequest<ListResponse<Workflow>>(`/workflows${buildQuery(params || {})}`),
-  get: (id: string) => portalRequest<Workflow>(`/workflows/${id}`),
-  create: (req: Omit<Workflow, "id" | "usageCount" | "createdAt">) =>
-    portalRequest<Workflow>("/workflows", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<Workflow, "id" | "usageCount" | "createdAt">>) =>
-    portalRequest<Workflow>(`/workflows/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => portalRequest<{ id: string }>(`/workflows/${id}`, { method: "DELETE" }),
-}
-
 export const portalLogApi = {
   loginLogs: (params?: { tenantId?: string; userId?: string; status?: string; limit?: number; offset?: number }) =>
     portalRequest<ListResponse<LoginLog>>(`/logs/login${buildQuery(params || {})}`),
