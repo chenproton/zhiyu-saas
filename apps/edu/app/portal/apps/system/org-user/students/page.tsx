@@ -134,11 +134,7 @@ export default function StudentsPage() {
     return map
   }, [majors])
 
-  const formDepartmentId = useMemo(() => {
-    if (!formClassNodeId) return undefined
-    const dept = findOrgAncestor(orgMap, formClassNodeId, (org) => getOrgTypeName(org, orgTypeMap) === DEPT_TYPE)
-    return dept?.id
-  }, [formClassNodeId, orgMap, orgTypeMap])
+
 
   useEffect(() => {
     setStudents(
@@ -497,7 +493,6 @@ export default function StudentsPage() {
                 value={formClassNodeId}
                 onChange={(value) => {
                   setFormClassNodeId(value || "")
-                  setFormMajorId("")
                 }}
                 allowedTypes={[CLASS_TYPE]}
                 placeholder="选择班级"
@@ -507,10 +502,9 @@ export default function StudentsPage() {
               <Label>专业 <span className="text-destructive">*</span></Label>
               <MajorSelect
                 tenantId={tenantId}
-                orgNodeId={formDepartmentId}
                 value={formMajorId}
                 onChange={(value) => setFormMajorId(value || "")}
-                placeholder={formDepartmentId ? "选择专业" : "请先选择班级"}
+                placeholder="选择专业"
               />
             </div>
           </div>

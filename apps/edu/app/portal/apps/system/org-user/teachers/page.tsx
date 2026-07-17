@@ -21,7 +21,7 @@ import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import {
   Plus, MoreHorizontal, Power, Trash2, Search, Filter, Upload, Download,
-  ChevronRight, ChevronDown, FolderTree, Key, Loader2, AlertCircle, RotateCcw
+  ChevronRight, ChevronDown, FolderTree, Key, Loader2, AlertCircle, RotateCcw, Pencil
 } from "lucide-react"
 
 interface Teacher {
@@ -121,6 +121,54 @@ export default function TeachersPage() {
     setSelectedTeacher(null)
     resetForm()
     setIsDialogOpen(true)
+  }
+
+  const openEditDialog = (teacher: Teacher) => {
+    setSelectedTeacher(teacher)
+    setFormName(teacher.name)
+    setFormUsername("")
+    setFormPassword("")
+    setFormWorkId(teacher.workNo)
+    setFormOrgNodeId(teacher.orgNodeId || "")
+    setIsDialogOpen(true)
+  }
+
+  const handleUpdate = async () => {
+    if (!selectedTeacher || !formName.trim()) return
+    const original = users.find((u) => u.id === selectedTeacher.id)
+    if (!original) {
+      toast({ variant: "destructive", title: "保存失败", description: "未找到原始用户数据" })
+      return
+    }
+    setSaving(true)
+    try {
+      await portalUserManagementApi.update(selectedTeacher.id, {
+        institutionId: original.institutionId,
+        identityTypeId: original.identityTypeId,
+        orgNodeId: formOrgNodeId || undefined,
+        majorId: original.majorId,
+        role: original.role,
+        loginName: original.loginName || original.username,
+        username: original.username,
+        name: formName.trim(),
+        email: original.email,
+        phone: original.phone,
+        avatarUrl: original.avatarUrl,
+        studentNo: original.studentNo,
+        workId: formWorkId.trim() || undefined,
+        idCard: original.idCard,
+        titleIds: original.titleIds,
+      })
+      toast({ title: "保存成功" })
+      setIsDialogOpen(false)
+      resetForm()
+      setSelectedTeacher(null)
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "保存失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleCreate = async () => {
@@ -355,6 +403,9 @@ export default function TeachersPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditDialog(teacher)}>
+                                  <Pencil className="mr-2 h-4 w-4" />编辑
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => toggleStatus(teacher)}>
                                   <Power className="mr-2 h-4 w-4" />
                                   {teacher.status === "在职" ? "设为离职" : "设为在职"}
@@ -392,22 +443,26 @@ export default function TeachersPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>新建教师</DialogTitle>
-            <DialogDescription>填写教职工基本信息</DialogDescription>
+            <DialogTitle>{selectedTeacher ? "编辑教师" : "新建教师"}</DialogTitle>
+            <DialogDescription>{selectedTeacher ? "修改教职工基本信息" : "填写教职工基本信息"}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>姓名 <span className="text-destructive">*</span></Label>
               <Input placeholder="请输入姓名" value={formName} onChange={(e) => setFormName(e.target.value)} />
             </div>
-            <div className="grid gap-2">
-              <Label>登录账号 <span className="text-destructive">*</span></Label>
-              <Input placeholder="如：zhangsan" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} />
-            </div>
-            <div className="grid gap-2">
-              <Label>密码 <span className="text-destructive">*</span></Label>
-              <Input type="password" placeholder="请输入密码" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
-            </div>
+            {!selectedTeacher && (
+              <>
+                <div className="grid gap-2">
+                  <Label>登录账号 <span className="text-destructive">*</span></Label>
+                  <Input placeholder="如：zhangsan" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>密码 <span className="text-destructive">*</span></Label>
+                  <Input type="password" placeholder="请输入密码" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} />
+                </div>
+              </>
+            )}
             <div className="grid gap-2">
               <Label>工号</Label>
               <Input placeholder="如：T001" value={formWorkId} onChange={(e) => setFormWorkId(e.target.value)} />
@@ -425,7 +480,10 @@ export default function TeachersPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>取消</Button>
-            <Button onClick={handleCreate} disabled={saving || !formName.trim() || !formUsername.trim() || !formPassword.trim()}>
+            <Button
+              onClick={selectedTeacher ? handleUpdate : handleCreate}
+              disabled={saving || !formName.trim() || (!selectedTeacher && (!formUsername.trim() || !formPassword.trim()))}
+            >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               保存
             </Button>

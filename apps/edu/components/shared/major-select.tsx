@@ -64,7 +64,7 @@ export function MajorSelect({
     onChange(val || undefined)
   }
 
-  const isDisabled = disabled || loading || !tenantId || !orgNodeId
+  const isDisabled = disabled || loading || !tenantId
 
   if (error) {
     return <div className="text-sm text-destructive">{error}</div>
@@ -73,7 +73,7 @@ export function MajorSelect({
   return (
     <Select value={value || ""} onValueChange={handleChange} disabled={isDisabled}>
       <SelectTrigger className={className}>
-        <SelectValue placeholder={!orgNodeId ? "请先选择院系" : placeholder} />
+        <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
         {majors.map((major) => (
@@ -84,7 +84,7 @@ export function MajorSelect({
         ))}
         {majors.length === 0 && (
           <div className="px-2 py-1.5 text-sm text-muted-foreground">
-            {!orgNodeId ? "请先选择院系" : "该院系下暂无专业"}
+            {!orgNodeId ? "暂无专业" : "该院系下暂无专业"}
           </div>
         )}
       </SelectContent>
