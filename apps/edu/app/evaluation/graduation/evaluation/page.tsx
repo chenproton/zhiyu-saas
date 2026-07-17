@@ -2,12 +2,6 @@
 
 import { useState, useMemo } from "react"
 import { Search, Award, CheckCircle2, Clock, Star, TrendingUp, Eye, Pencil, Settings, Send, ClipboardCheck, Bookmark, Lightbulb, Sparkles, FileCheck, MoreHorizontal } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
