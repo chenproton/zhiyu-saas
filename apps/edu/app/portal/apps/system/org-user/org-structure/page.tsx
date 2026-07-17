@@ -36,7 +36,6 @@ import {
   Users,
   Upload,
   Download,
-  ArrowUp,
   GraduationCap,
   School,
   Building2,
@@ -164,11 +163,6 @@ function TreeNode({
             <DropdownMenuItem onClick={() => onAction("addChild", node)}>
               添加子节点
             </DropdownMenuItem>
-            {level > 0 && (
-              <DropdownMenuItem onClick={() => onAction("addParent", node)}>
-                添加父节点
-              </DropdownMenuItem>
-            )}
             <DropdownMenuItem onClick={() => onAction("edit", node)}>
               编辑
             </DropdownMenuItem>
@@ -219,10 +213,11 @@ export default function OrgStructurePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [dialogMode, setDialogMode] = useState<"addRoot" | "addChild" | "addParent" | "edit" | "members">("addRoot")
+  const [dialogMode, setDialogMode] = useState<"addRoot" | "addChild" | "edit" | "members">("addRoot")
   const [selectedNode, setSelectedNode] = useState<OrgNode | null>(null)
   const [formName, setFormName] = useState("")
   const [formTypeId, setFormTypeId] = useState("")
+  const [formParentId, setFormParentId] = useState<string>("__root__")
   const [formSortOrder, setFormSortOrder] = useState<string>("1")
   const [saving, setSaving] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -338,14 +333,11 @@ export default function OrgStructurePage() {
       setFormName(node.name)
       setFormTypeId(node.typeId)
       setFormSortOrder(String(node.order))
+      setFormParentId(node.parentId ?? "__root__")
     } else if (mode === "addChild" && node) {
       setFormName("")
       setFormTypeId("")
       setFormSortOrder(String(node.children ? node.children.length + 1 : 1))
-    } else if (mode === "addParent" && node) {
-      setFormName("")
-      setFormTypeId("")
-      setFormSortOrder("1")
     } else {
       setFormName("")
       setFormTypeId("")
@@ -357,8 +349,6 @@ export default function OrgStructurePage() {
   const handleAction = (action: string, node: OrgNode) => {
     if (action === "addChild") {
       openDialog("addChild", node)
-    } else if (action === "addParent") {
-      openDialog("addParent", node)
     } else if (action === "edit") {
       openDialog("edit", node)
     } else if (action === "members") {
@@ -367,6 +357,26 @@ export default function OrgStructurePage() {
       handleDelete(node)
     }
   }
+
+  const parentOptions = useMemo(() => {
+    if (dialogMode !== "edit" || !selectedNode) return []
+    const excluded = new Set<string>()
+    const collect = (node: OrgNode) => {
+      excluded.add(node.id)
+      node.children?.forEach(collect)
+    }
+    collect(selectedNode)
+    const options: { id: string; name: string; depth: number }[] = []
+    const walk = (nodes: OrgNode[], depth: number) => {
+      nodes.forEach((n) => {
+        if (excluded.has(n.id)) return
+        options.push({ id: n.id, name: n.name, depth })
+        if (n.children) walk(n.children, depth + 1)
+      })
+    }
+    walk(orgData, 0)
+    return options
+  }, [dialogMode, selectedNode, orgData])
 
   const handleSave = async () => {
     if (!tenantId) {
@@ -385,21 +395,30 @@ export default function OrgStructurePage() {
       let toastDescription = ""
 
       if (dialogMode === "edit" && selectedNode) {
+        const nextParentId = formParentId === "__root__" ? undefined : formParentId
+        const parentChanged = (selectedNode.parentId ?? undefined) !== nextParentId
         await orgApi.update(selectedNode.id, {
           tenantId,
           name: formName.trim(),
           typeId: formTypeId,
+          parentId: nextParentId,
           sortOrder: Number(formSortOrder) || 0,
         })
         targetId = selectedNode.id
         toastTitle = "保存成功"
         toastDescription = `组织节点「${formName.trim()}」已更新`
+        if (parentChanged) {
+          const parentName = nextParentId
+            ? parentOptions.find((p) => p.id === nextParentId)?.name
+            : null
+          toastDescription = parentName
+            ? `组织节点「${formName.trim()}」及其子节点已迁移到「${parentName}」下`
+            : `组织节点「${formName.trim()}」已调整为一级节点`
+        }
       } else {
         let parentId: string | undefined
         if (dialogMode === "addChild" && selectedNode) {
           parentId = selectedNode.id
-        } else if (dialogMode === "addParent" && selectedNode) {
-          parentId = selectedNode.parentId
         }
         const newNode = await orgApi.create({
           tenantId,
@@ -410,15 +429,9 @@ export default function OrgStructurePage() {
           memberCount: 0,
         })
         targetId = newNode.id
-        if (dialogMode === "addParent" && selectedNode) {
-          await orgApi.update(selectedNode.id, { parentId: newNode.id })
-        }
         if (dialogMode === "addChild" && selectedNode) {
           toastTitle = "创建成功"
           toastDescription = `已在「${selectedNode.name}」下添加「${newNode.name}」`
-        } else if (dialogMode === "addParent" && selectedNode) {
-          toastTitle = "创建成功"
-          toastDescription = `已为「${selectedNode.name}」添加父节点「${newNode.name}」`
         } else {
           toastTitle = "创建成功"
           toastDescription = `已添加根节点「${newNode.name}」`
@@ -570,8 +583,6 @@ export default function OrgStructurePage() {
                   ? "新增节点"
                   : dialogMode === "addChild"
                   ? `添加子节点：${selectedNode?.name}`
-                  : dialogMode === "addParent"
-                  ? `为 ${selectedNode?.name} 添加父节点`
                   : dialogMode === "edit"
                   ? "编辑节点"
                   : "成员管理"}
@@ -607,6 +618,27 @@ export default function OrgStructurePage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {dialogMode === "edit" && (
+                  <div className="grid gap-2">
+                    <Label>父节点</Label>
+                    <Select value={formParentId} onValueChange={setFormParentId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择父节点" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__root__">无（作为一级节点）</SelectItem>
+                        {parentOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {`${"　".repeat(option.depth)}${option.name}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      更改父节点后，当前节点及其全部子节点将迁移到新父节点下
+                    </p>
+                  </div>
+                )}
                 <div className="grid gap-2">
                   <Label>排序序号</Label>
                   <Input
