@@ -13,6 +13,23 @@ type createTenantResp struct {
 	Tenant    domain.Tenant `json:"tenant"`
 }
 
+func cleanupTenant(ctx context.Context, t *testing.T, env *testhelper.TestEnv, tenantID string) {
+	t.Helper()
+	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-test-create")
+	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-list-a")
+	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-list-b")
+	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-get-test")
+	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-update-test")
+	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-status-test")
+	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-status-inv-test")
+	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-admin-sub-test")
+	env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", tenantID)
+	env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", tenantID)
+	env.DB.Exec(ctx, "DELETE FROM subscription_packages WHERE tenant_id = $1", tenantID)
+	env.DB.Exec(ctx, "DELETE FROM org_types WHERE tenant_id = $1", tenantID)
+	env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", tenantID)
+}
+
 func TestTenant_Create(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
@@ -34,9 +51,7 @@ func TestTenant_Create(t *testing.T) {
 	if tenant.Name != "Test Tenant Create" {
 		t.Fatalf("expected name 'Test Tenant Create', got %s", tenant.Name)
 	}
-	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", tenant.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", tenant.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", tenant.ID)
+	defer cleanupTenant(ctx, t, env, tenant.ID)
 }
 
 func TestTenant_Create_MissingFields(t *testing.T) {
@@ -51,6 +66,30 @@ func TestTenant_Create_MissingFields(t *testing.T) {
 	}
 }
 
+func TestTenant_Create_DuplicateCode(t *testing.T) {
+	env := testhelper.SetupTestEnv(t)
+	defer env.Cleanup()
+	ctx := context.Background()
+
+	w1 := env.Do("POST", "/api/v1/tenants", map[string]string{
+		"name": "Dup Code A",
+		"code": "dup-code-test",
+	})
+	if w1.Code != http.StatusCreated {
+		t.Fatalf("create 1: %d %s", w1.Code, testhelper.ErrMsg(w1))
+	}
+	r1, _ := testhelper.Unmarshal[createTenantResp](w1)
+	defer cleanupTenant(ctx, t, env, r1.Tenant.ID)
+
+	w2 := env.Do("POST", "/api/v1/tenants", map[string]string{
+		"name": "Dup Code B",
+		"code": "dup-code-test",
+	})
+	if w2.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", w2.Code, testhelper.ErrMsg(w2))
+	}
+}
+
 func TestTenant_List(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
@@ -62,9 +101,7 @@ func TestTenant_List(t *testing.T) {
 	}
 	r1, _ := testhelper.Unmarshal[createTenantResp](w1)
 	t1 := r1.Tenant
-	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", t1.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", t1.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", t1.ID)
+	defer cleanupTenant(ctx, t, env, t1.ID)
 
 	w2 := env.Do("POST", "/api/v1/tenants", map[string]string{"name": "ListTenantB", "code": "list-b"})
 	if w2.Code != http.StatusCreated {
@@ -72,9 +109,7 @@ func TestTenant_List(t *testing.T) {
 	}
 	r2, _ := testhelper.Unmarshal[createTenantResp](w2)
 	t2 := r2.Tenant
-	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", t2.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", t2.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", t2.ID)
+	defer cleanupTenant(ctx, t, env, t2.ID)
 
 	w := env.Do("GET", "/api/v1/tenants", nil)
 	if w.Code != http.StatusOK {
@@ -103,9 +138,7 @@ func TestTenant_Get(t *testing.T) {
 	}
 	cr, _ := testhelper.Unmarshal[createTenantResp](wc)
 	created := cr.Tenant
-	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", created.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", created.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", created.ID)
+	defer cleanupTenant(ctx, t, env, created.ID)
 
 	w := env.Do("GET", "/api/v1/tenants/"+created.ID, nil)
 	if w.Code != http.StatusOK {
@@ -141,9 +174,7 @@ func TestTenant_Update(t *testing.T) {
 	}
 	cr, _ := testhelper.Unmarshal[createTenantResp](wc)
 	created := cr.Tenant
-	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", created.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", created.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", created.ID)
+	defer cleanupTenant(ctx, t, env, created.ID)
 
 	w := env.Do("PUT", "/api/v1/tenants/"+created.ID, map[string]string{"name": "Updated Name"})
 	if w.Code != http.StatusOK {
@@ -179,9 +210,7 @@ func TestTenant_UpdateStatus(t *testing.T) {
 	}
 	cr, _ := testhelper.Unmarshal[createTenantResp](wc)
 	created := cr.Tenant
-	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", created.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", created.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", created.ID)
+	defer cleanupTenant(ctx, t, env, created.ID)
 
 	w := env.Do("POST", "/api/v1/tenants/"+created.ID+"/status", map[string]string{"status": "inactive"})
 	if w.Code != http.StatusOK {
@@ -207,9 +236,7 @@ func TestTenant_UpdateStatus_Invalid(t *testing.T) {
 	}
 	cr, _ := testhelper.Unmarshal[createTenantResp](wc)
 	created := cr.Tenant
-	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", created.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", created.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", created.ID)
+	defer cleanupTenant(ctx, t, env, created.ID)
 
 	w := env.Do("POST", "/api/v1/tenants/"+created.ID+"/status", map[string]string{"status": "bogus"})
 	if w.Code != http.StatusBadRequest {
@@ -235,10 +262,7 @@ func TestTenant_AdminCreate_CreatesSubscription(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	tenant := resp.Tenant
-	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", tenant.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", tenant.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM subscription_packages WHERE tenant_id = $1", tenant.ID)
-	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", tenant.ID)
+	defer cleanupTenant(ctx, t, env, tenant.ID)
 
 	var subID string
 	err = env.DB.QueryRow(ctx,

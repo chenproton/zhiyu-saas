@@ -189,10 +189,19 @@ export default function UserFieldsPage() {
                   <TableCell className="text-center">
                     <Switch checked={field.enabled} onCheckedChange={() => handleToggle(field)} />
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(field)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(field)}>
+                          编辑
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))

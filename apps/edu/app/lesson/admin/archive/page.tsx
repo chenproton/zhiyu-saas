@@ -256,23 +256,23 @@ export default function LessonArchivePage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" asChild>
-                            <Link href={listHref(course.type)}>
-                              <Pencil className="mr-1 h-3 w-3" />
-                              查看
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
-                            onClick={() => handleRestore(course)}
-                          >
-                            <RotateCcw className="mr-1 h-3 w-3" />
-                            恢复
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={listHref(course.type)}>
+                                查看
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleRestore(course)} className="text-blue-600">
+                              恢复
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))

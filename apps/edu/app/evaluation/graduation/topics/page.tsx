@@ -325,49 +325,71 @@ export default function GraduationProjectTopicsPage() {
                   <TableCell><span className="text-sm text-muted-foreground">{topic.enterpriseMentorName || '-'}</span></TableCell>
                   <TableCell className="text-xs text-muted-foreground"><div>{formatDate(topic.startDate)}</div><div>至 {formatDate(topic.endDate)}</div></TableCell>
                   <TableCell className="sticky right-0 bg-white text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {/* 查看：所有状态 */}
-                      <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setViewTopic(topic)}><Eye className="size-3" />查看</Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setViewTopic(topic)}>
+                          查看
+                        </DropdownMenuItem>
 
-                      {/* 草稿：编辑/删除/提交审批 */}
-                      {topic.status === 'draft' && (
-                        <>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => openEdit(topic)}><Pencil className="size-3" />编辑</Button>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive" onClick={() => setDeleteTopic(topic)}><Trash2 className="size-3" />删除</Button>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600" onClick={() => handleSubmitForApproval(topic)}><Send className="size-3" />提交审批</Button>
-                        </>
-                      )}
+                        {topic.status === 'draft' && (
+                          <>
+                            <DropdownMenuItem onClick={() => openEdit(topic)}>
+                              编辑
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTopic(topic)}>
+                              删除
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSubmitForApproval(topic)}>
+                              提交审批
+                            </DropdownMenuItem>
+                          </>
+                        )}
 
-                      {/* 审批中：撤回审批/审批通过/审批驳回 */}
-                      {topic.status === 'pending' && (
-                        <>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-amber-600" onClick={() => handleWithdrawApproval(topic)}><RotateCcw className="size-3" />撤回</Button>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-emerald-600" onClick={() => handleApprove(topic)}><CheckCircle2 className="size-3" />通过</Button>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive" onClick={() => handleRejectApproval(topic)}><XCircle className="size-3" />驳回</Button>
-                        </>
-                      )}
+                        {topic.status === 'pending' && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleWithdrawApproval(topic)}>
+                              撤回
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleApprove(topic)}>
+                              通过
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleRejectApproval(topic)}>
+                              驳回
+                            </DropdownMenuItem>
+                          </>
+                        )}
 
-                      {/* 已发布：查看申请列表/取消发布/锁定 */}
-                      {topic.status === 'published' && (
-                        <>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600" onClick={() => setViewApplications(topic)}>
-                            <Users className="size-3" />申请({topicApps(topic.id).length})
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-amber-600" onClick={() => handleCancelPublish(topic)}><RotateCcw className="size-3" />取消发布</Button>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-emerald-600" onClick={() => setLockTopic(topic)}><Lock className="size-3" />锁定</Button>
-                        </>
-                      )}
+                        {topic.status === 'published' && (
+                          <>
+                            <DropdownMenuItem onClick={() => setViewApplications(topic)}>
+                              申请({topicApps(topic.id).length})
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCancelPublish(topic)}>
+                              取消发布
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setLockTopic(topic)}>
+                              锁定
+                            </DropdownMenuItem>
+                          </>
+                        )}
 
-                      {/* 已锁定：查看申请列表/取消锁定 */}
-                      {topic.status === 'locked' && (
-                        <>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600" onClick={() => setViewApplications(topic)}>
-                            <Users className="size-3" />申请({topicApps(topic.id).length})
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-amber-600" onClick={() => handleCancelLock(topic)}><Unlock className="size-3" />取消锁定</Button>
-                        </>
-                      )}
-                    </div>
+                        {topic.status === 'locked' && (
+                          <>
+                            <DropdownMenuItem onClick={() => setViewApplications(topic)}>
+                              申请({topicApps(topic.id).length})
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCancelLock(topic)}>
+                              取消锁定
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               )))}

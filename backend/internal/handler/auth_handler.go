@@ -66,6 +66,7 @@ func (h *AuthHandler) loginWithPlatform(w http.ResponseWriter, r *http.Request, 
 		       role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 		       student_no, work_id, id_card, title_ids, oauth, status, created_at, updated_at
 		FROM users WHERE (login_name = $1 OR username = $1) AND platform = $2
+		ORDER BY created_at DESC LIMIT 1
 	`, req.Username, platform).Scan(
 		&user.ID, &tenantID, &user.InstitutionID, &identityTypeID, &orgNodeID, &majorID,
 		&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,

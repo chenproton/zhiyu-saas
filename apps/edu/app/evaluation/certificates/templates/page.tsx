@@ -301,28 +301,22 @@ export default function MicroCertTemplatesPage() {
                   <TableCell className="text-slate-500 text-sm">
                     {t.updatedAt.toLocaleDateString("zh-CN")}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => openEditDialog(t)}
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-red-500 hover:text-red-600"
-                        onClick={() => {
-                          setDeletingTemplate(t)
-                          setDeleteOpen(true)
-                        }}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-8">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(t)}>
+                          编辑
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingTemplate(t); setDeleteOpen(true) }}>
+                          删除
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))

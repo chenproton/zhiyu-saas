@@ -359,35 +359,25 @@ export default function BatchesPage() {
                     </TableCell>
                     <TableCell>{batch.positionCount}</TableCell>
                     <TableCell>{batch.publishedCount}</TableCell>
-                    <TableCell className="text-right relative">
-                      <div className="flex items-center justify-end gap-1 absolute right-2 top-1/2 -translate-y-1/2 z-10 px-2 py-1 rounded-lg">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => handleEdit(batch)}
-                        >
-                          <Pencil className="mr-1 h-3 w-3" />
-                          编辑
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => handleToggleStatus(batch)}
-                        >
-                          {batch.status === 'open' ? '截止批次' : '重新开放'}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs text-destructive"
-                          onClick={() => handleDelete(batch.id)}
-                        >
-                          <Trash2 className="mr-1 h-3 w-3" />
-                          删除
-                        </Button>
-                      </div>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(batch)}>
+                            编辑
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleToggleStatus(batch)}>
+                            {batch.status === 'open' ? '截止批次' : '重新开放'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(batch.id)}>
+                            删除
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

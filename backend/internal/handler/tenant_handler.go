@@ -178,6 +178,25 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var codeExists bool
+	_ = h.DB.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM tenants WHERE code = $1)`, req.Code,
+	).Scan(&codeExists)
+	if codeExists {
+		respondError(w, http.StatusConflict, "租户标识已存在")
+		return
+	}
+
+	adminUsername := "admin-" + req.Code
+	var loginNameExists bool
+	_ = h.DB.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM users WHERE login_name = $1)`, adminUsername,
+	).Scan(&loginNameExists)
+	if loginNameExists {
+		respondError(w, http.StatusConflict, "管理员用户名 " + adminUsername + " 已存在")
+		return
+	}
+
 	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
@@ -240,7 +259,6 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 	var adminUser *adminUserInfo
 	if schoolAdminIdentityTypeID != "" {
 		adminID := uuid.NewString()
-		adminUsername := "admin-" + req.Code
 			adminPassword := "admin123"
 
 		hash, hashErr := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)

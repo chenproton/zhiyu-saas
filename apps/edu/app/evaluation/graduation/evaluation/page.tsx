@@ -277,12 +277,27 @@ export default function GraduationProjectEvaluationPage() {
                   <TableCell>{getGradeBadge(item.comprehensiveGrade)}</TableCell>
                   <TableCell>{item.status === 'completed' ? (<Badge variant="default" className="bg-emerald-500 gap-1"><CheckCircle2 className="size-3" />已完成</Badge>) : (<Badge variant="secondary" className="gap-1"><Clock className="size-3" />待评价</Badge>)}</TableCell>
                   <TableCell className="sticky right-0 bg-white text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setViewEval(item)}><Eye className="size-3" />详情</Button>
-                      <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => openEval(item)}><Pencil className="size-3" />评价</Button>
-                      {item.status === 'completed' && (<Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-blue-600" onClick={() => { setConfirmEval(item); setSyncToDiploma(false); setSyncToPortrait(false); setMarkBenchmark(false); setConfirmOpen(true) }}><Send className="size-3" />认定</Button>)}
-                      {item.isExcellent && (<Badge variant="outline" className="text-xs text-amber-600 gap-1"><Bookmark className="size-3" />标杆</Badge>)}
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setViewEval(item)}>
+                          详情
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openEval(item)}>
+                          评价
+                        </DropdownMenuItem>
+                        {item.status === 'completed' && (
+                          <DropdownMenuItem onClick={() => { setConfirmEval(item); setSyncToDiploma(false); setSyncToPortrait(false); setMarkBenchmark(false); setConfirmOpen(true) }}>
+                            认定
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    {item.isExcellent && (<Badge variant="outline" className="text-xs text-amber-600 gap-1"><Bookmark className="size-3" />标杆</Badge>)}
                   </TableCell>
                 </TableRow>
               )))}
