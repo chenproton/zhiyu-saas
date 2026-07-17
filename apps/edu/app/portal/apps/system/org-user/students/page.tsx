@@ -595,6 +595,18 @@ export default function StudentsPage() {
               保存
             </Button>
           </DialogFooter>
+          {!saving && !formClassNodeId && (
+            <p className="text-xs text-muted-foreground">请选择班级</p>
+          )}
+          {!saving && formClassNodeId && !formMajorId && (
+            <p className="text-xs text-muted-foreground">请选择专业</p>
+          )}
+          {!saving && !selectedStudent && formClassNodeId && formMajorId && !formUsername.trim() && (
+            <p className="text-xs text-muted-foreground">请填写登录账号</p>
+          )}
+          {!saving && !selectedStudent && formClassNodeId && formMajorId && formUsername.trim() && !formPassword.trim() && (
+            <p className="text-xs text-muted-foreground">请填写密码</p>
+          )}
         </DialogContent>
       </Dialog>
 
