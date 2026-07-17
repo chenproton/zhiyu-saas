@@ -8,7 +8,7 @@
   - `zhiyu-marketplace`：商城前端 standalone，端口 `3010`。
   - `zhiyu-edu`：教育管理前端 standalone，端口 `3020`。
 - `deploy.sh` 部署流程：
-  1. 创建回滚快照（后端二进制 + 两个前端 standalone 产物）。
+  1. 创建回滚快照（后端二进制 + 两个前端 standalone 产物）；快照按数量保留（`ROLLBACK_KEEP`，默认 10 个），创建新快照后自动删除最旧的超额快照。
   2. 代码检查：`go build` + 两个前端 `tsc --noEmit`。
   3. 构建后端、商城前端、教育管理前端。
   4. 组装每个前端的 standalone 产物（复制 `.next/server`、`.next/static`、`public`）。
