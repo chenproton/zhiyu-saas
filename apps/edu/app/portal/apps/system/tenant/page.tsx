@@ -168,33 +168,6 @@ export default function TenantPage() {
     [tenants, searchTerm]
   )
 
-  const handleUpdateStatus = async (tenant: Tenant) => {
-    const newStatus = tenant.status === "active" ? "inactive" : "active"
-    const label = newStatus === "active" ? "启用" : "停用"
-    if (!window.confirm(`确定${label}租户「${tenant.enterpriseName}」吗？`)) return
-    try {
-      await portalRequest(`/tenants/${tenant.id}/status`, {
-        method: "POST",
-        body: JSON.stringify({ status: newStatus }),
-      })
-      toast({ title: `${label}成功` })
-      await fetchTenant()
-    } catch (err) {
-      toast({ variant: "destructive", title: `${label}失败`, description: err instanceof Error ? err.message : "未知错误" })
-    }
-  }
-
-  const handleDelete = async (tenant: Tenant) => {
-    if (!window.confirm(`确定删除租户「${tenant.enterpriseName}」吗？此操作不可撤销。`)) return
-    try {
-      await portalRequest(`/tenants/${tenant.id}`, { method: "DELETE" })
-      toast({ title: "删除成功" })
-      await fetchTenant()
-    } catch (err) {
-      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
-    }
-  }
-
   const openAdminDialog = (tenant: Tenant) => {
     setSelectedTenant(tenant)
     setEditingAdmins([...tenant.admins])
@@ -357,12 +330,6 @@ export default function TenantPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => { setSelectedTenant(tenant); loadTenantToForm(tenant); setIsCreateDialogOpen(true) }}>
                             编辑
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(tenant)}>
-                            {tenant.status === "active" ? "停用" : "启用"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(tenant)} className="text-destructive">
-                            删除
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
