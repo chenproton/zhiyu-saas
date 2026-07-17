@@ -192,7 +192,7 @@ export default function SystemLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 bg-[#f5f7fa] min-h-[calc(100vh-3.5rem)]">{children}</main>
+      <main className="flex-1 min-w-0 overflow-x-hidden bg-[#f5f7fa] min-h-[calc(100vh-3.5rem)]">{children}</main>
     </div>
   )
 }

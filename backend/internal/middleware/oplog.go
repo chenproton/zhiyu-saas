@@ -121,10 +121,13 @@ func OperationLog(db *pgxpool.Pool) func(http.Handler) http.Handler {
 			}
 			detail := r.Method + " " + r.URL.Path
 
+			userName := claims.Username
+			_ = db.QueryRow(r.Context(), `SELECT COALESCE(NULLIF(name, ''), username) FROM users WHERE id = $1`, claims.UserID).Scan(&userName)
+
 			_, _ = db.Exec(r.Context(), `
 				INSERT INTO operation_logs (tenant_id, user_id, user_name, module, action, target_type, target_id, detail, ip, status)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-			`, *claims.TenantID, claims.UserID, claims.Username, module, action, targetType, targetID, detail, ClientIP(r), status)
+			`, *claims.TenantID, claims.UserID, userName, module, action, targetType, targetID, detail, ClientIP(r), status)
 		})
 	}
 }
