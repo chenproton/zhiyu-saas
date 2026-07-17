@@ -166,9 +166,6 @@ function TreeNode({
             <DropdownMenuItem onClick={() => onAction("edit", node)}>
               编辑
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAction("members", node)}>
-              成员管理
-            </DropdownMenuItem>
             {node.type === "班级" && (
               <DropdownMenuItem onClick={() => onAction("graduate", node)}>
                 批量毕业
@@ -213,7 +210,7 @@ export default function OrgStructurePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [dialogMode, setDialogMode] = useState<"addRoot" | "addChild" | "edit" | "members">("addRoot")
+  const [dialogMode, setDialogMode] = useState<"addRoot" | "addChild" | "edit">("addRoot")
   const [selectedNode, setSelectedNode] = useState<OrgNode | null>(null)
   const [formName, setFormName] = useState("")
   const [formTypeId, setFormTypeId] = useState("")
@@ -351,8 +348,6 @@ export default function OrgStructurePage() {
       openDialog("addChild", node)
     } else if (action === "edit") {
       openDialog("edit", node)
-    } else if (action === "members") {
-      openDialog("members", node)
     } else if (action === "delete") {
       handleDelete(node)
     }
@@ -583,18 +578,11 @@ export default function OrgStructurePage() {
                   ? "新增节点"
                   : dialogMode === "addChild"
                   ? `添加子节点：${selectedNode?.name}`
-                  : dialogMode === "edit"
-                  ? "编辑节点"
-                  : "成员管理"}
+                  : "编辑节点"}
               </h2>
-              <p className="text-muted-foreground text-sm">
-                {dialogMode === "members"
-                  ? `管理 ${selectedNode?.name} 的组织成员`
-                  : "配置组织节点信息"}
-              </p>
+              <p className="text-muted-foreground text-sm">配置组织节点信息</p>
             </div>
-            {dialogMode !== "members" ? (
-              <div className="grid gap-4 py-4">
+            <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label>节点名称</Label>
                   <Input
@@ -656,38 +644,14 @@ export default function OrgStructurePage() {
                   </Alert>
                 )}
               </div>
-            ) : (
-              <div className="py-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <span className="text-sm">主归属成员</span>
-                    <Badge>{selectedNode?.memberCount || 0} 人</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <span className="text-sm">兼职归属成员</span>
-                    <Badge variant="outline">5 人</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <span className="text-sm">教学归属成员</span>
-                    <Badge variant="outline">8 人</Badge>
-                  </div>
-                </div>
-                <Button variant="outline" className="w-full mt-4">
-                  <Users className="h-4 w-4 mr-1" />
-                  管理成员
-                </Button>
-              </div>
-            )}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end mt-4">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>
                 取消
               </Button>
-              {dialogMode !== "members" && (
-                <Button onClick={handleSave} disabled={saving || !formName.trim() || !formTypeId}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  保存
-                </Button>
-              )}
+              <Button onClick={handleSave} disabled={saving || !formName.trim() || !formTypeId}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                保存
+              </Button>
             </div>
           </div>
         </div>
