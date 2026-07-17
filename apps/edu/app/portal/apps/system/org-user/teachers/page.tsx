@@ -68,6 +68,8 @@ export default function TeachersPage() {
   const [selectedOrgNodeId, setSelectedOrgNodeId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [selectedTeachers, setSelectedTeachers] = useState<string[]>([])
+  const [batchDeleting, setBatchDeleting] = useState(false)
 
   const [formName, setFormName] = useState("")
   const [formUsername, setFormUsername] = useState("")
@@ -249,6 +251,39 @@ export default function TeachersPage() {
     }
   }
 
+  const toggleSelectTeacher = (id: string) => {
+    setSelectedTeachers((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedTeachers.length === filteredTeachers.length && filteredTeachers.length > 0) {
+      setSelectedTeachers([])
+    } else {
+      setSelectedTeachers(filteredTeachers.map((t) => t.id))
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    if (selectedTeachers.length === 0) return
+    setBatchDeleting(true)
+    let success = 0
+    let fail = 0
+    for (const id of selectedTeachers) {
+      try {
+        await portalUserManagementApi.delete(id)
+        success++
+      } catch {
+        fail++
+      }
+    }
+    setBatchDeleting(false)
+    setSelectedTeachers([])
+    if (success > 0) {
+      toast({ title: `成功删除 ${success} 个教师` + (fail > 0 ? `，${fail} 个失败` : "") })
+    }
+    await refetch()
+  }
+
   const resetPassword = async (teacher: Teacher) => {
     const password = window.prompt(`请输入 ${teacher.name} 的新密码：`)
     if (!password) return
@@ -269,6 +304,12 @@ export default function TeachersPage() {
           <p className="mt-1 text-sm text-muted-foreground">维护教师档案信息</p>
         </div>
         <div className="flex items-center gap-2">
+          {selectedTeachers.length > 0 && (
+            <Button variant="destructive" size="sm" disabled={batchDeleting} onClick={handleBatchDelete}>
+              {batchDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              批量删除({selectedTeachers.length})
+            </Button>
+          )}
           <Button variant="outline" size="sm">
             <Upload className="h-4 w-4 mr-1" />导入
           </Button>
@@ -355,9 +396,15 @@ export default function TeachersPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border">
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedTeachers.length === filteredTeachers.length && filteredTeachers.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>登录账号（工号）</TableHead>
                   <TableHead>姓名</TableHead>
-                  <TableHead>所属院系</TableHead>
+                  <TableHead>所属组织节点</TableHead>
                   <TableHead>关联角色</TableHead>
                   <TableHead>职位</TableHead>
                   <TableHead>状态</TableHead>
@@ -367,7 +414,7 @@ export default function TeachersPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12">
+                    <TableCell colSpan={8} className="text-center py-12">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
                     </TableCell>
@@ -376,6 +423,12 @@ export default function TeachersPage() {
                   <>
                     {filteredTeachers.map((teacher) => (
                       <TableRow key={teacher.id} className="border-border">
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedTeachers.includes(teacher.id)}
+                            onCheckedChange={() => toggleSelectTeacher(teacher.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-sm">{teacher.loginAccount}</TableCell>
                         <TableCell className="font-medium">{teacher.name}</TableCell>
                         <TableCell>{teacher.department}</TableCell>
@@ -401,11 +454,7 @@ export default function TeachersPage() {
                           <Badge variant={teacher.status === "在职" ? "default" : teacher.status === "禁用" ? "destructive" : "secondary"}>{teacher.status}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => resetPassword(teacher)}>
-                              重置密码
-                            </Button>
-                            <DropdownMenu>
+                          <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon">
                                   <MoreHorizontal className="h-4 w-4" />
@@ -426,13 +475,12 @@ export default function TeachersPage() {
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
                     {filteredTeachers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                           {searchTerm ? "未找到匹配的教职工" : "暂无教职工数据"}
                         </TableCell>
                       </TableRow>
@@ -443,7 +491,7 @@ export default function TeachersPage() {
             </Table>
           </div>
 
-          <div className="text-sm text-muted-foreground">共 {filteredTeachers.length} 条记录</div>
+          <div className="text-sm text-muted-foreground">共 {filteredTeachers.length} 条记录{selectedTeachers.length > 0 ? `，已选择 ${selectedTeachers.length} 条` : ""}</div>
         </div>
       </div>
 

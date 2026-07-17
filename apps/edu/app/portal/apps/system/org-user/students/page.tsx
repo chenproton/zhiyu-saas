@@ -92,6 +92,7 @@ export default function StudentsPage() {
   const [selectedOrgNodeId, setSelectedOrgNodeId] = useState<string | null>(null)
 	const [saving, setSaving] = useState(false)
 	const [graduateLoading, setGraduateLoading] = useState(false)
+	const [batchDeleting, setBatchDeleting] = useState(false)
 	const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const [formName, setFormName] = useState("")
@@ -203,6 +204,27 @@ export default function StudentsPage() {
 		} finally {
 			setGraduateLoading(false)
 		}
+	}
+
+	const handleBatchDelete = async () => {
+		if (selectedStudents.length === 0) return
+		setBatchDeleting(true)
+		let success = 0
+		let fail = 0
+		for (const id of selectedStudents) {
+			try {
+				await portalUserManagementApi.delete(id)
+				success++
+			} catch {
+				fail++
+			}
+		}
+		setBatchDeleting(false)
+		setSelectedStudents([])
+		if (success > 0) {
+			toast({ title: `成功删除 ${success} 名学生` + (fail > 0 ? `，${fail} 个失败` : "") })
+		}
+		await refetch()
 	}
 
   const resetForm = () => {
@@ -318,9 +340,13 @@ export default function StudentsPage() {
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-1" />导出
           </Button>
-			<Button variant="outline" size="sm" disabled={selectedStudents.length === 0 || graduateLoading} onClick={handleBatchGraduate}>
+			<Button variant="outline" size="sm" disabled={selectedStudents.length === 0 || graduateLoading || batchDeleting} onClick={handleBatchGraduate}>
 				{graduateLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Award className="h-4 w-4 mr-1" />}
 				{selectedStudents.length > 0 ? `批量毕业(${selectedStudents.length})` : "批量毕业"}
+			</Button>
+			<Button variant="destructive" size="sm" disabled={selectedStudents.length === 0 || batchDeleting} onClick={handleBatchDelete}>
+				{batchDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+				批量删除({selectedStudents.length})
 			</Button>
           <Button size="sm" onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-1" />新生录入

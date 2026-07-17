@@ -3,16 +3,15 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree } from "@/hooks/use-org-tree"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
-import { Search, MoreHorizontal, Pencil, Trash2, Loader2, AlertCircle, RotateCcw } from "lucide-react"
+import { Search, MoreHorizontal, Trash2, Loader2, AlertCircle, RotateCcw } from "lucide-react"
 
 function mapAccountStatus(status: string): { label: string; className: string } {
   if (status === "active") {
@@ -30,10 +29,8 @@ export default function AccountsPage() {
   })
   const { orgMap, orgTypeMap } = useOrgTree(tenantId)
 
-  const [editTarget, setEditTarget] = useState<{ id: string; name: string; loginName: string } | null>(null)
-  const [editName, setEditName] = useState("")
-  const [editLoginName, setEditLoginName] = useState("")
-  const [saving, setSaving] = useState(false)
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
+  const [batchDeleting, setBatchDeleting] = useState(false)
 
   const handleResetPassword = async (id: string, name: string) => {
     const password = window.prompt(`请输入 ${name} 的新密码：`)
@@ -58,27 +55,6 @@ export default function AccountsPage() {
     }
   }
 
-  const openEditDialog = (id: string, name: string, loginName: string) => {
-    setEditTarget({ id, name, loginName })
-    setEditName(name)
-    setEditLoginName(loginName)
-  }
-
-  const handleSaveEdit = async () => {
-    if (!editTarget) return
-    setSaving(true)
-    try {
-      await portalUserManagementApi.update(editTarget.id, { name: editName, loginName: editLoginName })
-      toast({ title: "编辑成功" })
-      setEditTarget(null)
-      await refetch()
-    } catch (err) {
-      toast({ variant: "destructive", title: "编辑失败", description: err instanceof Error ? err.message : "未知错误" })
-    } finally {
-      setSaving(false)
-    }
-  }
-
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`确定要删除账户「${name}」吗？此操作不可撤销。`)) return
     try {
@@ -88,6 +64,39 @@ export default function AccountsPage() {
     } catch (err) {
       toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
     }
+  }
+
+  const toggleSelectAccount = (id: string) => {
+    setSelectedAccounts((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedAccounts.length === accounts.length && accounts.length > 0) {
+      setSelectedAccounts([])
+    } else {
+      setSelectedAccounts(accounts.map((a) => a.id))
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    if (selectedAccounts.length === 0) return
+    setBatchDeleting(true)
+    let success = 0
+    let fail = 0
+    for (const id of selectedAccounts) {
+      try {
+        await portalUserManagementApi.delete(id)
+        success++
+      } catch {
+        fail++
+      }
+    }
+    setBatchDeleting(false)
+    setSelectedAccounts([])
+    if (success > 0) {
+      toast({ title: `成功删除 ${success} 个账户` + (fail > 0 ? `，${fail} 个失败` : "") })
+    }
+    await refetch()
   }
 
   const accounts = users.map((user) => {
@@ -124,6 +133,12 @@ export default function AccountsPage() {
             />
           </div>
         </div>
+        {selectedAccounts.length > 0 && (
+          <Button variant="destructive" size="sm" disabled={batchDeleting} onClick={handleBatchDelete}>
+            {batchDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+            批量删除({selectedAccounts.length})
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -143,7 +158,12 @@ export default function AccountsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">序号</TableHead>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={selectedAccounts.length === accounts.length && accounts.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+              </TableHead>
               <TableHead>姓名</TableHead>
               <TableHead>身份类型</TableHead>
               <TableHead>所属组织</TableHead>
@@ -156,21 +176,26 @@ export default function AccountsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12">
+                  <TableCell colSpan={9} className="text-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   <p className="mt-2 text-sm text-muted-foreground">加载中...</p>
                 </TableCell>
               </TableRow>
             ) : accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
                   {searchText ? "未找到匹配的账户" : "暂无账户数据"}
                 </TableCell>
               </TableRow>
             ) : (
-              accounts.map((account, index) => (
+              accounts.map((account) => (
                 <TableRow key={account.id}>
-                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedAccounts.includes(account.id)}
+                      onCheckedChange={() => toggleSelectAccount(account.id)}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{account.name}</TableCell>
                   <TableCell>
                     <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary">{account.identityType}</span>
@@ -196,9 +221,6 @@ export default function AccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditDialog(account.id, account.name, account.rawLoginName)}>
-                          <Pencil className="h-4 w-4" />编辑
-                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleResetPassword(account.id, account.name)}>
                           重置密码
                         </DropdownMenuItem>
@@ -212,7 +234,7 @@ export default function AccountsPage() {
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(account.id, account.name)}>
-                          <Trash2 className="h-4 w-4" />删除
+                          删除
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -223,30 +245,6 @@ export default function AccountsPage() {
           </TableBody>
         </Table>
       </div>
-
-      <Dialog open={editTarget !== null} onOpenChange={(open) => { if (!open) setEditTarget(null) }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>编辑账户</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">姓名</Label>
-              <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="请输入姓名" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-login">登录名</Label>
-              <Input id="edit-login" value={editLoginName} onChange={(e) => setEditLoginName(e.target.value)} placeholder="请输入登录名" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={saving}>取消</Button>
-            <Button onClick={handleSaveEdit} disabled={saving || !editName.trim() || !editLoginName.trim()}>
-              {saving ? "保存中..." : "保存"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
