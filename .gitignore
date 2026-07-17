@@ -30,7 +30,7 @@ backups/
 
 
 # Runtime artifacts
-logs/
+/logs/
 .rollback/
 backend/main
 tsconfig.tsbuildinfo
