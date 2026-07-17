@@ -70,6 +70,7 @@ BACKUP_DIR="${BACKUP_DIR:-$PROJECT_ROOT/backups}"
 BACKEND_BIN="$BACKEND_DIR/bin/server"
 BACKEND_BIN_NEW="$BACKEND_DIR/bin/server.new"
 ROLLBACK_DIR="$PROJECT_ROOT/.rollback"
+ROLLBACK_KEEP="${ROLLBACK_KEEP:-10}"
 DEPLOY_TMP_DIR="$PROJECT_ROOT/.deploy"
 
 MARKETPLACE_DIR="$PROJECT_ROOT/apps/marketplace"
@@ -352,6 +353,9 @@ ln -s "$SNAPSHOT_DIR" "$ROLLBACK_DIR/latest"
 
 echo "  快照已保存: $SNAPSHOT_DIR"
 
+# 只保留最近 ROLLBACK_KEEP 个快照，超出则删除最旧的
+find "$ROLLBACK_DIR" -maxdepth 1 -type d -name '2*' 2>/dev/null | sort | head -n -"$ROLLBACK_KEEP" | xargs -r rm -rf || true
+
 # ==================== 代码检查 ====================
 if [[ "$SKIP_CHECKS" != "true" ]]; then
   echo "==> 运行代码检查..."
@@ -563,10 +567,8 @@ if [[ "$HEALTH_OK" != "true" ]]; then
   exit 1
 fi
 
-# ==================== 清理旧产物与旧快照 ====================
+# ==================== 清理旧产物 ====================
 [[ -f "$BACKEND_DIR/bin/server.prev" ]] && rm -f "$BACKEND_DIR/bin/server.prev"
-
-find "$ROLLBACK_DIR" -maxdepth 1 -type d -name '2*' -mtime +14 -exec rm -rf {} + 2>/dev/null || true
 
 echo ""
 echo "✨ 本地发布完成！"
