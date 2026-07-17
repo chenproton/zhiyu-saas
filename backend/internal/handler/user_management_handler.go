@@ -251,7 +251,8 @@ func (h *UserManagementHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
-	if _, err := h.fetchUser(r.Context(), id); err != nil {
+	oldUser, err := h.fetchUser(r.Context(), id)
+	if err != nil {
 		respondError(w, http.StatusNotFound, "user not found")
 		return
 	}
@@ -267,9 +268,14 @@ func (h *UserManagementHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !ptrEqual(oldUser.IdentityTypeID, req.IdentityTypeID) {
+		h.decIdentityTypeCount(r.Context(), oldUser.IdentityTypeID)
+		h.incIdentityTypeCount(r.Context(), nil, req.IdentityTypeID)
+	}
+
 	role := h.resolveRole(r.Context(), req.IdentityTypeID, req.Role)
 
-	_, err := h.DB.Exec(r.Context(), `
+	_, err = h.DB.Exec(r.Context(), `
 		UPDATE users SET institution_id = $1, identity_type_id = $2, org_node_id = $3, major_id = $4,
 			role = $5, username = $6, name = $7, email = $8, phone = $9, avatar_url = $10,
 			student_no = $11, work_id = $12, id_card = $13, title_ids = $14, updated_at = NOW()
@@ -294,12 +300,16 @@ func (h *UserManagementHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
-	if _, err := h.fetchUser(r.Context(), id); err != nil {
+	user, err := h.fetchUser(r.Context(), id)
+	if err != nil {
 		respondError(w, http.StatusNotFound, "user not found")
 		return
 	}
 
-	_, err := h.DB.Exec(r.Context(), `DELETE FROM users WHERE id = $1`, id)
+	h.decIdentityTypeCount(r.Context(), user.IdentityTypeID)
+	h.decRoleCountsForUser(r.Context(), id)
+
+	_, err = h.DB.Exec(r.Context(), `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to delete user")
 		return
@@ -478,6 +488,31 @@ func (h *UserManagementHandler) BatchGraduate(w http.ResponseWriter, r *http.Req
 	respondJSON(w, http.StatusOK, map[string]int{"count": len(req.UserIDs)})
 }
 
+func (h *UserManagementHandler) incIdentityTypeCount(ctx context.Context, tx pgx.Tx, id *string) {
+	if id == nil || *id == "" {
+		return
+	}
+	if tx != nil {
+		_, _ = tx.Exec(ctx, `UPDATE identity_types SET user_count = user_count + 1 WHERE id = $1`, *id)
+	} else {
+		_, _ = h.DB.Exec(ctx, `UPDATE identity_types SET user_count = user_count + 1 WHERE id = $1`, *id)
+	}
+}
+
+func (h *UserManagementHandler) decIdentityTypeCount(ctx context.Context, id *string) {
+	if id == nil || *id == "" {
+		return
+	}
+	_, _ = h.DB.Exec(ctx, `UPDATE identity_types SET user_count = GREATEST(user_count - 1, 0) WHERE id = $1`, *id)
+}
+
+func (h *UserManagementHandler) decRoleCountsForUser(ctx context.Context, userID string) {
+	_, _ = h.DB.Exec(ctx, `
+		UPDATE roles SET user_count = GREATEST(user_count - 1, 0)
+		WHERE id IN (SELECT role_id FROM user_roles WHERE user_id = $1)
+	`, userID)
+}
+
 func (h *UserManagementHandler) createSingleUser(ctx context.Context, req CreateUserRequest) (domain.User, error) {
 	tx, err := h.DB.Begin(ctx)
 	if err != nil {
@@ -521,6 +556,8 @@ func (h *UserManagementHandler) createSingleUserInTx(ctx context.Context, tx pgx
 	if err != nil {
 		return domain.User{}, err
 	}
+
+	h.incIdentityTypeCount(ctx, tx, req.IdentityTypeID)
 
 	return h.fetchUserInTx(ctx, tx, id)
 }

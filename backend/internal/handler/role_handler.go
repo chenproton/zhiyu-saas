@@ -259,6 +259,8 @@ func (h *RoleHandler) Assign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, _ = h.DB.Exec(r.Context(), `UPDATE roles SET user_count = user_count + 1 WHERE id = $1`, id)
+
 	respondJSON(w, http.StatusOK, map[string]string{"roleId": id, "userId": req.UserID})
 }
 

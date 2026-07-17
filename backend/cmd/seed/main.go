@@ -157,6 +157,18 @@ func main() {
 		fmt.Println("seed users error:", err)
 		os.Exit(1)
 	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE identity_types SET user_count = (SELECT COUNT(*) FROM users WHERE identity_type_id = identity_types.id)
+	`); err != nil {
+		fmt.Println("update identity_type user_count error:", err)
+		os.Exit(1)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE roles SET user_count = (SELECT COUNT(*) FROM user_roles WHERE role_id = roles.id)
+	`); err != nil {
+		fmt.Println("update roles user_count error:", err)
+		os.Exit(1)
+	}
 	if err := seedJobData(ctx, tx); err != nil {
 		fmt.Println("seed job data error:", err)
 		os.Exit(1)

@@ -295,6 +295,15 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 				uuid.NewString(), adminID, id)
 
 			_, _ = h.DB.Exec(r.Context(),
+				`UPDATE identity_types SET user_count = user_count + 1 WHERE id = $1`,
+				schoolAdminIdentityTypeID)
+
+			_, _ = h.DB.Exec(r.Context(),
+				`UPDATE roles SET user_count = user_count + 1
+				 WHERE tenant_id = $1 AND code = 'school_admin'`,
+				id)
+
+			_, _ = h.DB.Exec(r.Context(),
 				`UPDATE tenants SET admin_ids = ARRAY[$1::UUID] WHERE id = $2`,
 				adminID, id)
 

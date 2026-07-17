@@ -118,3 +118,13 @@ func institutionFilter(claims *middleware.Claims) (institutionID string, ok bool
 	}
 	return *claims.InstitutionID, true
 }
+
+func ptrEqual[T comparable](a, b *T) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
+}
