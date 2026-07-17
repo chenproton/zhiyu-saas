@@ -9,6 +9,10 @@ import (
 	"github.com/zhiyu-saas/backend/internal/handler/testhelper"
 )
 
+type createTenantResp struct {
+	Tenant    domain.Tenant `json:"tenant"`
+}
+
 func TestTenant_Create(t *testing.T) {
 	env := testhelper.SetupTestEnv(t)
 	defer env.Cleanup()
@@ -22,13 +26,16 @@ func TestTenant_Create(t *testing.T) {
 		t.Fatalf("expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
 	}
 
-	tenant, err := testhelper.Unmarshal[domain.Tenant](w)
+	resp, err := testhelper.Unmarshal[createTenantResp](w)
 	if err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+	tenant := resp.Tenant
 	if tenant.Name != "Test Tenant Create" {
 		t.Fatalf("expected name 'Test Tenant Create', got %s", tenant.Name)
 	}
+	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", tenant.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", tenant.ID)
 	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", tenant.ID)
 }
 
@@ -53,14 +60,20 @@ func TestTenant_List(t *testing.T) {
 	if w1.Code != http.StatusCreated {
 		t.Fatalf("create tenant 1: %d %s", w1.Code, testhelper.ErrMsg(w1))
 	}
-	t1, _ := testhelper.Unmarshal[domain.Tenant](w1)
+	r1, _ := testhelper.Unmarshal[createTenantResp](w1)
+	t1 := r1.Tenant
+	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", t1.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", t1.ID)
 	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", t1.ID)
 
 	w2 := env.Do("POST", "/api/v1/tenants", map[string]string{"name": "ListTenantB", "code": "list-b"})
 	if w2.Code != http.StatusCreated {
 		t.Fatalf("create tenant 2: %d %s", w2.Code, testhelper.ErrMsg(w2))
 	}
-	t2, _ := testhelper.Unmarshal[domain.Tenant](w2)
+	r2, _ := testhelper.Unmarshal[createTenantResp](w2)
+	t2 := r2.Tenant
+	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", t2.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", t2.ID)
 	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", t2.ID)
 
 	w := env.Do("GET", "/api/v1/tenants", nil)
@@ -88,7 +101,10 @@ func TestTenant_Get(t *testing.T) {
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
 	}
-	created, _ := testhelper.Unmarshal[domain.Tenant](wc)
+	cr, _ := testhelper.Unmarshal[createTenantResp](wc)
+	created := cr.Tenant
+	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", created.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", created.ID)
 	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", created.ID)
 
 	w := env.Do("GET", "/api/v1/tenants/"+created.ID, nil)
@@ -123,7 +139,10 @@ func TestTenant_Update(t *testing.T) {
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
 	}
-	created, _ := testhelper.Unmarshal[domain.Tenant](wc)
+	cr, _ := testhelper.Unmarshal[createTenantResp](wc)
+	created := cr.Tenant
+	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", created.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", created.ID)
 	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", created.ID)
 
 	w := env.Do("PUT", "/api/v1/tenants/"+created.ID, map[string]string{"name": "Updated Name"})
@@ -158,7 +177,10 @@ func TestTenant_UpdateStatus(t *testing.T) {
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
 	}
-	created, _ := testhelper.Unmarshal[domain.Tenant](wc)
+	cr, _ := testhelper.Unmarshal[createTenantResp](wc)
+	created := cr.Tenant
+	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", created.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", created.ID)
 	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", created.ID)
 
 	w := env.Do("POST", "/api/v1/tenants/"+created.ID+"/status", map[string]string{"status": "inactive"})
@@ -183,7 +205,10 @@ func TestTenant_UpdateStatus_Invalid(t *testing.T) {
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
 	}
-	created, _ := testhelper.Unmarshal[domain.Tenant](wc)
+	cr, _ := testhelper.Unmarshal[createTenantResp](wc)
+	created := cr.Tenant
+	defer env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", created.ID)
+	defer env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", created.ID)
 	defer env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", created.ID)
 
 	w := env.Do("POST", "/api/v1/tenants/"+created.ID+"/status", map[string]string{"status": "bogus"})

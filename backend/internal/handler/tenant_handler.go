@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"strings"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zhiyu-saas/backend/internal/domain"
 	"github.com/zhiyu-saas/backend/internal/middleware"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type TenantHandler struct {
@@ -48,6 +51,31 @@ type UpdateTenantRequest struct {
 
 type UpdateTenantStatusRequest struct {
 	Status domain.TenantStatus `json:"status"`
+}
+
+type CreateTenantResponse struct {
+	Tenant    domain.Tenant   `json:"tenant"`
+	AdminUser *adminUserInfo  `json:"adminUser,omitempty"`
+}
+
+type adminUserInfo struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	LoginName string `json:"loginName"`
+	Password  string `json:"password"`
+}
+
+type systemIdentityType struct {
+	code string
+	name string
+}
+
+var systemIdentityTypes = []systemIdentityType{
+	{"platform_admin", "平台管理员"},
+	{"school_admin", "学校管理员"},
+	{"teacher", "教师"},
+	{"student", "学生"},
+	{"enterprise_mentor", "企业导师"},
 }
 
 func (h *TenantHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -139,6 +167,19 @@ func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 	h.createTenant(w, r)
 }
 
+func generatePassword(length int) (string, error) {
+	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
+	result := make([]byte, length)
+	for i := range result {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			return "", err
+		}
+		result[i] = chars[n.Int64()]
+	}
+	return string(result), nil
+}
+
 func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 	var req CreateTenantRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -193,8 +234,54 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 		ON CONFLICT DO NOTHING
 	`, id)
 
+	// 为新租户创建系统身份类型
+	for _, st := range systemIdentityTypes {
+		_, _ = h.DB.Exec(r.Context(), `
+			INSERT INTO identity_types (id, tenant_id, code, name, description, user_count, is_system, created_at)
+			VALUES ($1, $2, $3, $4, NULL, 0, true, NOW())
+		`, uuid.NewString(), id, st.code, st.name)
+	}
+
+	// 为新租户创建默认管理员用户（身份为 school_admin）
+	var schoolAdminIdentityTypeID string
+	_ = h.DB.QueryRow(r.Context(),
+		`SELECT id FROM identity_types WHERE tenant_id = $1 AND code = 'school_admin' LIMIT 1`,
+		id,
+	).Scan(&schoolAdminIdentityTypeID)
+
+	var adminUser *adminUserInfo
+	if schoolAdminIdentityTypeID != "" {
+		adminID := uuid.NewString()
+		adminUsername := "admin-" + req.Code
+		adminPassword, pwErr := generatePassword(12)
+		if pwErr != nil {
+			adminPassword = "Admin@123456"
+		}
+
+		hash, hashErr := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+		if hashErr == nil {
+			_, _ = h.DB.Exec(r.Context(), `
+				INSERT INTO users (id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+					role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
+					student_no, work_id, id_card, title_ids, oauth, status)
+				VALUES ($1, $2, NULL, $3, NULL, NULL, 'school', 'portal', $4, $5, $6, $7, NULL, NULL, NULL, NULL, NULL, NULL, '{}', 'active')
+			`, adminID, id, schoolAdminIdentityTypeID, adminUsername, adminUsername, string(hash), req.Name+"管理员")
+
+			_, _ = h.DB.Exec(r.Context(),
+				`UPDATE tenants SET admin_ids = ARRAY[$1::UUID] WHERE id = $2`,
+				adminID, id)
+
+			adminUser = &adminUserInfo{
+				ID:        adminID,
+				Username:  adminUsername,
+				LoginName: adminUsername,
+				Password:  adminPassword,
+			}
+		}
+	}
+
 	tenant, _ := h.fetchTenant(r.Context(), id)
-	respondJSON(w, http.StatusCreated, tenant)
+	respondJSON(w, http.StatusCreated, CreateTenantResponse{Tenant: tenant, AdminUser: adminUser})
 }
 
 func (h *TenantHandler) Update(w http.ResponseWriter, r *http.Request) {

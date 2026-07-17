@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import type {
   QuestionBank,
   Question,
@@ -261,6 +262,7 @@ const mapApprovalRecord = (record: ApprovalRecord): ApprovalItem => {
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const [questionBanks, setQuestionBanks] = useState<QuestionBank[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [exams, setExams] = useState<Exam[]>([])
@@ -419,6 +421,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (pathname.startsWith("/portal")) return
+
     let cancelled = false
     const loadAll = async () => {
       try {
@@ -449,6 +453,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     loadAll()
     return () => { cancelled = true }
   }, [
+    pathname,
     loadQuestionBanks,
     loadQuestions,
     loadExams,

@@ -299,7 +299,7 @@ export default function TenantPage() {
         </Button>
       </div>
 
-      {loading && (
+      {(loading || authLoading) && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
@@ -311,7 +311,14 @@ export default function TenantPage() {
         </div>
       )}
 
-      {!loading && (
+      {!authLoading && !tenantId && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center">
+          <p className="text-amber-800 font-medium text-sm">未关联租户</p>
+          <p className="text-amber-600 text-xs mt-1">当前账号未关联租户，请联系平台管理员分配租户后重试。</p>
+        </div>
+      )}
+
+      {!loading && tenantId && (
         <>
           <div className="rounded-lg border border-gray-100 bg-white shadow-sm">
             <Table>
