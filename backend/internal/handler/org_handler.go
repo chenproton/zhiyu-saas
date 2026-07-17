@@ -163,8 +163,44 @@ func (h *OrgHandler) Tree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	counts, err := h.fetchOrgMemberCounts(r.Context(), tenantID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to count organization members")
+		return
+	}
+	for i := range items {
+		items[i].MemberCount = counts[items[i].ID]
+	}
+
 	tree := h.buildOrgTree(items)
 	respondJSON(w, http.StatusOK, OrgTreeResponse{Items: tree})
+}
+
+func (h *OrgHandler) fetchOrgMemberCounts(ctx context.Context, tenantID string) (map[string]int, error) {
+	query := `SELECT org_node_id, COUNT(*) FROM users WHERE org_node_id IS NOT NULL`
+	args := []interface{}{}
+	if tenantID != "" {
+		query += ` AND tenant_id = $1`
+		args = append(args, tenantID)
+	}
+	query += ` GROUP BY org_node_id`
+
+	rows, err := h.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var orgID string
+		var count int
+		if err := rows.Scan(&orgID, &count); err != nil {
+			return nil, err
+		}
+		counts[orgID] = count
+	}
+	return counts, rows.Err()
 }
 
 func (h *OrgHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -325,9 +361,22 @@ func (h *OrgHandler) buildOrgTree(orgs []domain.Organization) []OrgTreeNode {
 		return roots[i].SortOrder < roots[j].SortOrder
 	})
 
+	for _, r := range roots {
+		computeSubtreeMemberCount(r)
+	}
+
 	result := make([]OrgTreeNode, len(roots))
 	for i, r := range roots {
 		result[i] = *r
 	}
 	return result
+}
+
+func computeSubtreeMemberCount(node *OrgTreeNode) int {
+	sum := node.MemberCount
+	for _, child := range node.Children {
+		sum += computeSubtreeMemberCount(child)
+	}
+	node.MemberCount = sum
+	return sum
 }
