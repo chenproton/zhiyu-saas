@@ -249,6 +249,25 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 		`, uuid.NewString(), id, st.code, st.name)
 	}
 
+	// 为新租户创建默认角色
+	defaultRoles := []struct {
+		code        string
+		name        string
+		permissions domain.JSONMap
+	}{
+		{"platform_admin", "平台管理员", domain.JSONMap{"admin": true}},
+		{"school_admin", "学校管理员", domain.JSONMap{"schoolAdmin": true}},
+		{"teacher", "教师", domain.JSONMap{"teacher": true}},
+		{"student", "学生", domain.JSONMap{"student": true}},
+		{"enterprise_mentor", "企业导师", domain.JSONMap{"enterpriseMentor": true}},
+	}
+	for _, role := range defaultRoles {
+		_, _ = h.DB.Exec(r.Context(), `
+			INSERT INTO roles (id, tenant_id, code, name, description, permissions, user_count, status, created_at)
+			VALUES ($1, $2, $3, $4, '', $5, 0, 'active', NOW())
+		`, uuid.NewString(), id, role.code, role.name, role.permissions)
+	}
+
 	// 为新租户创建默认管理员用户（身份为 school_admin）
 	var schoolAdminIdentityTypeID string
 	_ = h.DB.QueryRow(r.Context(),
@@ -269,6 +288,11 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 					student_no, work_id, id_card, title_ids, oauth, status)
 				VALUES ($1, $2, NULL, $3, NULL, NULL, 'school', 'portal', $4, $5, $6, $7, NULL, NULL, NULL, NULL, NULL, NULL, $8, '{}', 'active')
 			`, adminID, id, schoolAdminIdentityTypeID, adminUsername, adminUsername, string(hash), req.Name+"管理员", "{}")
+
+			_, _ = h.DB.Exec(r.Context(),
+				`INSERT INTO user_roles (id, user_id, role_id)
+				 SELECT $1, $2, id FROM roles WHERE tenant_id = $3 AND code = 'school_admin' LIMIT 1`,
+				uuid.NewString(), adminID, id)
 
 			_, _ = h.DB.Exec(r.Context(),
 				`UPDATE tenants SET admin_ids = ARRAY[$1::UUID] WHERE id = $2`,
