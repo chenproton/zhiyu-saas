@@ -164,9 +164,11 @@ function TreeNode({
             <DropdownMenuItem onClick={() => onAction("addChild", node)}>
               添加子节点
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAction("addParent", node)}>
-              添加父节点
-            </DropdownMenuItem>
+            {level > 0 && (
+              <DropdownMenuItem onClick={() => onAction("addParent", node)}>
+                添加父节点
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => onAction("edit", node)}>
               编辑
             </DropdownMenuItem>
