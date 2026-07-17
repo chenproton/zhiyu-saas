@@ -9,7 +9,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
@@ -17,6 +16,7 @@ import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree, findOrgAncestor } from "@/hooks/use-org-tree"
 import { OrgNodeSelect } from "@/components/shared/org-node-select"
+import { OrgFilterTree, collectOrgSubtreeIds } from "@/components/shared/org-filter-tree"
 import { MajorSelect } from "@/components/shared/major-select"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { portalUserManagementApi, majorApi, portalGraduateApi } from "@/lib/api"
@@ -24,7 +24,7 @@ import type { Organization } from "@/lib/types/backend"
 import { useToast } from "@/hooks/use-toast"
 import {
   Plus, MoreHorizontal, Power, Trash2, Search, Filter, Upload, Download,
-  ChevronRight, ChevronDown, FolderTree, Key, Loader2, AlertCircle, RotateCcw, Award
+  FolderTree, Key, Loader2, AlertCircle, RotateCcw, Award
 } from "lucide-react"
 
 const DEPT_TYPE = "二级学院"
@@ -96,7 +96,7 @@ export default function StudentsPage() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("在籍")
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
+  const [selectedOrgNodeId, setSelectedOrgNodeId] = useState<string | null>(null)
 	const [saving, setSaving] = useState(false)
 	const [graduateLoading, setGraduateLoading] = useState(false)
 	const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
@@ -173,10 +173,15 @@ export default function StudentsPage() {
     )
   }, [users, institution, orgMap, orgTypeMap, majorMap])
 
+  const selectedOrgIds = useMemo(() => {
+    if (!selectedOrgNodeId) return null
+    return collectOrgSubtreeIds(orgMap, selectedOrgNodeId)
+  }, [selectedOrgNodeId, orgMap])
+
   const filteredStudents = students.filter((student) => {
     if (statusFilter !== "all" && student.status !== statusFilter) return false
-    if (selectedClassId) {
-      return student.orgNodeId === selectedClassId
+    if (selectedOrgIds) {
+      return !!student.orgNodeId && selectedOrgIds.has(student.orgNodeId)
     }
     return true
   })
@@ -399,10 +404,10 @@ export default function StudentsPage() {
           <ScrollArea className="h-[500px]">
             <div className="space-y-1">
               <button
-                onClick={() => setSelectedClassId(null)}
+                onClick={() => setSelectedOrgNodeId(null)}
                 className={cn(
                   "w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors",
-                  selectedClassId === null ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                  selectedOrgNodeId === null ? "bg-primary text-primary-foreground" : "hover:bg-muted"
                 )}
               >
                 全部学生
@@ -412,12 +417,11 @@ export default function StudentsPage() {
                   <Loader2 className="h-4 w-4 animate-spin" /> 加载中...
                 </div>
               ) : (
-                <OrgTreeNode
+                <OrgFilterTree
                   nodes={orgs}
-                  depth={0}
-                  selectedClassId={selectedClassId}
-                  onSelectClass={setSelectedClassId}
                   orgTypeMap={orgTypeMap}
+                  selectedId={selectedOrgNodeId}
+                  onSelect={setSelectedOrgNodeId}
                 />
               )}
             </div>
@@ -620,112 +624,5 @@ export default function StudentsPage() {
         onConfirm={confirmDeleteStudent}
       />
     </div>
-  )
-}
-
-
-interface OrgTreeNodeProps {
-  nodes: Organization[]
-  depth: number
-  selectedClassId: string | null
-  onSelectClass: (id: string) => void
-  orgTypeMap: Map<string, { name: string }>
-}
-
-function OrgTreeBranch({
-  node,
-  childNodes,
-  depth,
-  selectedClassId,
-  onSelectClass,
-  orgTypeMap,
-}: {
-  node: Organization
-  childNodes: Organization[]
-  depth: number
-  selectedClassId: string | null
-  onSelectClass: (id: string) => void
-  orgTypeMap: Map<string, { name: string }>
-}) {
-  const [open, setOpen] = useState(true)
-  return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger asChild>
-        <button
-          className="flex items-center w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors"
-          style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
-        >
-          {open ? (
-            <ChevronDown className="h-3.5 w-3.5 mr-1 shrink-0" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5 mr-1 shrink-0" />
-          )}
-          <span className="truncate">{node.name}</span>
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="space-y-0.5 mt-0.5">
-          <OrgTreeNode
-            nodes={childNodes}
-            depth={depth + 1}
-            selectedClassId={selectedClassId}
-            onSelectClass={onSelectClass}
-            orgTypeMap={orgTypeMap}
-          />
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  )
-}
-
-function OrgTreeNode({ nodes, depth, selectedClassId, onSelectClass, orgTypeMap }: OrgTreeNodeProps) {
-  return (
-    <>
-      {nodes.map((node) => {
-        const typeName = getOrgTypeName(node, orgTypeMap)
-
-        if (typeName === CLASS_TYPE) {
-          return (
-            <button
-              key={node.id}
-              onClick={() => onSelectClass(node.id)}
-              className={cn(
-                "w-full text-left px-2 py-1 text-xs rounded-md transition-colors truncate flex items-center gap-1",
-                selectedClassId === node.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-              )}
-              style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
-            >
-              <span className="truncate">{node.name}</span>
-            </button>
-          )
-        }
-
-        const childNodes = node.children ?? []
-        if (childNodes.length === 0) {
-          return (
-            <div
-              key={node.id}
-              className="flex items-center w-full px-2 py-1.5 text-sm text-muted-foreground"
-              style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
-            >
-              <span className="w-3.5 mr-1 shrink-0" />
-              <span className="truncate">{node.name}</span>
-            </div>
-          )
-        }
-
-        return (
-          <OrgTreeBranch
-            key={node.id}
-            node={node}
-            childNodes={childNodes}
-            depth={depth}
-            selectedClassId={selectedClassId}
-            onSelectClass={onSelectClass}
-            orgTypeMap={orgTypeMap}
-          />
-        )
-      })}
-    </>
   )
 }

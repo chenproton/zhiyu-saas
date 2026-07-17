@@ -9,19 +9,19 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree } from "@/hooks/use-org-tree"
 import { OrgNodeSelect } from "@/components/shared/org-node-select"
+import { OrgFilterTree, collectOrgSubtreeIds } from "@/components/shared/org-filter-tree"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import {
   Plus, MoreHorizontal, Power, Trash2, Search, Filter, Upload, Download,
-  ChevronRight, ChevronDown, FolderTree, Key, Loader2, AlertCircle, RotateCcw, Pencil
+  FolderTree, Key, Loader2, AlertCircle, RotateCcw, Pencil
 } from "lucide-react"
 
 interface Teacher {
@@ -57,7 +57,7 @@ export default function TeachersPage() {
     identityTypeCode: "teacher",
     search: searchTerm || undefined,
   })
-  const { orgTree, orgMap, orgTypeMap, loading: orgLoading } = useOrgTree(tenantId)
+  const { orgs, orgMap, orgTypeMap, loading: orgLoading } = useOrgTree(tenantId)
 
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -72,10 +72,6 @@ export default function TeachersPage() {
   const [formPassword, setFormPassword] = useState("")
   const [formWorkId, setFormWorkId] = useState("")
   const [formOrgNodeId, setFormOrgNodeId] = useState<string>("")
-
-  const teacherOrgNodes = useMemo(() => {
-    return orgTree
-  }, [orgTree])
 
   useEffect(() => {
     setTeachers(
@@ -96,10 +92,15 @@ export default function TeachersPage() {
     )
   }, [users, identityTypeMap, institution, orgMap])
 
+  const selectedOrgIds = useMemo(() => {
+    if (!selectedOrgNodeId) return null
+    return collectOrgSubtreeIds(orgMap, selectedOrgNodeId)
+  }, [selectedOrgNodeId, orgMap])
+
   const filteredTeachers = teachers.filter((teacher) => {
     if (statusFilter !== "all" && teacher.status !== statusFilter) return false
-    if (selectedOrgNodeId) {
-      return teacher.orgNodeId === selectedOrgNodeId
+    if (selectedOrgIds) {
+      return !!teacher.orgNodeId && selectedOrgIds.has(teacher.orgNodeId)
     }
     return true
   })
@@ -298,19 +299,12 @@ export default function TeachersPage() {
                   <Loader2 className="h-4 w-4 animate-spin" /> 加载中...
                 </div>
               ) : (
-                teacherOrgNodes.map((node) => (
-                  <button
-                    key={node.id}
-                    onClick={() => setSelectedOrgNodeId(node.id)}
-                    className={cn(
-                      "w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors truncate",
-                      selectedOrgNodeId === node.id ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"
-                    )}
-                    style={{ paddingLeft: `${0.5 + node.depth * 0.75}rem` }}
-                  >
-                    {node.name}
-                  </button>
-                ))
+                <OrgFilterTree
+                  nodes={orgs}
+                  orgTypeMap={orgTypeMap}
+                  selectedId={selectedOrgNodeId}
+                  onSelect={setSelectedOrgNodeId}
+                />
               )}
             </div>
           </ScrollArea>
