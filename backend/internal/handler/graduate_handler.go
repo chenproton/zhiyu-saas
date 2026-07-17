@@ -197,16 +197,22 @@ func (h *GraduateHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
-	if _, err := h.fetchGraduate(r.Context(), id); err != nil {
+	graduate, err := h.fetchGraduate(r.Context(), id)
+	if err != nil {
 		respondError(w, http.StatusNotFound, "graduate not found")
 		return
 	}
 
-	_, err := h.DB.Exec(r.Context(), `DELETE FROM graduates WHERE id = $1`, id)
+	_, err = h.DB.Exec(r.Context(), `DELETE FROM graduates WHERE id = $1`, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to delete graduate")
 		return
 	}
+
+	if graduate.UserID != nil && *graduate.UserID != "" {
+		_, _ = h.DB.Exec(r.Context(), `UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1`, *graduate.UserID)
+	}
+
 	respondJSON(w, http.StatusOK, map[string]string{"id": id})
 }
 
