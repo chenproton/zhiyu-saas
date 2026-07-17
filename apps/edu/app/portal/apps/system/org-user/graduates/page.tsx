@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { portalGraduateApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import { Search, Download, Eye, MoreHorizontal, RotateCcw, Loader2, AlertCircle, Plus, Pencil } from "lucide-react"
+import { Search, Download, Eye, MoreHorizontal, RotateCcw, Loader2, AlertCircle, Pencil } from "lucide-react"
 import type { Graduate } from "@/lib/types/backend"
 
 export default function GraduatesPage() {
@@ -92,12 +92,6 @@ export default function GraduatesPage() {
     setFormClassName(graduate?.className || "")
   }
 
-  const openCreateDialog = () => {
-    setEditingGraduate(null)
-    resetForm()
-    setIsDialogOpen(true)
-  }
-
   const openEditDialog = (graduate: Graduate) => {
     setEditingGraduate(graduate)
     resetForm(graduate)
@@ -167,10 +161,6 @@ export default function GraduatesPage() {
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-1" />
             导出
-          </Button>
-          <Button size="sm" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-1" />
-            新增毕业学生
           </Button>
         </div>
       </div>
