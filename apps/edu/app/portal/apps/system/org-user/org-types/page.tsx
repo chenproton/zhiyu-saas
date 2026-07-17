@@ -33,6 +33,9 @@ export default function OrgTypesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedType, setSelectedType] = useState<OrgType | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [formName, setFormName] = useState("")
+  const [formCategory, setFormCategory] = useState<string>("internal")
+  const [isSaving, setIsSaving] = useState(false)
 
   const fetchData = async () => {
     if (!tenantId) {
@@ -59,8 +62,13 @@ export default function OrgTypesPage() {
 
   const filteredTypes = orgTypes.filter((type) => type.name.includes(searchTerm))
 
-  const deleteType = (id: string) => {
-    setOrgTypes((prev) => prev.filter((t) => t.id !== id))
+  const deleteType = async (id: string) => {
+    try {
+      await orgTypeApi.delete(id)
+      setOrgTypes((prev) => prev.filter((t) => t.id !== id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "删除组织类型失败")
+    }
   }
 
   return (
@@ -79,7 +87,7 @@ export default function OrgTypesPage() {
             <Download className="h-4 w-4 mr-1" />
             批量导出
           </Button>
-          <Button size="sm" onClick={() => { setSelectedType(null); setIsDialogOpen(true) }}>
+          <Button size="sm" onClick={() => { setSelectedType(null); setFormName(""); setFormCategory("internal"); setIsDialogOpen(true) }}>
             <Plus className="h-4 w-4 mr-1" />
             新增类型
           </Button>
@@ -148,7 +156,7 @@ export default function OrgTypesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setSelectedType(type); setIsDialogOpen(true) }}>
+                            <DropdownMenuItem onClick={() => { setSelectedType(type); setFormName(type.name); setFormCategory(type.category); setIsDialogOpen(true) }}>
                               编辑
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => deleteType(type.id)}>
@@ -177,11 +185,11 @@ export default function OrgTypesPage() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>类型名称</Label>
-              <Input placeholder="如：二级学院" defaultValue={selectedType?.name} />
+              <Input placeholder="如：二级学院" value={formName} onChange={(e) => setFormName(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label>类型分类</Label>
-              <Select defaultValue={selectedType?.category || "internal"}>
+              <Select value={formCategory} onValueChange={setFormCategory}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="internal">内部组织</SelectItem>
@@ -192,8 +200,24 @@ export default function OrgTypesPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsDialogOpen(false)}>保存</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>取消</Button>
+            <Button disabled={isSaving || !formName.trim()} onClick={async () => {
+              setIsSaving(true)
+              try {
+                if (selectedType) {
+                  const updated = await orgTypeApi.update(selectedType.id, { name: formName.trim(), category: formCategory as OrgType["category"], tenantId: tenantId! })
+                  setOrgTypes((prev) => prev.map((t) => t.id === updated.id ? updated : t))
+                } else {
+                  const created = await orgTypeApi.create({ name: formName.trim(), category: formCategory as OrgType["category"], tenantId: tenantId! })
+                  setOrgTypes((prev) => [...prev, created])
+                }
+                setIsDialogOpen(false)
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "保存组织类型失败")
+              } finally {
+                setIsSaving(false)
+              }
+            }}>{isSaving ? "保存中..." : "保存"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
