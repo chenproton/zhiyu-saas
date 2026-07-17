@@ -35,7 +35,7 @@ interface Teacher {
   status: "在职" | "离职" | "外聘" | "禁用"
 }
 
-const TEACHER_ORG_TYPES = ["二级学院", "行政职能部门"]
+const TEACHER_ORG_TYPES = ["二级学院", "行政职能部门", "职能部门"]
 
 function mapTeacherStatus(status: string): Teacher["status"] {
   if (status === "active") return "在职"
