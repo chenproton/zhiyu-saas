@@ -557,7 +557,7 @@ function OrgTreeBranch({
   onSelectClass: (id: string) => void
   orgTypeMap: Map<string, { name: string }>
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
@@ -589,12 +589,10 @@ function OrgTreeBranch({
 }
 
 function OrgTreeNode({ nodes, depth, selectedClassId, onSelectClass, orgTypeMap }: OrgTreeNodeProps) {
-  const allowedChildTypes = depth === 0 ? [MAJOR_TYPE, CLASS_TYPE] : [CLASS_TYPE]
   return (
     <>
       {nodes.map((node) => {
         const typeName = getOrgTypeName(node, orgTypeMap)
-        if (!typeName || ![DEPT_TYPE, MAJOR_TYPE, CLASS_TYPE].includes(typeName)) return null
 
         if (typeName === CLASS_TYPE) {
           return (
@@ -612,12 +610,19 @@ function OrgTreeNode({ nodes, depth, selectedClassId, onSelectClass, orgTypeMap 
           )
         }
 
-        const childNodes = node.children?.filter((child) => {
-          const childType = getOrgTypeName(child, orgTypeMap)
-          return childType && allowedChildTypes.includes(childType)
-        }) ?? []
-
-        if (childNodes.length === 0) return null
+        const childNodes = node.children ?? []
+        if (childNodes.length === 0) {
+          return (
+            <div
+              key={node.id}
+              className="flex items-center w-full px-2 py-1.5 text-sm text-muted-foreground"
+              style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
+            >
+              <span className="w-3.5 mr-1 shrink-0" />
+              <span className="truncate">{node.name}</span>
+            </div>
+          )
+        }
 
         return (
           <OrgTreeBranch
