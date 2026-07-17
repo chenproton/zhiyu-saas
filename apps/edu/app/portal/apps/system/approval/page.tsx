@@ -70,7 +70,10 @@ export default function ApprovalPage() {
   }
 
   const saveFlow = async () => {
-    if (!formName.trim()) return
+    if (!formName.trim()) {
+      toast({ variant: "destructive", title: "保存失败", description: "请填写审批流名称" })
+      return
+    }
     setSaving(true)
     try {
       if (selectedFlow) {

@@ -48,6 +48,7 @@ import { Plus, Pencil, Trash2, Search, ChevronsUpDown, Check, Loader2, MoreHoriz
 import { cn } from "@/lib/utils"
 import { portalUserRelationApi, portalUserManagementApi } from "@/lib/api"
 import type { User } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 
 const relationTypes = [
   { value: "superior", label: "上下级" },
@@ -63,6 +64,7 @@ const typeLabelMap: Record<string, string> = Object.fromEntries(
 )
 
 export default function RelationsPage() {
+  const { toast } = useToast()
   const [relations, setRelations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchText, setSearchText] = useState("")
@@ -73,6 +75,7 @@ export default function RelationsPage() {
   const [selectedInitiator, setSelectedInitiator] = useState("")
   const [selectedTarget, setSelectedTarget] = useState("")
   const [selectedType, setSelectedType] = useState("")
+  const [saving, setSaving] = useState(false)
   const [userSearch, setUserSearch] = useState("")
 
   const loadRelations = useCallback(async () => {
@@ -81,7 +84,7 @@ export default function RelationsPage() {
       const res = await portalUserRelationApi.list({ search: searchText || undefined })
       setRelations(res.items)
     } catch {
-      // ignore
+      toast({ variant: "destructive", title: "加载失败", description: "加载关系列表失败" })
     } finally {
       setLoading(false)
     }
@@ -96,7 +99,7 @@ export default function RelationsPage() {
       const res = await portalUserManagementApi.list({ search, limit: 50 })
       setUsers(res.items)
     } catch {
-      // ignore
+      // ignore user list load failures
     }
   }, [])
 
@@ -106,28 +109,33 @@ export default function RelationsPage() {
 
   const handleCreate = async () => {
     if (!selectedInitiator || !selectedTarget || !selectedType) return
+    setSaving(true)
     try {
       await portalUserRelationApi.create({
         initiatorId: selectedInitiator,
         targetId: selectedTarget,
         relationType: selectedType,
       })
+      toast({ title: "创建成功" })
       setShowDialog(false)
       setSelectedInitiator("")
       setSelectedTarget("")
       setSelectedType("")
       loadRelations()
-    } catch {
-      // ignore
+    } catch (err) {
+      toast({ variant: "destructive", title: "创建失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSaving(false)
     }
   }
 
   const handleDelete = async (id: string) => {
     try {
       await portalUserRelationApi.delete(id)
+      toast({ title: "删除成功" })
       loadRelations()
-    } catch {
-      // ignore
+    } catch (err) {
+      toast({ variant: "destructive", title: "删除失败", description: err instanceof Error ? err.message : "未知错误" })
     }
   }
 
@@ -346,8 +354,9 @@ export default function RelationsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>取消</Button>
-            <Button onClick={handleCreate} disabled={!selectedInitiator || !selectedTarget || !selectedType}>
+            <Button variant="outline" onClick={() => setShowDialog(false)} disabled={saving}>取消</Button>
+            <Button onClick={handleCreate} disabled={saving || !selectedInitiator || !selectedTarget || !selectedType}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               确定
             </Button>
           </DialogFooter>

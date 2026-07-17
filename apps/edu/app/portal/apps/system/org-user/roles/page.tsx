@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 import { roleApi } from "@/lib/api"
 import type { Role } from "@/lib/types/backend"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { useToast } from "@/hooks/use-toast"
 import { buildMenuTree } from "@/lib/menu-permissions"
 import type { MenuTreeItem } from "@/lib/menu-permissions"
 
@@ -115,6 +116,7 @@ function SystemCard({ node, checked, onCheck }: { node: MenuTreeItem; checked: S
 
 export default function RolesPage() {
   const { tenantId } = usePortalAuth()
+  const { toast } = useToast()
   const [roles, setRoles] = useState<Role[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -237,7 +239,10 @@ export default function RolesPage() {
   }
 
   const saveRole = async () => {
-    if (!tenantId) return
+    if (!tenantId) {
+      toast({ variant: "destructive", title: "保存失败", description: "未获取到租户信息，请重新登录" })
+      return
+    }
     setIsSaving(true)
     try {
       if (selectedRole) {

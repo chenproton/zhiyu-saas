@@ -118,6 +118,7 @@ export default function TenantPage() {
     status: "active" as "active" | "inactive",
   })
   const [submitting, setSubmitting] = useState(false)
+  const [savingAdmins, setSavingAdmins] = useState(false)
   const { toast } = useToast()
 
   const resetForm = () => {
@@ -186,14 +187,25 @@ export default function TenantPage() {
     setEditingAdmins(editingAdmins.filter((a) => a.id !== adminId))
   }
 
-  const saveAdmins = () => {
-    if (selectedTenant) {
+  const saveAdmins = async () => {
+    if (!selectedTenant) return
+    setSavingAdmins(true)
+    try {
+      await portalRequest(`/tenants/${selectedTenant.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ adminIds: editingAdmins.map((a) => a.id) }),
+      })
+      toast({ title: "保存成功" })
       setTenants((prev) =>
         prev.map((t) =>
           t.id === selectedTenant.id ? { ...t, admins: editingAdmins, userCount: editingAdmins.length } : t
         )
       )
       setIsAdminDialogOpen(false)
+    } catch (err) {
+      toast({ variant: "destructive", title: "保存失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setSavingAdmins(false)
     }
   }
 
@@ -430,8 +442,11 @@ export default function TenantPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAdminDialogOpen(false)}>取消</Button>
-            <Button onClick={saveAdmins}>保存</Button>
+            <Button variant="outline" onClick={() => setIsAdminDialogOpen(false)} disabled={savingAdmins}>取消</Button>
+            <Button onClick={saveAdmins} disabled={savingAdmins}>
+              {savingAdmins ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              保存
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -573,7 +588,7 @@ export default function TenantPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPermissionDialogOpen(false)}>取消</Button>
-            <Button onClick={() => setIsPermissionDialogOpen(false)}>保存配置</Button>
+            <Button onClick={() => { toast({ title: "提示", description: "权限配置功能开发中，敬请期待" }); setIsPermissionDialogOpen(false) }}>保存配置</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

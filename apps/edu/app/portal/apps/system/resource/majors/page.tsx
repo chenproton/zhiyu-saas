@@ -80,7 +80,11 @@ export default function MajorsPage() {
   }
 
   const handleSave = async () => {
-    if (!tenantId || !dialogCode.trim() || !dialogName.trim()) return
+    if (!tenantId) {
+      toast({ variant: "destructive", title: "保存失败", description: "未获取到租户信息，请重新登录" })
+      return
+    }
+    if (!dialogCode.trim() || !dialogName.trim()) return
     setSaving(true)
     try {
       if (selectedMajor) {

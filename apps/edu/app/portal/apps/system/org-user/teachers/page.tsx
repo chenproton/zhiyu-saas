@@ -35,8 +35,6 @@ interface Teacher {
   status: "在职" | "离职" | "外聘" | "禁用"
 }
 
-const TEACHER_ORG_TYPES = ["二级学院", "行政职能部门", "职能部门"]
-
 function mapTeacherStatus(status: string): Teacher["status"] {
   if (status === "active") return "在职"
   if (status === "inactive") return "离职"
@@ -76,11 +74,8 @@ export default function TeachersPage() {
   const [formOrgNodeId, setFormOrgNodeId] = useState<string>("")
 
   const teacherOrgNodes = useMemo(() => {
-    return orgTree.filter((node) => {
-      const typeName = orgTypeMap.get(node.typeId)?.name
-      return typeName && TEACHER_ORG_TYPES.includes(typeName)
-    })
-  }, [orgTree, orgTypeMap])
+    return orgTree
+  }, [orgTree])
 
   useEffect(() => {
     setTeachers(
@@ -470,13 +465,12 @@ export default function TeachersPage() {
               <Input placeholder="如：T001" value={formWorkId} onChange={(e) => setFormWorkId(e.target.value)} />
             </div>
             <div className="grid gap-2">
-              <Label>所属院系/部门</Label>
+              <Label>所属组织节点</Label>
               <OrgNodeSelect
                 tenantId={tenantId}
                 value={formOrgNodeId}
                 onChange={(value) => setFormOrgNodeId(value || "")}
-                allowedTypes={TEACHER_ORG_TYPES}
-                placeholder="选择所属院系或部门"
+                placeholder="选择所属组织节点"
               />
             </div>
           </div>

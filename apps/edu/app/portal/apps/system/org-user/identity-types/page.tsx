@@ -27,19 +27,25 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, Pencil, Trash2, Search, AlertCircle, MoreHorizontal } from "lucide-react"
+import { Plus, Pencil, Trash2, Search, AlertCircle, MoreHorizontal, Loader2 } from "lucide-react"
 import { identityTypeApi } from "@/lib/api"
 import type { IdentityType } from "@/lib/types/backend"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
+import { useToast } from "@/hooks/use-toast"
 
 export default function IdentityTypesPage() {
   const { tenantId } = usePortalAuth()
+  const { toast } = useToast()
   const [items, setItems] = useState<IdentityType[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showDialog, setShowDialog] = useState(false)
   const [editingType, setEditingType] = useState<IdentityType | null>(null)
   const [searchText, setSearchText] = useState("")
+  const [formName, setFormName] = useState("")
+  const [formCode, setFormCode] = useState("")
+  const [formDescription, setFormDescription] = useState("")
+  const [saving, setSaving] = useState(false)
 
   const fetchData = async () => {
     if (!tenantId) {
@@ -66,11 +72,17 @@ export default function IdentityTypesPage() {
 
   const handleAdd = () => {
     setEditingType(null)
+    setFormName("")
+    setFormCode("")
+    setFormDescription("")
     setShowDialog(true)
   }
 
   const handleEdit = (type: IdentityType) => {
     setEditingType(type)
+    setFormName(type.name)
+    setFormCode(type.code)
+    setFormDescription(type.description || "")
     setShowDialog(true)
   }
 
@@ -181,20 +193,42 @@ export default function IdentityTypesPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">类型名称</label>
-              <Input placeholder="请输入类型名称" defaultValue={editingType?.name} />
+              <Input placeholder="请输入类型名称" value={formName} onChange={(e) => setFormName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">类型编码</label>
-              <Input placeholder="请输入类型编码" defaultValue={editingType?.code} />
+              <Input placeholder="请输入类型编码" value={formCode} onChange={(e) => setFormCode(e.target.value)} />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">描述</label>
-              <Input placeholder="请输入描述" defaultValue={editingType?.description} />
+              <Input placeholder="请输入描述" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>取消</Button>
-            <Button onClick={() => setShowDialog(false)}>确定</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)} disabled={saving}>取消</Button>
+            <Button
+              disabled={saving || !formName.trim() || !formCode.trim()}
+              onClick={async () => {
+                setSaving(true)
+                try {
+                  if (editingType) {
+                    const updated = await identityTypeApi.update(editingType.id, { name: formName.trim(), code: formCode.trim(), description: formDescription.trim() || undefined, tenantId: tenantId! })
+                    setItems((prev) => prev.map((t) => t.id === updated.id ? updated : t))
+                  } else {
+                    const created = await identityTypeApi.create({ name: formName.trim(), code: formCode.trim(), description: formDescription.trim() || undefined, tenantId: tenantId!, isSystem: false })
+                    setItems((prev) => [...prev, created])
+                  }
+                  setShowDialog(false)
+                } catch (err) {
+                  toast({ variant: "destructive", title: "保存失败", description: err instanceof Error ? err.message : "未知错误" })
+                } finally {
+                  setSaving(false)
+                }
+              }}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              确定
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

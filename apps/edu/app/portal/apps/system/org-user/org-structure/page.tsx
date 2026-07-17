@@ -367,7 +367,10 @@ export default function OrgStructurePage() {
   }
 
   const handleSave = async () => {
-    if (!tenantId) return
+    if (!tenantId) {
+      toast({ variant: "destructive", title: "保存失败", description: "未获取到租户信息，请重新登录" })
+      return
+    }
     if (!formName.trim() || !formTypeId) {
       setFormError("请填写节点名称并选择类型")
       return
