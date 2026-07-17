@@ -264,6 +264,8 @@ func (h *GraduateHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, _ = h.DB.Exec(r.Context(), `UPDATE users SET status = 'inactive', updated_at = NOW() WHERE id = ANY($1::uuid[]) AND tenant_id = $2`, uuids, req.TenantID)
+
 	respondJSON(w, http.StatusCreated, GraduateListResponse{Items: items, Total: len(items)})
 }
 

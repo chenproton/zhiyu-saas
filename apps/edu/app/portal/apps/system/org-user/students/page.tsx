@@ -94,7 +94,7 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("在籍")
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
 	const [saving, setSaving] = useState(false)
