@@ -264,8 +264,8 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 				INSERT INTO users (id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
 					role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 					student_no, work_id, id_card, title_ids, oauth, status)
-				VALUES ($1, $2, NULL, $3, NULL, NULL, 'school', 'portal', $4, $5, $6, $7, NULL, NULL, NULL, NULL, NULL, NULL, '{}', 'active')
-			`, adminID, id, schoolAdminIdentityTypeID, adminUsername, adminUsername, string(hash), req.Name+"管理员")
+				VALUES ($1, $2, NULL, $3, NULL, NULL, 'school', 'portal', $4, $5, $6, $7, NULL, NULL, NULL, NULL, NULL, NULL, $8, '{}', 'active')
+			`, adminID, id, schoolAdminIdentityTypeID, adminUsername, adminUsername, string(hash), req.Name+"管理员", "{}")
 
 			_, _ = h.DB.Exec(r.Context(),
 				`UPDATE tenants SET admin_ids = ARRAY[$1::UUID] WHERE id = $2`,
