@@ -278,7 +278,7 @@ func (h *UserManagementHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.RoleID != nil && *req.RoleID != "" {
-		if err := h.rebindUserRole(r.Context(), id, *req.RoleID); err != nil {
+		if err := h.rebindUserRole(r.Context(), id, *req.RoleID, oldUser.TenantID); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to bind role")
 			return
 		}
@@ -536,6 +536,11 @@ func (h *UserManagementHandler) createSingleUserInTx(ctx context.Context, tx pgx
 	}
 
 	if req.RoleID != nil && *req.RoleID != "" {
+		var validRole bool
+		_ = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM roles WHERE id = $1 AND tenant_id = $2)`, *req.RoleID, req.TenantID).Scan(&validRole)
+		if !validRole {
+			return domain.User{}, fmt.Errorf("invalid roleId: role not in tenant")
+		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO user_roles (id, user_id, role_id)
 			VALUES ($1, $2, $3)
@@ -565,7 +570,13 @@ func (h *UserManagementHandler) resolveRole(roleOverride *string, fallback domai
 }
 
 // rebindUserRole replaces all role bindings of a user with the single given role.
-func (h *UserManagementHandler) rebindUserRole(ctx context.Context, userID, roleID string) error {
+// 角色必须属于用户所在租户，防止跨租户角色（如运营方 platform_admin）被绑定。
+func (h *UserManagementHandler) rebindUserRole(ctx context.Context, userID, roleID string, tenantID *string) error {
+	var validRole bool
+	_ = h.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM roles WHERE id = $1 AND tenant_id = $2)`, roleID, tenantID).Scan(&validRole)
+	if !validRole {
+		return fmt.Errorf("invalid roleId: role not in tenant")
+	}
 	h.decRoleCountsForUser(ctx, userID)
 	if _, err := h.DB.Exec(ctx, `DELETE FROM user_roles WHERE user_id = $1`, userID); err != nil {
 		return err

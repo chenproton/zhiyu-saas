@@ -228,13 +228,13 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 		ON CONFLICT DO NOTHING
 	`, id)
 
-	// 为新租户创建默认角色
+	// 为新租户创建默认角色。
+	// platform_admin 为跨租户运营角色，仅存在于运营方租户（seed/手工创建），普通租户不生成。
 	defaultRoles := []struct {
 		code        string
 		name        string
 		permissions domain.JSONMap
 	}{
-		{"platform_admin", "平台管理员", domain.JSONMap{"admin": true}},
 		{"school_admin", "学校管理员", domain.JSONMap{"schoolAdmin": true}},
 		{"teacher", "教师", domain.JSONMap{"teacher": true}},
 		{"student", "学生", domain.JSONMap{"student": true}},
