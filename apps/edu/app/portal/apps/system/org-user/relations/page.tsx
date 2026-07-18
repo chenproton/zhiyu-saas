@@ -161,9 +161,9 @@ export default function RelationsPage() {
                 <TableRow key={relation.id}>
                   <TableCell>{index + 1}</TableCell>
                   <TableCell className="font-medium">{relation.initiatorName}</TableCell>
-                  <TableCell className="text-muted-foreground">{relation.initiatorDept}</TableCell>
+                  <TableCell className="text-muted-foreground">{relation.initiatorDept || "—"}</TableCell>
                   <TableCell className="font-medium">{relation.targetName}</TableCell>
-                  <TableCell className="text-muted-foreground">{relation.targetDept}</TableCell>
+                  <TableCell className="text-muted-foreground">{relation.targetDept || "—"}</TableCell>
                   <TableCell>
                     <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary">
                       {typeLabelMap[relation.relationType] || relation.relationType}
