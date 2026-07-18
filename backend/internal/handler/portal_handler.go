@@ -34,7 +34,7 @@ func (h *PortalHandler) WorkspaceDashboard(w http.ResponseWriter, r *http.Reques
 
 	dash := domain.WorkspaceDashboard{
 		Role:           role,
-		Announcements:  h.listAnnouncements(r.Context(), role),
+		Announcements:  h.listAnnouncements(r.Context(), role, claims.TenantID),
 		Todos:          h.listTodos(r.Context(), claims.UserID, claims.TenantID, role),
 		Schedule:       h.listSchedule(r.Context(), claims.UserID, claims.TenantID, role),
 		Courses:        []domain.WorkspaceCourse{},
@@ -62,14 +62,15 @@ func (h *PortalHandler) WorkspaceDashboard(w http.ResponseWriter, r *http.Reques
 	respondJSON(w, http.StatusOK, dash)
 }
 
-func (h *PortalHandler) listAnnouncements(ctx context.Context, role string) []domain.WorkspaceAnnouncement {
+func (h *PortalHandler) listAnnouncements(ctx context.Context, role string, tenantID *string) []domain.WorkspaceAnnouncement {
 	rows, err := h.DB.Query(ctx, `
 		SELECT id, title, type, is_new, created_at
 		FROM announcements
-		WHERE array_length(target_roles, 1) IS NULL OR target_roles @> ARRAY[$1::varchar]
+		WHERE (array_length(target_roles, 1) IS NULL OR target_roles @> ARRAY[$1::varchar])
+			AND ($2::uuid IS NULL OR tenant_id = $2::uuid)
 		ORDER BY created_at DESC
 		LIMIT 10
-	`, role)
+	`, role, tenantID)
 	if err != nil {
 		return nil
 	}

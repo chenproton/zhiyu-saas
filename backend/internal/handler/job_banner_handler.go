@@ -134,8 +134,13 @@ func (h *JobBannerHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *JobBannerHandler) Create(w http.ResponseWriter, r *http.Request) {
-	if middleware.CurrentUser(r) == nil {
+	claims := middleware.CurrentUser(r)
+	if claims == nil {
 		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+	if claims.TenantID == nil || *claims.TenantID == "" {
+		respondError(w, http.StatusForbidden, "missing tenant")
 		return
 	}
 
@@ -153,9 +158,9 @@ func (h *JobBannerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	id := uuid.NewString()
 
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO banner_configs (id, title, image_url, link_url, sort_order, is_enabled)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, id, req.Title, req.ImageURL, req.LinkURL, req.SortOrder, req.IsEnabled)
+		INSERT INTO banner_configs (id, tenant_id, title, image_url, link_url, sort_order, is_enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, id, *claims.TenantID, req.Title, req.ImageURL, req.LinkURL, req.SortOrder, req.IsEnabled)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create banner")
 		return
