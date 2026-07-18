@@ -7,8 +7,6 @@ import { PlatformShell } from "@/components/platform-shell"
 import { jobNavigationConfig } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 
-const ALLOWED_IDENTITIES = ["teacher", "school_admin", "enterprise_mentor"]
-
 export default function JobLayout({
   children,
 }: {
@@ -16,7 +14,7 @@ export default function JobLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, loading, identityTypeCode } = useAuth()
+  const { user, loading, hasMenuPermission } = useAuth()
   const isLanding = pathname.startsWith("/job/landing")
 
   useEffect(() => {
@@ -25,7 +23,7 @@ export default function JobLayout({
     }
   }, [loading, user, isLanding, router])
 
-  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityTypeCode ?? "")
+  const allowed = !loading && !!user && hasMenuPermission(pathname)
 
   const config = {
     ...jobNavigationConfig,
@@ -49,7 +47,7 @@ export default function JobLayout({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           ) : (
             <div className="text-sm text-muted-foreground">
-              当前身份暂无权限访问岗位学习平台
+              当前角色暂无权限访问该页面，请联系管理员在角色权限中开通
             </div>
           )}
         </div>

@@ -7,8 +7,6 @@ import { PlatformShell } from "@/components/platform-shell"
 import { evaluationNavigationConfig } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 
-const ALLOWED_IDENTITIES = ["teacher", "school_admin", "enterprise_mentor"]
-
 export default function EvaluationLayout({
   children,
 }: {
@@ -16,7 +14,7 @@ export default function EvaluationLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, loading, identityTypeCode } = useAuth()
+  const { user, loading, hasMenuPermission } = useAuth()
   const isLanding = pathname.startsWith("/evaluation/landing")
 
   useEffect(() => {
@@ -25,7 +23,7 @@ export default function EvaluationLayout({
     }
   }, [loading, user, isLanding, router])
 
-  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityTypeCode ?? "")
+  const allowed = !loading && !!user && hasMenuPermission(pathname)
 
   const content = isLanding ? (
     <>{children}</>
@@ -49,7 +47,7 @@ export default function EvaluationLayout({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           ) : (
             <div className="text-sm text-muted-foreground">
-              当前身份暂无权限访问测评管理平台
+              当前角色暂无权限访问该页面，请联系管理员在角色权限中开通
             </div>
           )}
         </div>

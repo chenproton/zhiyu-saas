@@ -1,13 +1,11 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
 import { adminNavigationConfig } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
-
-const ALLOWED_IDENTITIES = ["platform_admin", "school_admin", "teacher"]
 
 export default function TeacherLayout({
   children,
@@ -15,7 +13,8 @@ export default function TeacherLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const { user, loading, identityType } = useAuth()
+  const pathname = usePathname()
+  const { user, loading, hasMenuPermission } = useAuth()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -23,7 +22,7 @@ export default function TeacherLayout({
     }
   }, [loading, user, router])
 
-  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityType?.code ?? "")
+  const allowed = !loading && !!user && hasMenuPermission(pathname)
 
   return (
     <PlatformShell config={{
@@ -38,7 +37,7 @@ export default function TeacherLayout({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           ) : (
             <div className="text-sm text-muted-foreground">
-              当前身份暂无权限访问教学空间
+              当前角色暂无权限访问该页面，请联系管理员在角色权限中开通
             </div>
           )}
         </div>

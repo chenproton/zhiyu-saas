@@ -1,14 +1,12 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { PlatformShell } from "@/components/platform-shell"
 import { adminNavigationConfig } from "@/lib/navigation-config"
 import { useAuth } from "@/components/auth-provider"
 import type { PlatformNavigationConfig } from "@/components/platform-shell"
-
-const ALLOWED_IDENTITIES = ["school_admin", "teacher"]
 
 const config: PlatformNavigationConfig = {
   ...adminNavigationConfig,
@@ -21,7 +19,8 @@ export default function LessonAdminLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const { user, loading, identityTypeCode } = useAuth()
+  const pathname = usePathname()
+  const { user, loading, hasMenuPermission } = useAuth()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -29,7 +28,7 @@ export default function LessonAdminLayout({
     }
   }, [loading, user, router])
 
-  const allowed = !loading && !!user && ALLOWED_IDENTITIES.includes(identityTypeCode ?? "")
+  const allowed = !loading && !!user && hasMenuPermission(pathname)
 
   return (
     <PlatformShell config={config}>
@@ -40,7 +39,7 @@ export default function LessonAdminLayout({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           ) : (
             <div className="text-sm text-muted-foreground">
-              当前身份暂无权限访问课程资源中心
+              当前角色暂无权限访问该页面，请联系管理员在角色权限中开通
             </div>
           )}
         </div>

@@ -68,10 +68,12 @@ export default function SystemLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const { hasMenuPermission } = usePortalAuth()
+  const { hasMenuPermission, loading } = usePortalAuth()
   const [expandedItems, setExpandedItems] = useState<string[]>(() =>
     menuItems.filter((item) => item.children).map((item) => item.id)
   )
+
+  const permitted = hasMenuPermission(pathname)
 
   const visibleMenuItems = useMemo(() => {
     return menuItems
@@ -184,7 +186,15 @@ export default function SystemLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 min-w-0 overflow-x-hidden bg-[#f5f7fa] min-h-[calc(100vh-3.5rem)]">{children}</main>
+      <main className="flex-1 min-w-0 overflow-x-hidden bg-[#f5f7fa] min-h-[calc(100vh-3.5rem)]">
+        {loading ? null : permitted ? (
+          children
+        ) : (
+          <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            当前角色暂无权限访问该页面，请联系管理员在角色权限中开通
+          </div>
+        )}
+      </main>
     </div>
   )
 }
