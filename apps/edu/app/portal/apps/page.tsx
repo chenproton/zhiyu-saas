@@ -107,7 +107,7 @@ const fallbackModules: Record<string, ModuleItem[]> = {
     { id: "ai-entry", title: "AI 服务", desc: "暂未开放", note: "AI 辅助教学功能即将上线", href: "#" },
   ],
   resource: [
-    { id: "resource-mall", title: "资源商城", desc: "教学资源交易", note: "浏览和采购优质教学资源", href: "/dashboard/marketplace" },
+    { id: "resource-mall", title: "资源商城", desc: "教学资源交易", note: "浏览和采购优质教学资源", href: "http://111.170.170.202:3010/login" },
   ],
   opc: [
     { id: "opc-entry", title: "OPC 专区", desc: "暂未开放", note: "校企合作课程专区即将上线", href: "#" },

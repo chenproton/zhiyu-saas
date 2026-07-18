@@ -682,7 +682,7 @@ func seedPlatformConfig(ctx context.Context, tx pgx.Tx) error {
 			('aaaaaaaa-1111-1111-1111-111111111151', 'ability', '题库管理', '测评题库与试卷', '/evaluation/question-banks', 1),
 			('aaaaaaaa-1111-1111-1111-111111111152', 'ability', '考试管理', '考试场次与结果', '/evaluation/exam-usage', 2),
 			('aaaaaaaa-1111-1111-1111-111111111153', 'ability', '微证书', '认证规则与颁发', '/evaluation/certificates/templates', 3),
-			('aaaaaaaa-1111-1111-1111-111111111161', 'resource', '资源商城', '教学资源交易', '/', 1)
+			('aaaaaaaa-1111-1111-1111-111111111161', 'resource', '资源商城', '教学资源交易', 'http://111.170.170.202:3010/login', 1)
 		ON CONFLICT (id) DO UPDATE SET
 			platform = EXCLUDED.platform, title = EXCLUDED.title,
 			description = EXCLUDED.description, href = EXCLUDED.href, sort_order = EXCLUDED.sort_order
