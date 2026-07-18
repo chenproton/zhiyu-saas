@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         roles: [currentRole],
         currentRole,
         tenant: saasAuth.tenantId
-          ? { id: saasAuth.tenantId, name: saasAuth.identityType?.name || "", code: "" }
+          ? { id: saasAuth.tenantId, name: saasAuth.activeRole?.name || "", code: "" }
           : { id: "", name: "", code: "" },
       }
     : null

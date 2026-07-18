@@ -6,10 +6,10 @@ import (
 	"github.com/zhiyu-saas/backend/internal/domain"
 )
 
-// RequireIdentityType returns a middleware that only allows users whose
-// identity type code is in the given allow-list. The empty allow-list means no
+// RequireRole returns a middleware that only allows users bound to at least
+// one role whose code is in the given allow-list. The empty allow-list means no
 // restriction (useful when the caller builds the list conditionally).
-func RequireIdentityType(allowedCodes ...string) func(http.Handler) http.Handler {
+func RequireRole(allowedCodes ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if len(allowedCodes) == 0 {
@@ -22,7 +22,7 @@ func RequireIdentityType(allowedCodes ...string) func(http.Handler) http.Handler
 				return
 			}
 			for _, code := range allowedCodes {
-				if claims.IdentityTypeCode == code {
+				if HasRole(claims, code) {
 					next.ServeHTTP(w, r)
 					return
 				}
@@ -30,6 +30,19 @@ func RequireIdentityType(allowedCodes ...string) func(http.Handler) http.Handler
 			http.Error(w, `{"error":"permission denied"}`, http.StatusForbidden)
 		})
 	}
+}
+
+// HasRole reports whether the user is bound to a role with the given code.
+func HasRole(claims *Claims, code string) bool {
+	if claims == nil {
+		return false
+	}
+	for _, c := range claims.RoleCodes {
+		if c == code {
+			return true
+		}
+	}
+	return false
 }
 
 // RequirePermission returns a middleware that checks the user's merged role
@@ -111,12 +124,12 @@ func hasPermission(perms domain.JSONMap, module, page, action string) bool {
 }
 
 // IsPlatformAdmin is a convenience helper for handlers that need a quick
-// identity-type check.
+// role check.
 func IsPlatformAdmin(claims *Claims) bool {
-	return claims != nil && claims.IdentityTypeCode == "platform_admin"
+	return HasRole(claims, "platform_admin")
 }
 
 // IsSchoolAdmin is a convenience helper for portal system management routes.
 func IsSchoolAdmin(claims *Claims) bool {
-	return claims != nil && claims.IdentityTypeCode == "school_admin"
+	return HasRole(claims, "school_admin")
 }

@@ -16,17 +16,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
-import { portalIdentityTypeApi, portalUserExtensionFieldApi } from "@/lib/api"
+import { portalUserExtensionFieldApi, roleApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { Pencil, AlertCircle, Loader2, RotateCcw, MoreHorizontal } from "lucide-react"
-import type { IdentityType, UserExtensionField } from "@/lib/types/backend"
+import type { Role, UserExtensionField } from "@/lib/types/backend"
 
 interface ExtendField {
   id: string
   slotNumber: number
   name: string
   enabled: boolean
-  identityTypeIds: string[]
+  roleCodes: string[]
 }
 
 export default function UserFieldsPage() {
@@ -34,31 +34,31 @@ export default function UserFieldsPage() {
   const { toast } = useToast()
   const [fields, setFields] = useState<ExtendField[]>([])
   const [rawFields, setRawFields] = useState<UserExtensionField[]>([])
-  const [identityTypes, setIdentityTypes] = useState<IdentityType[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>()
   const [showDialog, setShowDialog] = useState(false)
   const [editingField, setEditingField] = useState<ExtendField | null>(null)
   const [editName, setEditName] = useState("")
-  const [editIdentityTypeIds, setEditIdentityTypeIds] = useState<string[]>([])
+  const [editRoleCodes, setEditRoleCodes] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
-  const identityTypeMap = useMemo(() => {
-    const map = new Map<string, IdentityType>()
-    identityTypes.forEach((it) => map.set(it.id, it))
+  const roleNameByCode = useMemo(() => {
+    const map = new Map<string, string>()
+    roles.forEach((r) => map.set(r.code, r.name))
     return map
-  }, [identityTypes])
+  }, [roles])
 
   const fetchData = async () => {
     if (!tenantId) return
     setLoading(true)
     setError(undefined)
     try {
-      const [fieldsRes, idTypesRes] = await Promise.all([
+      const [fieldsRes, rolesRes] = await Promise.all([
         portalUserExtensionFieldApi.list({ tenantId }),
-        portalIdentityTypeApi.list({ tenantId, limit: 1000 }),
+        roleApi.list({ tenantId, limit: 1000 }),
       ])
-      setIdentityTypes(idTypesRes.items)
+      setRoles(rolesRes.items)
       setRawFields(fieldsRes.items)
       setFields(
         fieldsRes.items.map((f) => ({
@@ -66,7 +66,7 @@ export default function UserFieldsPage() {
           slotNumber: f.slotNumber,
           name: f.fieldName,
           enabled: f.isEnabled,
-          identityTypeIds: f.applicableIdentityTypeIds || [],
+          roleCodes: f.applicableRoleCodes || [],
         }))
       )
     } catch (err) {
@@ -95,7 +95,7 @@ export default function UserFieldsPage() {
   const handleEdit = (field: ExtendField) => {
     setEditingField(field)
     setEditName(field.name)
-    setEditIdentityTypeIds(field.identityTypeIds)
+    setEditRoleCodes(field.roleCodes)
     setShowDialog(true)
   }
 
@@ -105,7 +105,7 @@ export default function UserFieldsPage() {
     try {
       await portalUserExtensionFieldApi.update(editingField.id, {
         fieldName: editName.trim(),
-        applicableIdentityTypeIds: editIdentityTypeIds,
+        applicableRoleCodes: editRoleCodes,
       })
       toast({ title: "保存成功" })
       setShowDialog(false)
@@ -117,14 +117,14 @@ export default function UserFieldsPage() {
     }
   }
 
-  const toggleIdentityType = (typeId: string) => {
-    setEditIdentityTypeIds((prev) =>
-      prev.includes(typeId) ? prev.filter((t) => t !== typeId) : [...prev, typeId]
+  const toggleRoleCode = (code: string) => {
+    setEditRoleCodes((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
     )
   }
 
-  const getIdentityTypeLabels = (typeIds: string[]) => {
-    return typeIds.map((id) => identityTypeMap.get(id)?.name).filter(Boolean)
+  const getRoleLabels = (codes: string[]) => {
+    return codes.map((code) => roleNameByCode.get(code) || code)
   }
 
   return (
@@ -132,7 +132,7 @@ export default function UserFieldsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-foreground">用户字段扩展</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          系统预留20个用户扩展字段，您可以根据需要启用、命名这些字段，并指定适用的身份类型
+          系统预留20个用户扩展字段，您可以根据需要启用、命名这些字段，并指定适用的角色
         </p>
       </div>
 
@@ -155,7 +155,7 @@ export default function UserFieldsPage() {
             <TableRow>
               <TableHead className="w-12">序号</TableHead>
               <TableHead>字段名称</TableHead>
-              <TableHead>适用身份类型</TableHead>
+              <TableHead>适用角色</TableHead>
               <TableHead className="w-24 text-center">是否启用</TableHead>
               <TableHead className="w-20 text-center">操作</TableHead>
             </TableRow>
@@ -180,9 +180,9 @@ export default function UserFieldsPage() {
                   <TableCell className="text-muted-foreground">{field.slotNumber}</TableCell>
                   <TableCell className="font-medium">{field.name}</TableCell>
                   <TableCell>
-                    {field.identityTypeIds.length > 0 ? (
+                    {field.roleCodes.length > 0 ? (
                       <div className="flex gap-1 flex-wrap">
-                        {getIdentityTypeLabels(field.identityTypeIds).map((label, i) => (
+                        {getRoleLabels(field.roleCodes).map((label, i) => (
                           <Badge key={i} variant="outline" className="text-xs">
                             {label}
                           </Badge>
@@ -231,25 +231,25 @@ export default function UserFieldsPage() {
               <Input placeholder="请输入字段名称" value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>适用身份类型（可多选）</Label>
+              <Label>适用角色（可多选）</Label>
               <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30">
-                {identityTypes.map((type) => (
+                {roles.map((r) => (
                   <button
-                    key={type.id}
+                    key={r.id}
                     type="button"
-                    onClick={() => toggleIdentityType(type.id)}
+                    onClick={() => toggleRoleCode(r.code)}
                     className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                      editIdentityTypeIds.includes(type.id)
+                      editRoleCodes.includes(r.code)
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-background hover:bg-muted border-border"
                     }`}
                   >
-                    {type.name}
+                    {r.name}
                   </button>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                选择此字段适用的身份类型，不选则表示所有身份类型均可使用
+                选择此字段适用的角色，不选则表示所有角色均可使用
               </p>
             </div>
           </div>

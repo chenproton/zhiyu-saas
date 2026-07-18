@@ -47,7 +47,6 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	tenantHandler := &handler.TenantHandler{DB: db}
 	orgHandler := &handler.OrgHandler{DB: db}
 	orgTypeHandler := &handler.OrgTypeHandler{DB: db}
-	identityTypeHandler := &handler.IdentityTypeHandler{DB: db}
 	userManagementHandler := &handler.UserManagementHandler{DB: db}
 	roleHandler := &handler.RoleHandler{DB: db}
 	majorHandler := &handler.MajorHandler{DB: db}
@@ -113,10 +112,12 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 	certGradeHandler := &handler.CertGradeHandler{DB: db}
 
 	auth := authmw.JWT(jwtSecret)
-	platformAdmin := authmw.RequireIdentityType("platform_admin")
-	schoolAdmin := authmw.RequireIdentityType("school_admin")
-	portalWorkspace := authmw.RequireIdentityType("teacher", "student", "school_admin")
-	businessUser := authmw.RequireIdentityType("teacher", "school_admin", "enterprise_hr", "enterprise_mentor")
+	platformAdmin := authmw.RequireRole("platform_admin")
+	schoolAdmin := authmw.RequireRole("school_admin")
+	portalWorkspace := authmw.RequireRole("teacher", "student", "school_admin")
+	// 业务内容路由不再按角色 code 限制：页面入口由角色菜单权限（roles.permissions.menus）
+	// 在前端控制，写操作由 handler 内的 canModifyContent 控制。
+	businessUser := authmw.RequireRole()
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"status":"ok"}`))
@@ -224,12 +225,6 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 				r.Post("/org-types", orgTypeHandler.Create)
 				r.Put("/org-types/{id}", orgTypeHandler.Update)
 				r.Delete("/org-types/{id}", orgTypeHandler.Delete)
-
-				r.Get("/identity-types", identityTypeHandler.List)
-				r.Get("/identity-types/{id}", identityTypeHandler.Get)
-				r.Post("/identity-types", identityTypeHandler.Create)
-				r.Put("/identity-types/{id}", identityTypeHandler.Update)
-				r.Delete("/identity-types/{id}", identityTypeHandler.Delete)
 
 				r.Get("/users", userManagementHandler.List)
 				r.Get("/users/{id}", userManagementHandler.Get)

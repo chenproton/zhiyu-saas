@@ -6,14 +6,12 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree } from "@/hooks/use-org-tree"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
-import { Search, MoreHorizontal, Trash2, Loader2, AlertCircle, RotateCcw, Tags } from "lucide-react"
-import IdentityTypesPanel from "../identity-types/identity-types-panel"
+import { Search, MoreHorizontal, Trash2, Loader2, AlertCircle, RotateCcw } from "lucide-react"
 
 function mapAccountStatus(status: string): { label: string; className: string } {
   if (status === "active") {
@@ -26,14 +24,13 @@ export default function AccountsPage() {
   const { toast } = useToast()
   const { tenantId } = usePortalAuth()
   const [searchText, setSearchText] = useState("")
-  const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
+  const { users, loading, error, refetch } = usePortalUsers({
     search: searchText || undefined,
   })
   const { orgMap, orgTypeMap } = useOrgTree(tenantId)
 
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
   const [batchDeleting, setBatchDeleting] = useState(false)
-  const [showIdentityTypes, setShowIdentityTypes] = useState(false)
 
   const handleResetPassword = async (id: string, name: string) => {
     const password = window.prompt(`请输入 ${name} 的新密码：`)
@@ -103,14 +100,13 @@ export default function AccountsPage() {
   }
 
   const accounts = users.map((user) => {
-    const idType = user.identityTypeId ? identityTypeMap.get(user.identityTypeId) : undefined
     const statusStyle = mapAccountStatus(user.status)
     const orgNode = user.orgNodeId ? orgMap.get(user.orgNodeId) : undefined
     const orgTypeName = orgNode ? orgTypeMap.get(orgNode.typeId)?.name : undefined
     return {
       id: user.id,
       name: user.name,
-      identityType: idType?.name || "—",
+      roleNames: user.roleNames ?? [],
       orgNodeName: orgNode?.name || "—",
       orgTypeName: orgTypeName || undefined,
       loginName: user.loginName || user.username || "",
@@ -137,10 +133,6 @@ export default function AccountsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowIdentityTypes(true)}>
-            <Tags className="h-4 w-4 mr-1" />
-            身份类型管理
-          </Button>
           {selectedAccounts.length > 0 && (
             <Button variant="destructive" size="sm" disabled={batchDeleting} onClick={handleBatchDelete}>
               {batchDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
@@ -174,7 +166,7 @@ export default function AccountsPage() {
                 />
               </TableHead>
               <TableHead>姓名</TableHead>
-              <TableHead>身份类型</TableHead>
+              <TableHead>角色</TableHead>
               <TableHead>所属组织</TableHead>
               <TableHead>账户登录名</TableHead>
               <TableHead>状态</TableHead>
@@ -207,7 +199,15 @@ export default function AccountsPage() {
                   </TableCell>
                   <TableCell className="font-medium">{account.name}</TableCell>
                   <TableCell>
-                    <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary">{account.identityType}</span>
+                    <div className="flex flex-wrap gap-1">
+                      {account.roleNames.length > 0 ? (
+                        account.roleNames.map((rn) => (
+                          <span key={rn} className="px-2 py-1 rounded text-xs bg-primary/10 text-primary">{rn}</span>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
@@ -255,14 +255,6 @@ export default function AccountsPage() {
         </Table>
       </div>
 
-      <Dialog open={showIdentityTypes} onOpenChange={setShowIdentityTypes}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>身份类型管理</DialogTitle>
-          </DialogHeader>
-          <IdentityTypesPanel />
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

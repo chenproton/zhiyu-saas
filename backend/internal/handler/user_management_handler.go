@@ -27,10 +27,10 @@ type UserListResponse struct {
 }
 
 type CreateUserRequest struct {
-	TenantID       string              `json:"tenantId"`
-	InstitutionID  *string             `json:"institutionId"`
-	IdentityTypeID *string             `json:"identityTypeId"`
-	OrgNodeID      *string             `json:"orgNodeId"`
+	TenantID      string              `json:"tenantId"`
+	InstitutionID *string             `json:"institutionId"`
+	RoleID        *string             `json:"roleId"`
+	OrgNodeID     *string             `json:"orgNodeId"`
 	MajorID        *string             `json:"majorId"`
 	Username       string              `json:"username"`
 	Password       string              `json:"password"`
@@ -47,9 +47,9 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	InstitutionID  *string  `json:"institutionId"`
-	IdentityTypeID *string  `json:"identityTypeId"`
-	OrgNodeID      *string  `json:"orgNodeId"`
+	InstitutionID *string  `json:"institutionId"`
+	RoleID        *string  `json:"roleId"`
+	OrgNodeID     *string  `json:"orgNodeId"`
 	MajorID        *string  `json:"majorId"`
 	Username       string   `json:"username"`
 	Name           string   `json:"name"`
@@ -80,31 +80,19 @@ type BatchGraduateRequest struct {
 	GraduateYear *int     `json:"graduateYear"`
 }
 
-func (h *UserManagementHandler) currentIdentityCode(r *http.Request) string {
-	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.IdentityTypeID == nil {
-		return ""
-	}
-	var code string
-	_ = h.DB.QueryRow(r.Context(), `SELECT code FROM identity_types WHERE id = $1`, *claims.IdentityTypeID).Scan(&code)
-	return code
-}
-
 func (h *UserManagementHandler) canManageUsers(r *http.Request) bool {
 	claims := middleware.CurrentUser(r)
 	if claims == nil {
 		return false
 	}
-	if canManagePortal(claims) {
-		return true
-	}
-	return claims.Platform == domain.UserPlatformPortal && h.currentIdentityCode(r) == "school_admin"
+	return canManagePortal(claims)
 }
 
 func (h *UserManagementHandler) List(w http.ResponseWriter, r *http.Request) {
 	tenantID := r.URL.Query().Get("tenantId")
 	institutionID := r.URL.Query().Get("institutionId")
-	identityTypeID := r.URL.Query().Get("identityTypeId")
+	roleID := r.URL.Query().Get("roleId")
+	roleCode := r.URL.Query().Get("roleCode")
 	orgNodeID := r.URL.Query().Get("orgNodeId")
 	status := r.URL.Query().Get("status")
 	search := r.URL.Query().Get("search")
@@ -145,9 +133,14 @@ func (h *UserManagementHandler) List(w http.ResponseWriter, r *http.Request) {
 		args = append(args, institutionID)
 		argIdx++
 	}
-	if identityTypeID != "" {
-		where = append(where, "identity_type_id = $"+itoa(argIdx))
-		args = append(args, identityTypeID)
+	if roleID != "" {
+		where = append(where, "EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role_id = $"+itoa(argIdx)+")")
+		args = append(args, roleID)
+		argIdx++
+	}
+	if roleCode != "" {
+		where = append(where, "EXISTS (SELECT 1 FROM user_roles ur JOIN roles r2 ON r2.id = ur.role_id WHERE ur.user_id = users.id AND r2.code = $"+itoa(argIdx)+")")
+		args = append(args, roleCode)
 		argIdx++
 	}
 	if orgNodeID != "" {
@@ -171,7 +164,7 @@ func (h *UserManagementHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+		SELECT id, tenant_id, institution_id, org_node_id, major_id,
 			role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 			student_no, work_id, id_card, title_ids, oauth, status, graduate_year, last_login_at, created_at, updated_at
 		FROM users
@@ -192,6 +185,7 @@ func (h *UserManagementHandler) List(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "failed to scan users")
 		return
 	}
+	h.attachUserRoles(r.Context(), items)
 
 	respondJSON(w, http.StatusOK, UserListResponse{Items: items, Total: total})
 }
@@ -268,24 +262,26 @@ func (h *UserManagementHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !ptrEqual(oldUser.IdentityTypeID, req.IdentityTypeID) {
-		h.decIdentityTypeCount(r.Context(), oldUser.IdentityTypeID)
-		h.incIdentityTypeCount(r.Context(), nil, req.IdentityTypeID)
-	}
-
-	role := h.resolveRole(r.Context(), req.IdentityTypeID, req.Role)
+	role := h.resolveRole(req.Role, oldUser.Role)
 
 	_, err = h.DB.Exec(r.Context(), `
-		UPDATE users SET institution_id = $1, identity_type_id = $2, org_node_id = $3, major_id = $4,
-			role = $5, username = $6, name = $7, email = $8, phone = $9, avatar_url = $10,
-			student_no = $11, work_id = $12, id_card = $13, title_ids = $14, updated_at = NOW()
-		WHERE id = $15
-	`, req.InstitutionID, req.IdentityTypeID, req.OrgNodeID, req.MajorID,
+		UPDATE users SET institution_id = $1, org_node_id = $2, major_id = $3,
+			role = $4, username = $5, name = $6, email = $7, phone = $8, avatar_url = $9,
+			student_no = $10, work_id = $11, id_card = $12, title_ids = $13, updated_at = NOW()
+		WHERE id = $14
+	`, req.InstitutionID, req.OrgNodeID, req.MajorID,
 		role, req.Username, req.Name, req.Email, req.Phone, req.AvatarURL,
 		req.StudentNo, req.WorkID, req.IDCard, coalesceStringSlice(req.TitleIDs), id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update user")
 		return
+	}
+
+	if req.RoleID != nil && *req.RoleID != "" {
+		if err := h.rebindUserRole(r.Context(), id, *req.RoleID); err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to bind role")
+			return
+		}
 	}
 
 	user, _ := h.fetchUser(r.Context(), id)
@@ -306,7 +302,7 @@ func (h *UserManagementHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.decIdentityTypeCount(r.Context(), user.IdentityTypeID)
+	_ = user
 	h.decRoleCountsForUser(r.Context(), id)
 
 	_, err = h.DB.Exec(r.Context(), `DELETE FROM users WHERE id = $1`, id)
@@ -488,24 +484,6 @@ func (h *UserManagementHandler) BatchGraduate(w http.ResponseWriter, r *http.Req
 	respondJSON(w, http.StatusOK, map[string]int{"count": len(req.UserIDs)})
 }
 
-func (h *UserManagementHandler) incIdentityTypeCount(ctx context.Context, tx pgx.Tx, id *string) {
-	if id == nil || *id == "" {
-		return
-	}
-	if tx != nil {
-		_, _ = tx.Exec(ctx, `UPDATE identity_types SET user_count = user_count + 1 WHERE id = $1`, *id)
-	} else {
-		_, _ = h.DB.Exec(ctx, `UPDATE identity_types SET user_count = user_count + 1 WHERE id = $1`, *id)
-	}
-}
-
-func (h *UserManagementHandler) decIdentityTypeCount(ctx context.Context, id *string) {
-	if id == nil || *id == "" {
-		return
-	}
-	_, _ = h.DB.Exec(ctx, `UPDATE identity_types SET user_count = GREATEST(user_count - 1, 0) WHERE id = $1`, *id)
-}
-
 func (h *UserManagementHandler) decRoleCountsForUser(ctx context.Context, userID string) {
 	_, _ = h.DB.Exec(ctx, `
 		UPDATE roles SET user_count = GREATEST(user_count - 1, 0)
@@ -539,64 +517,118 @@ func (h *UserManagementHandler) createSingleUserInTx(ctx context.Context, tx pgx
 		return domain.User{}, err
 	}
 
-	role := h.resolveRole(ctx, req.IdentityTypeID, req.Role)
+	role := h.resolveRole(req.Role, domain.UserRoleSchool)
 	platform := req.Platform
 	if platform == "" {
 		platform = domain.UserPlatformSaas
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO users (id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+		INSERT INTO users (id, tenant_id, institution_id, org_node_id, major_id,
 			role, platform, username, password_hash, name, email, phone, avatar_url,
 			student_no, work_id, id_card, title_ids, oauth, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'active')
-	`, id, req.TenantID, req.InstitutionID, req.IdentityTypeID, req.OrgNodeID, req.MajorID,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'active')
+	`, id, req.TenantID, req.InstitutionID, req.OrgNodeID, req.MajorID,
 		role, platform, req.Username, string(hash), req.Name, req.Email, req.Phone, req.AvatarURL,
 		req.StudentNo, req.WorkID, req.IDCard, coalesceStringSlice(req.TitleIDs), domain.JSONMap{})
 	if err != nil {
 		return domain.User{}, err
 	}
 
-	h.incIdentityTypeCount(ctx, tx, req.IdentityTypeID)
+	if req.RoleID != nil && *req.RoleID != "" {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO user_roles (id, user_id, role_id)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (user_id, role_id) DO NOTHING
+		`, uuid.NewString(), id, *req.RoleID); err != nil {
+			return domain.User{}, err
+		}
+		_, _ = tx.Exec(ctx, `UPDATE roles SET user_count = user_count + 1 WHERE id = $1`, *req.RoleID)
+	}
 
 	return h.fetchUserInTx(ctx, tx, id)
 }
 
-func (h *UserManagementHandler) resolveRole(ctx context.Context, identityTypeID *string, roleOverride *string) domain.UserRole {
+// resolveRole maps the request-provided platform role enum, keeping the
+// fallback when absent. users.role 仅用于 marketplace 平台分区，与角色体系无关。
+func (h *UserManagementHandler) resolveRole(roleOverride *string, fallback domain.UserRole) domain.UserRole {
 	if roleOverride != nil {
 		switch *roleOverride {
 		case string(domain.UserRoleSchool), string(domain.UserRoleEnterprise), string(domain.UserRoleOperator):
 			return domain.UserRole(*roleOverride)
 		}
 	}
+	if fallback != "" {
+		return fallback
+	}
+	return domain.UserRoleSchool
+}
 
-	if identityTypeID != nil && *identityTypeID != "" {
-		var code string
-		_ = h.DB.QueryRow(ctx, `SELECT code FROM identity_types WHERE id = $1`, *identityTypeID).Scan(&code)
-		switch code {
-		case "student", "teacher", "school_admin":
-			return domain.UserRoleSchool
-		case "enterprise_admin", "enterprise_staff":
-			return domain.UserRoleEnterprise
+// rebindUserRole replaces all role bindings of a user with the single given role.
+func (h *UserManagementHandler) rebindUserRole(ctx context.Context, userID, roleID string) error {
+	h.decRoleCountsForUser(ctx, userID)
+	if _, err := h.DB.Exec(ctx, `DELETE FROM user_roles WHERE user_id = $1`, userID); err != nil {
+		return err
+	}
+	if _, err := h.DB.Exec(ctx, `
+		INSERT INTO user_roles (id, user_id, role_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, role_id) DO NOTHING
+	`, uuid.NewString(), userID, roleID); err != nil {
+		return err
+	}
+	_, _ = h.DB.Exec(ctx, `UPDATE roles SET user_count = user_count + 1 WHERE id = $1`, roleID)
+	return nil
+}
+
+// attachUserRoles populates RoleIDs/RoleCodes/RoleNames for the given users.
+func (h *UserManagementHandler) attachUserRoles(ctx context.Context, items []domain.User) {
+	if len(items) == 0 {
+		return
+	}
+	ids := make([]string, 0, len(items))
+	index := make(map[string]int, len(items))
+	for i, u := range items {
+		ids = append(ids, u.ID)
+		index[u.ID] = i
+	}
+	rows, err := h.DB.Query(ctx, `
+		SELECT ur.user_id, r.id, r.code, r.name
+		FROM user_roles ur
+		JOIN roles r ON r.id = ur.role_id
+		WHERE ur.user_id = ANY($1::uuid[])
+		ORDER BY r.created_at
+	`, ids)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var userID, roleID, code, name string
+		if err := rows.Scan(&userID, &roleID, &code, &name); err != nil {
+			continue
+		}
+		if i, ok := index[userID]; ok {
+			items[i].RoleIDs = append(items[i].RoleIDs, roleID)
+			items[i].RoleCodes = append(items[i].RoleCodes, code)
+			items[i].RoleNames = append(items[i].RoleNames, name)
 		}
 	}
-
-	return domain.UserRoleOperator
 }
 
 func (h *UserManagementHandler) fetchUser(ctx context.Context, id string) (domain.User, error) {
 	var user domain.User
-	var tenantID, institutionID, identityTypeID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
+	var tenantID, institutionID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
 	var titleIDs []string
 	var oauth domain.JSONMap
 
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+		SELECT id, tenant_id, institution_id, org_node_id, major_id,
 			role, login_name, username, password_hash, name, email, phone, avatar_url,
 			student_no, work_id, id_card, title_ids, oauth, status, graduate_year, last_login_at, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
-		&user.ID, &tenantID, &institutionID, &identityTypeID, &orgNodeID, &majorID,
+		&user.ID, &tenantID, &institutionID, &orgNodeID, &majorID,
 		&user.Role, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
 		&user.GraduateYear, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
@@ -606,7 +638,6 @@ func (h *UserManagementHandler) fetchUser(ctx context.Context, id string) (domai
 	}
 	user.TenantID = tenantID
 	user.InstitutionID = institutionID
-	user.IdentityTypeID = identityTypeID
 	user.OrgNodeID = orgNodeID
 	user.MajorID = majorID
 	user.LoginName = loginName
@@ -622,17 +653,17 @@ func (h *UserManagementHandler) fetchUser(ctx context.Context, id string) (domai
 
 func (h *UserManagementHandler) fetchUserInTx(ctx context.Context, tx pgx.Tx, id string) (domain.User, error) {
 	var user domain.User
-	var tenantID, institutionID, identityTypeID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
+	var tenantID, institutionID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
 	var titleIDs []string
 	var oauth domain.JSONMap
 
 	err := tx.QueryRow(ctx, `
-		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+		SELECT id, tenant_id, institution_id, org_node_id, major_id,
 			role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 			student_no, work_id, id_card, title_ids, oauth, status, graduate_year, last_login_at, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
-		&user.ID, &tenantID, &institutionID, &identityTypeID, &orgNodeID, &majorID,
+		&user.ID, &tenantID, &institutionID, &orgNodeID, &majorID,
 		&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
 		&user.GraduateYear, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
@@ -642,7 +673,6 @@ func (h *UserManagementHandler) fetchUserInTx(ctx context.Context, tx pgx.Tx, id
 	}
 	user.TenantID = tenantID
 	user.InstitutionID = institutionID
-	user.IdentityTypeID = identityTypeID
 	user.OrgNodeID = orgNodeID
 	user.MajorID = majorID
 	user.LoginName = loginName
@@ -660,11 +690,11 @@ func (h *UserManagementHandler) scanUserRows(rows pgx.Rows) ([]domain.User, erro
 	items := make([]domain.User, 0)
 	for rows.Next() {
 		var user domain.User
-		var tenantID, institutionID, identityTypeID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
+		var tenantID, institutionID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
 		var titleIDs []string
 		var oauth domain.JSONMap
 		if err := rows.Scan(
-			&user.ID, &tenantID, &institutionID, &identityTypeID, &orgNodeID, &majorID,
+			&user.ID, &tenantID, &institutionID, &orgNodeID, &majorID,
 			&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 			&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
 			&user.GraduateYear, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
@@ -673,7 +703,6 @@ func (h *UserManagementHandler) scanUserRows(rows pgx.Rows) ([]domain.User, erro
 		}
 		user.TenantID = tenantID
 		user.InstitutionID = institutionID
-		user.IdentityTypeID = identityTypeID
 		user.OrgNodeID = orgNodeID
 		user.MajorID = majorID
 		user.LoginName = loginName

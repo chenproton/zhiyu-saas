@@ -56,8 +56,8 @@ export default function TeachersPage() {
   const { institution, institutionId, tenantId } = usePortalAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
-    identityTypeCode: "teacher",
+  const { users, roles: tenantRoles, loading, error, refetch } = usePortalUsers({
+    roleCode: "teacher",
     search: searchTerm || undefined,
   })
   const { orgs, orgMap, orgTypeMap, loading: orgLoading } = useOrgTree(tenantId)
@@ -82,7 +82,6 @@ export default function TeachersPage() {
   useEffect(() => {
     setTeachers(
       users.map((u) => {
-        const idType = u.identityTypeId ? identityTypeMap.get(u.identityTypeId) : undefined
         const orgNode = u.orgNodeId ? orgMap.get(u.orgNodeId) : undefined
         return {
           id: u.id,
@@ -90,13 +89,13 @@ export default function TeachersPage() {
           loginAccount: u.loginName || u.username,
           department: orgNode?.name || institution?.name || "—",
           orgNodeId: u.orgNodeId,
-          roles: idType ? [idType.name] : [],
+          roles: u.roleNames ?? [],
           positions: u.titleIds ?? [],
           status: mapTeacherStatus(u.status),
         }
       })
     )
-  }, [users, identityTypeMap, institution, orgMap])
+  }, [users, institution, orgMap])
 
   useEffect(() => {
     if (!tenantId) return
@@ -159,7 +158,6 @@ export default function TeachersPage() {
     try {
       await portalUserManagementApi.update(selectedTeacher.id, {
         institutionId: original.institutionId,
-        identityTypeId: original.identityTypeId,
         orgNodeId: formOrgNodeId || undefined,
         majorId: original.majorId,
         role: original.role,
@@ -192,9 +190,9 @@ export default function TeachersPage() {
       return
     }
     if (!formName.trim() || !formUsername.trim() || !formPassword.trim()) return
-    const teacherType = Array.from(identityTypeMap.values()).find((it) => it.code === "teacher")
-    if (!teacherType) {
-      toast({ variant: "destructive", title: "创建失败", description: "未找到教职工身份类型" })
+    const teacherRole = tenantRoles.find((r) => r.code === "teacher")
+    if (!teacherRole) {
+      toast({ variant: "destructive", title: "创建失败", description: "未找到教师角色，请先在角色管理中创建" })
       return
     }
     setSaving(true)
@@ -202,7 +200,7 @@ export default function TeachersPage() {
       await portalUserManagementApi.create({
         tenantId,
         institutionId,
-        identityTypeId: teacherType.id,
+        roleId: teacherRole.id,
         role: "school",
         platform: "portal",
         loginName: formUsername.trim(),

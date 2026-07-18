@@ -59,7 +59,7 @@ const APPROVAL_TABS = [
   { value: "all", label: "全部记录", icon: FileText },
 ]
 
-function mapIdentityToJobRole(code?: string): string {
+function mapRoleCodeToJobRole(code?: string): string {
   if (!code) return ""
   if (code === "platform_admin" || code === "school_admin") return "admin"
   if (code === "teacher") return "teacher"
@@ -70,8 +70,8 @@ function mapIdentityToJobRole(code?: string): string {
 
 export default function ApprovalsPage() {
   const { toast } = useToast()
-  const { user, identityType } = useAuth()
-  const role = mapIdentityToJobRole(identityType?.code)
+  const { user, activeRoleCode } = useAuth()
+  const role = mapRoleCodeToJobRole(activeRoleCode)
   const [approvals, setApprovals] = useState<ApprovalRecord[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [workflows, setWorkflows] = useState<Workflow[]>([])

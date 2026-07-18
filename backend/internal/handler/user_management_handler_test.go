@@ -11,20 +11,20 @@ import (
 	"github.com/zhiyu-saas/backend/internal/handler/testhelper"
 )
 
-func createTestIdentityType(t *testing.T, env *testhelper.TestEnv) string {
+func createTestRole(t *testing.T, env *testhelper.TestEnv) string {
 	t.Helper()
 	ctx := context.Background()
 	id := uuid.NewString()
-	code := "test-it-" + id[:8]
+	code := "test-role-" + id[:8]
 	_, err := env.DB.Exec(ctx,
-		`INSERT INTO identity_types (id, tenant_id, code, name, user_count, is_system) VALUES ($1, $2, $3, $4, 0, FALSE)`,
-		id, testhelper.TestTenantID, code, "Test IT",
+		`INSERT INTO roles (id, tenant_id, code, name, description, permissions, user_count, status) VALUES ($1, $2, $3, $4, '', '{}', 0, 'active')`,
+		id, testhelper.TestTenantID, code, "Test Role",
 	)
 	if err != nil {
-		t.Fatalf("create identity type: %v", err)
+		t.Fatalf("create role: %v", err)
 	}
 	t.Cleanup(func() {
-		env.DB.Exec(context.Background(), "DELETE FROM identity_types WHERE id = $1", id)
+		env.DB.Exec(context.Background(), "DELETE FROM roles WHERE id = $1", id)
 	})
 	return id
 }
@@ -38,14 +38,14 @@ func TestUser_Create(t *testing.T) {
 		return env.DoWithToken(method, path, body, schoolAdminToken)
 	}
 
-	itID := createTestIdentityType(t, env)
+	roleID := createTestRole(t, env)
 
 	w := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "newtestuser",
 		"password":       "testpass",
 		"name":           "Test User",
-		"identityTypeId": itID,
+		"roleId": roleID,
 	})
 	if w.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", w.Code, testhelper.ErrMsg(w))
@@ -69,14 +69,14 @@ func TestUser_List(t *testing.T) {
 		return env.DoWithToken(method, path, body, schoolAdminToken)
 	}
 
-	itID := createTestIdentityType(t, env)
+	roleID := createTestRole(t, env)
 
 	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "listuser",
 		"password":       "testpass",
 		"name":           "List User",
-		"identityTypeId": itID,
+		"roleId": roleID,
 	})
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
@@ -106,14 +106,14 @@ func TestUser_Get(t *testing.T) {
 		return env.DoWithToken(method, path, body, schoolAdminToken)
 	}
 
-	itID := createTestIdentityType(t, env)
+	roleID := createTestRole(t, env)
 
 	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "getuser",
 		"password":       "testpass",
 		"name":           "Get User",
-		"identityTypeId": itID,
+		"roleId": roleID,
 	})
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
@@ -143,14 +143,14 @@ func TestUser_Update(t *testing.T) {
 		return env.DoWithToken(method, path, body, schoolAdminToken)
 	}
 
-	itID := createTestIdentityType(t, env)
+	roleID := createTestRole(t, env)
 
 	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "updateuser",
 		"password":       "testpass",
 		"name":           "Old Name",
-		"identityTypeId": itID,
+		"roleId": roleID,
 	})
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
@@ -183,14 +183,14 @@ func TestUser_Delete(t *testing.T) {
 		return env.DoWithToken(method, path, body, schoolAdminToken)
 	}
 
-	itID := createTestIdentityType(t, env)
+	roleID := createTestRole(t, env)
 
 	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "deleteuser",
 		"password":       "testpass",
 		"name":           "Delete User",
-		"identityTypeId": itID,
+		"roleId": roleID,
 	})
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
@@ -219,14 +219,14 @@ func TestUser_UpdateStatus(t *testing.T) {
 		return env.DoWithToken(method, path, body, schoolAdminToken)
 	}
 
-	itID := createTestIdentityType(t, env)
+	roleID := createTestRole(t, env)
 
 	wc := do("POST", "/api/v1/users", map[string]interface{}{
 		"tenantId":       testhelper.TestTenantID,
 		"username":       "statususer",
 		"password":       "testpass",
 		"name":           "Status User",
-		"identityTypeId": itID,
+		"roleId": roleID,
 	})
 	if wc.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", wc.Code, testhelper.ErrMsg(wc))
@@ -258,7 +258,7 @@ func TestUser_BatchCreate(t *testing.T) {
 		return env.DoWithToken(method, path, body, schoolAdminToken)
 	}
 
-	itID := createTestIdentityType(t, env)
+	roleID := createTestRole(t, env)
 
 	w := do("POST", "/api/v1/users/batch", map[string]interface{}{
 		"users": []map[string]interface{}{
@@ -267,14 +267,14 @@ func TestUser_BatchCreate(t *testing.T) {
 				"username":       "batchuser1",
 				"password":       "testpass",
 				"name":           "Batch User 1",
-				"identityTypeId": itID,
+				"roleId": roleID,
 			},
 			{
 				"tenantId":       testhelper.TestTenantID,
 				"username":       "batchuser2",
 				"password":       "testpass",
 				"name":           "Batch User 2",
-				"identityTypeId": itID,
+				"roleId": roleID,
 			},
 		},
 	})

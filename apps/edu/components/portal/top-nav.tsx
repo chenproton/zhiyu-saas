@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Briefcase, LayoutGrid, ChevronDown, User, Settings, LogOut, LogIn, Link2 } from "lucide-react"
+import { Home, Briefcase, LayoutGrid, ChevronDown, User, Settings, LogOut, LogIn, Link2, Check, UserCog } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +23,7 @@ const navItems = [
 
 export function TopNav() {
   const pathname = usePathname()
-  const { user, identityType, institution, loading, logout } = useAuth()
+  const { user, institution, roles, activeRole, setActiveRole, loading, logout } = useAuth()
   const isLoggedIn = !!user
   const [currentTime, setCurrentTime] = useState("")
   const [mounted, setMounted] = useState(false)
@@ -114,12 +114,33 @@ export function TopNav() {
                   </div>
                   <div className="text-left">
                     <div className="text-sm text-foreground">{user.name}</div>
-                    <div className="text-xs text-muted-foreground">{identityType?.name || "用户"} · {institution?.name || "组织"}</div>
+                    <div className="text-xs text-muted-foreground">{activeRole?.name || "用户"} · {institution?.name || "组织"}</div>
                   </div>
                   <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
+                {roles && roles.length > 1 && (
+                  <>
+                    <DropdownMenuLabel className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <UserCog className="w-3.5 h-3.5" />
+                      切换角色
+                    </DropdownMenuLabel>
+                    {roles.map((r) => (
+                      <DropdownMenuItem
+                        key={r.id}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (r.id !== activeRole?.id) setActiveRole(r.id)
+                        }}
+                      >
+                        <span className="flex-1">{r.name}</span>
+                        {r.id === activeRole?.id && <Check className="w-4 h-4 text-primary" />}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem>
                   <User className="w-4 h-4 mr-2" />
                   个人中心

@@ -99,7 +99,7 @@ export function HybridGradingDialog({ open, onOpenChange, sessionTitle, classNam
   const [classSessions, setClassSessions] = useState<WorkspaceClassSession[]>([])
 
   useEffect(() => {
-    portalApi.workspaceDashboard()
+    portalApi.workspaceDashboard({ role: "teacher" })
       .then(res => {
         setClassPlans(res.classPlans || [])
         setClassSessions(res.classSessions || [])

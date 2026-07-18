@@ -64,19 +64,6 @@ type adminUserInfo struct {
 	Password  string `json:"password"`
 }
 
-type systemIdentityType struct {
-	code string
-	name string
-}
-
-var systemIdentityTypes = []systemIdentityType{
-	{"platform_admin", "平台管理员"},
-	{"school_admin", "学校管理员"},
-	{"teacher", "教师"},
-	{"student", "学生"},
-	{"enterprise_mentor", "企业导师"},
-}
-
 func (h *TenantHandler) List(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	search := r.URL.Query().Get("search")
@@ -241,14 +228,6 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 		ON CONFLICT DO NOTHING
 	`, id)
 
-	// 为新租户创建系统身份类型
-	for _, st := range systemIdentityTypes {
-		_, _ = h.DB.Exec(r.Context(), `
-			INSERT INTO identity_types (id, tenant_id, code, name, description, user_count, is_system, created_at)
-			VALUES ($1, $2, $3, $4, NULL, 0, true, NOW())
-		`, uuid.NewString(), id, st.code, st.name)
-	}
-
 	// 为新租户创建默认角色
 	defaultRoles := []struct {
 		code        string
@@ -268,35 +247,25 @@ func (h *TenantHandler) createTenant(w http.ResponseWriter, r *http.Request) {
 		`, uuid.NewString(), id, role.code, role.name, role.permissions)
 	}
 
-	// 为新租户创建默认管理员用户（身份为 school_admin）
-	var schoolAdminIdentityTypeID string
-	_ = h.DB.QueryRow(r.Context(),
-		`SELECT id FROM identity_types WHERE tenant_id = $1 AND code = 'school_admin' LIMIT 1`,
-		id,
-	).Scan(&schoolAdminIdentityTypeID)
-
+	// 为新租户创建默认管理员用户，并绑定 school_admin 预设角色
 	var adminUser *adminUserInfo
-	if schoolAdminIdentityTypeID != "" {
+	{
 		adminID := uuid.NewString()
-			adminPassword := "admin123"
+		adminPassword := "admin123"
 
 		hash, hashErr := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 		if hashErr == nil {
 			_, _ = h.DB.Exec(r.Context(), `
-				INSERT INTO users (id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+				INSERT INTO users (id, tenant_id, institution_id, org_node_id, major_id,
 					role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 					student_no, work_id, id_card, title_ids, oauth, status)
-				VALUES ($1, $2, NULL, $3, NULL, NULL, 'school', 'portal', $4, $5, $6, $7, NULL, NULL, NULL, NULL, NULL, NULL, $8, '{}', 'active')
-			`, adminID, id, schoolAdminIdentityTypeID, adminUsername, adminUsername, string(hash), req.Name+"管理员", "{}")
+				VALUES ($1, $2, NULL, NULL, NULL, 'school', 'portal', $3, $4, $5, $6, NULL, NULL, NULL, NULL, NULL, NULL, $7, '{}', 'active')
+			`, adminID, id, adminUsername, adminUsername, string(hash), req.Name+"管理员", "{}")
 
 			_, _ = h.DB.Exec(r.Context(),
 				`INSERT INTO user_roles (id, user_id, role_id)
 				 SELECT $1, $2, id FROM roles WHERE tenant_id = $3 AND code = 'school_admin' LIMIT 1`,
 				uuid.NewString(), adminID, id)
-
-			_, _ = h.DB.Exec(r.Context(),
-				`UPDATE identity_types SET user_count = user_count + 1 WHERE id = $1`,
-				schoolAdminIdentityTypeID)
 
 			_, _ = h.DB.Exec(r.Context(),
 				`UPDATE roles SET user_count = user_count + 1

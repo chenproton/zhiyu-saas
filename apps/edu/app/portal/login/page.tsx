@@ -10,9 +10,10 @@ import { AlertCircle, GraduationCap, User, Lock, MessageCircle, QrCode } from "l
 import { authApi, setToken } from "@/lib/api"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { useAuth } from "@/components/auth-provider"
+import { resolveActiveRole } from "@/lib/active-role"
 
-function getPostLoginPath(identityCode?: string): string {
-  switch (identityCode) {
+function getPostLoginPath(roleCode?: string): string {
+  switch (roleCode) {
     case "school_admin":
       return "/portal/apps"
     case "teacher":
@@ -52,8 +53,8 @@ export default function PortalLoginPage() {
       setToken(res.token, "portal")
       await Promise.all([refresh(), refreshRootAuth()])
       const me = await authApi.portalMe()
-      const identityCode = me.identityType?.code
-      router.replace(getPostLoginPath(identityCode))
+      const activeRole = resolveActiveRole(me.user?.id, me.roles)
+      router.replace(getPostLoginPath(activeRole?.code))
     } catch (err: any) {
       setError(err.message || "登录失败")
     } finally {

@@ -46,12 +46,12 @@ func parseFloat(s string, defaultVal float64) (float64, error) {
 
 // platformAdminOnly returns true if the caller is a platform admin.
 func platformAdminOnly(claims *middleware.Claims) bool {
-	return claims != nil && claims.IdentityTypeCode == "platform_admin"
+	return middleware.HasRole(claims, "platform_admin")
 }
 
 // schoolAdminOnly returns true if the caller is a school admin.
 func schoolAdminOnly(claims *middleware.Claims) bool {
-	return claims != nil && claims.IdentityTypeCode == "school_admin"
+	return middleware.HasRole(claims, "school_admin")
 }
 
 // canManagePortal returns true for school admins (portal system management).
@@ -69,9 +69,10 @@ func canModifyContent(claims *middleware.Claims) bool {
 	if claims == nil {
 		return false
 	}
-	switch claims.IdentityTypeCode {
-	case "teacher", "school_admin", "enterprise_hr", "enterprise_mentor":
-		return true
+	for _, code := range []string{"teacher", "school_admin", "enterprise_mentor"} {
+		if middleware.HasRole(claims, code) {
+			return true
+		}
 	}
 	return false
 }

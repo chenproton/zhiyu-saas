@@ -521,7 +521,7 @@ export function TeacherCoursesTab({ prepAssociations = {}, onAssociate }: Teache
   const [hybridGradeClassName, setHybridGradeClassName] = useState("")
 
   useEffect(() => {
-    portalApi.workspaceDashboard()
+    portalApi.workspaceDashboard({ role: "teacher" })
       .then((res) => setDashboard(res))
       .catch(() => setDashboard(null))
   }, [])

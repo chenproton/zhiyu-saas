@@ -41,8 +41,8 @@ export default function GraduatesPage() {
   const { institution, institutionId, tenantId } = usePortalAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
-    identityTypeCode: "student",
+  const { users, loading, error, refetch } = usePortalUsers({
+    roleCode: "student",
     status: "graduated",
     search: searchTerm || undefined,
   })
@@ -115,7 +115,6 @@ export default function GraduatesPage() {
     try {
       await portalUserManagementApi.update(editingGraduate.id, {
         institutionId: original.institutionId,
-        identityTypeId: original.identityTypeId,
         orgNodeId: formClassNodeId || undefined,
         majorId: original.majorId,
         role: original.role,

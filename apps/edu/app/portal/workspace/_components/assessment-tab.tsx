@@ -48,7 +48,7 @@ export function AssessmentTab() {
 
   useEffect(() => {
     setLoading(true)
-    portalApi.workspaceDashboard()
+    portalApi.workspaceDashboard({ role: "student" })
       .then((res) => setExams(res.exams || []))
       .catch(() => setExams([]))
       .finally(() => setLoading(false))

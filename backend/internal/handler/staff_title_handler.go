@@ -260,20 +260,7 @@ func (h *StaffTitleHandler) canManageUsers(r *http.Request) bool {
 	if claims == nil {
 		return false
 	}
-	if canManagePortal(claims) {
-		return true
-	}
-	return claims.Platform == domain.UserPlatformPortal && h.currentIdentityCode(r) == "school_admin"
-}
-
-func (h *StaffTitleHandler) currentIdentityCode(r *http.Request) string {
-	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.IdentityTypeID == nil {
-		return ""
-	}
-	var code string
-	_ = h.DB.QueryRow(r.Context(), `SELECT code FROM identity_types WHERE id = $1`, *claims.IdentityTypeID).Scan(&code)
-	return code
+	return canManagePortal(claims)
 }
 
 func (h *StaffTitleHandler) fetchStaffTitle(ctx context.Context, id string) (domain.StaffTitle, error) {

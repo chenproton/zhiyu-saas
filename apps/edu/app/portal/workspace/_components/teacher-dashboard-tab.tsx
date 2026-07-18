@@ -53,7 +53,7 @@ export function TeacherDashboardTab({ onTabChange, prepAssociations = {}, onAsso
   const [dashboard, setDashboard] = useState<WorkspaceDashboard | null>(null)
 
   useEffect(() => {
-    portalApi.workspaceDashboard().then((res) => setDashboard(res)).catch(() => setDashboard(null))
+    portalApi.workspaceDashboard({ role: "teacher" }).then((res) => setDashboard(res)).catch(() => setDashboard(null))
   }, [])
 
   const announcements = dashboard?.announcements || []

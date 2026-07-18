@@ -2,9 +2,19 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
 import { authApi, getToken, removeToken, type MeResponse } from "@/lib/api"
-import type { IdentityType, Organization, Major, Role } from "@/lib/types/backend"
+import type { Organization, Major, Role } from "@/lib/types/backend"
 
 export type UserRole = "school" | "enterprise" | "operator"
+
+// 身份类型体系已移除，marketplace 侧沿用 identityType 字段名，
+// 值由用户绑定的主角色（roles）派生，避免大面积改动页面。
+export interface IdentityLike {
+  id: string
+  code: string
+  name: string
+}
+
+const PRIMARY_ROLE_PRIORITY = ["platform_admin", "school_admin", "enterprise_mentor", "teacher", "student"]
 
 interface AuthContextType {
   user?: MeResponse["user"]
@@ -14,7 +24,7 @@ interface AuthContextType {
 
   tenantId?: string
   identityTypeId?: string
-  identityType?: IdentityType
+  identityType?: IdentityLike
   identityTypeCode?: string
   orgNodeId?: string
   orgNode?: Organization
@@ -95,7 +105,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const user = state.me?.user
   const role = user?.role as UserRole | undefined
   const roles = state.me?.roles
-  const identityTypeCode = state.me?.identityType?.code
+  const primaryRole = useMemo(() => {
+    if (!roles || roles.length === 0) return undefined
+    for (const code of PRIMARY_ROLE_PRIORITY) {
+      const found = roles.find((r) => r.code === code)
+      if (found) return found
+    }
+    return roles[0]
+  }, [roles])
+  const identityType: IdentityLike | undefined = primaryRole
+    ? { id: primaryRole.id, code: primaryRole.code, name: primaryRole.name }
+    : undefined
+  const identityTypeCode = identityType?.code
 
   // Merge permissions from all roles into a single object.
   const permissions = useMemo(() => {
@@ -140,8 +161,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role,
         institutionId: user?.institutionId,
         tenantId: user?.tenantId,
-        identityTypeId: user?.identityTypeId,
-        identityType: state.me?.identityType,
+        identityTypeId: identityType?.id,
+        identityType,
         identityTypeCode,
         orgNodeId: user?.orgNodeId,
         orgNode: state.me?.orgNode,

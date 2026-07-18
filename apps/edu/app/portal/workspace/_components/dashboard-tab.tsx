@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SectionCard } from "./section-card"
 import { ScheduleGrid } from "./schedule-grid"
+import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { portalApi } from "@/lib/api"
 import type { WorkspaceAnnouncement, WorkspaceTodo, WorkspaceScheduleEvent } from "@/lib/types"
 
@@ -29,17 +30,18 @@ const typeLabelMap: Record<string, string> = {
 }
 
 export function DashboardTab({ onTabChange }: DashboardTabProps) {
+  const { activeRoleCode } = usePortalAuth()
   const [announcements, setAnnouncements] = useState<WorkspaceAnnouncement[]>([])
   const [todos, setTodos] = useState<WorkspaceTodo[]>([])
   const [schedule, setSchedule] = useState<WorkspaceScheduleEvent[]>([])
 
   useEffect(() => {
-    portalApi.workspaceDashboard().then((res) => {
+    portalApi.workspaceDashboard(activeRoleCode ? { role: activeRoleCode } : undefined).then((res) => {
       setAnnouncements(res.announcements || [])
       setTodos(res.todos || [])
       setSchedule(res.schedule || [])
     }).catch(() => {})
-  }, [])
+  }, [activeRoleCode])
 
   return (
     <div className="space-y-3">

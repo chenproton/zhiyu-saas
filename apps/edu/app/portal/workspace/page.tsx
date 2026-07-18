@@ -296,7 +296,7 @@ function TeacherWorkspace() {
 }
 
 export default function WorkspacePage() {
-  const { user, identityType, loading: isLoading } = usePortalAuth()
+  const { user, activeRole, loading: isLoading } = usePortalAuth()
 
   if (isLoading) {
     return (
@@ -315,7 +315,7 @@ export default function WorkspacePage() {
     )
   }
 
-  const currentRole = identityType?.code || "teacher"
+  const currentRole = activeRole?.code || "teacher"
 
   // 学生角色展示全新的学生工作台
   if (currentRole === "student") {
@@ -330,7 +330,7 @@ export default function WorkspacePage() {
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
             <BookOpen className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-gray-700">当前身份：{identityType?.name || "学生"}</span>
+            <span className="text-sm font-medium text-gray-700">当前角色：{activeRole?.name || "学生"}</span>
           </div>
         </div>
         <StudentWorkspace />
@@ -351,7 +351,7 @@ export default function WorkspacePage() {
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
             <GraduationCap className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-gray-700">当前身份：{identityType?.name || "教职工"}</span>
+            <span className="text-sm font-medium text-gray-700">当前角色：{activeRole?.name || "教职工"}</span>
           </div>
         </div>
         <TeacherWorkspace />
@@ -382,7 +382,7 @@ export default function WorkspacePage() {
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm">
           <RoleIcon className="w-5 h-5 text-blue-600" />
-          <span className="text-sm font-medium text-gray-700">当前身份：{identityType?.name || "教职工"}</span>
+          <span className="text-sm font-medium text-gray-700">当前角色：{activeRole?.name || "教职工"}</span>
         </div>
       </div>
 

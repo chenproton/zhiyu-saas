@@ -10,7 +10,7 @@ import { YiKnowAssistant } from "@/components/portal/yi-know-assistant"
 function PortalAuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, identityTypeCode, loading } = usePortalAuth()
+  const { user, activeRoleCode, loading } = usePortalAuth()
 
   const isLoginPage = pathname === "/portal/login"
 
@@ -25,17 +25,17 @@ function PortalAuthGuard({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // 我的服务台只对教师、学生、学校管理员开放
+    // 我的服务台只对教师、学生、学校管理员角色开放
     if (
       (pathname === "/portal/workspace" || pathname.startsWith("/portal/workspace/")) &&
-      identityTypeCode !== "teacher" &&
-      identityTypeCode !== "student" &&
-      identityTypeCode !== "school_admin"
+      activeRoleCode !== "teacher" &&
+      activeRoleCode !== "student" &&
+      activeRoleCode !== "school_admin"
     ) {
       router.replace("/portal")
       return
     }
-  }, [loading, user, identityTypeCode, router, pathname, isLoginPage])
+  }, [loading, user, activeRoleCode, router, pathname, isLoginPage])
 
   // 认证状态确认前始终渲染 children，避免 SSR/客户端因返回 loading/null 触发 404；
   // useEffect 会在未登录或平台不符时重定向到登录页。

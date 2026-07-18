@@ -147,13 +147,6 @@ func SetupTestEnv(t *testing.T) *TestEnv {
 			r.Put("/org-types/{id}", orgTypeHandler.Update)
 			r.Delete("/org-types/{id}", orgTypeHandler.Delete)
 
-			identityTypeHandler := &handler.IdentityTypeHandler{DB: pool}
-			r.Get("/identity-types", identityTypeHandler.List)
-			r.Get("/identity-types/{id}", identityTypeHandler.Get)
-			r.Post("/identity-types", identityTypeHandler.Create)
-			r.Put("/identity-types/{id}", identityTypeHandler.Update)
-			r.Delete("/identity-types/{id}", identityTypeHandler.Delete)
-
 			userManagementHandler := &handler.UserManagementHandler{DB: pool}
 			r.Get("/users", userManagementHandler.List)
 			r.Get("/users/{id}", userManagementHandler.Get)
@@ -467,7 +460,7 @@ func SetupTestEnv(t *testing.T) *TestEnv {
 
 	generateTestToken := func(userID, tenantID string, role domain.UserRole) string {
 		u := &domain.User{ID: userID, TenantID: &tenantID, Role: role, Username: "test-user"}
-		token, _ := middleware.GenerateToken(TestJWTSecret, middleware.TokenInput{User: u, IdentityTypeCode: "platform_admin"})
+		token, _ := middleware.GenerateToken(TestJWTSecret, middleware.TokenInput{User: u, RoleCodes: []string{"platform_admin"}})
 		return token
 	}
 
@@ -574,9 +567,9 @@ func (e *TestEnv) NewUserToken(userID, tenantID string, role domain.UserRole, in
 	return e.NewTokenWithIdentity(userID, tenantID, role, institutionID, "platform_admin")
 }
 
-func (e *TestEnv) NewTokenWithIdentity(userID, tenantID string, role domain.UserRole, institutionID *string, identityTypeCode string) string {
+func (e *TestEnv) NewTokenWithIdentity(userID, tenantID string, role domain.UserRole, institutionID *string, roleCode string) string {
 	u := &domain.User{ID: userID, TenantID: &tenantID, Role: role, Username: "aux-user", InstitutionID: institutionID}
-	token, _ := middleware.GenerateToken(TestJWTSecret, middleware.TokenInput{User: u, IdentityTypeCode: identityTypeCode})
+	token, _ := middleware.GenerateToken(TestJWTSecret, middleware.TokenInput{User: u, RoleCodes: []string{roleCode}})
 	return token
 }
 

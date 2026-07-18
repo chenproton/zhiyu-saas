@@ -21,9 +21,10 @@ func (h *PortalHandler) WorkspaceDashboard(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	role := claims.IdentityTypeCode
-	if role == "" {
-		role = string(claims.Role)
+	// 当前角色由前端传入（角色切换后端无状态），未传时取用户绑定的第一个角色
+	role := r.URL.Query().Get("role")
+	if role == "" && len(claims.RoleCodes) > 0 {
+		role = claims.RoleCodes[0]
 	}
 	if role == "" {
 		role = "student"

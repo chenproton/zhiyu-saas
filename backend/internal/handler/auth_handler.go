@@ -31,7 +31,6 @@ type MeResponse struct {
 	User         domain.User          `json:"user"`
 	Institution  *domain.Institution  `json:"institution,omitempty"`
 	Tenant       *domain.Tenant       `json:"tenant,omitempty"`
-	IdentityType *domain.IdentityType `json:"identityType,omitempty"`
 	OrgNode      *domain.Organization `json:"orgNode,omitempty"`
 	Major        *domain.Major        `json:"major,omitempty"`
 	Roles        []domain.Role        `json:"roles,omitempty"`
@@ -57,18 +56,18 @@ func (h *AuthHandler) loginWithPlatform(w http.ResponseWriter, r *http.Request, 
 	}
 
 	var user domain.User
-	var tenantID, identityTypeID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
+	var tenantID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
 	var titleIDs []string
 	var oauth domain.JSONMap
 
 	err := h.DB.QueryRow(r.Context(), `
-		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+		SELECT id, tenant_id, institution_id, org_node_id, major_id,
 		       role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 		       student_no, work_id, id_card, title_ids, oauth, status, created_at, updated_at
 		FROM users WHERE (login_name = $1 OR username = $1) AND platform = $2
 		ORDER BY created_at DESC LIMIT 1
 	`, req.Username, platform).Scan(
-		&user.ID, &tenantID, &user.InstitutionID, &identityTypeID, &orgNodeID, &majorID,
+		&user.ID, &tenantID, &user.InstitutionID, &orgNodeID, &majorID,
 		&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
 		&user.CreatedAt, &user.UpdatedAt,
@@ -78,7 +77,6 @@ func (h *AuthHandler) loginWithPlatform(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	user.TenantID = tenantID
-	user.IdentityTypeID = identityTypeID
 	user.OrgNodeID = orgNodeID
 	user.MajorID = majorID
 	user.LoginName = loginName
@@ -99,13 +97,13 @@ func (h *AuthHandler) loginWithPlatform(w http.ResponseWriter, r *http.Request, 
 	_, _ = h.DB.Exec(r.Context(), `UPDATE users SET last_login_at = $1 WHERE id = $2`, time.Now(), user.ID)
 	h.recordLoginLog(r, &user, "success")
 
-	identityTypeCode := h.fetchIdentityTypeCode(r.Context(), user.IdentityTypeID)
+	roleCodes := h.fetchUserRoleCodes(r.Context(), user.ID)
 	perms := h.fetchMergedPermissions(r.Context(), user.ID)
 
 	token, err := middleware.GenerateToken(h.JWTSecret, middleware.TokenInput{
-		User:             &user,
-		IdentityTypeCode: identityTypeCode,
-		Permissions:      perms,
+		User:        &user,
+		RoleCodes:   roleCodes,
+		Permissions: perms,
 	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to generate token")
@@ -158,9 +156,6 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	if user.TenantID != nil {
 		resp.Tenant = h.fetchTenantByID(r.Context(), *user.TenantID)
 	}
-	if user.IdentityTypeID != nil {
-		resp.IdentityType = h.fetchIdentityTypeByID(r.Context(), *user.IdentityTypeID)
-	}
 	if user.OrgNodeID != nil {
 		resp.OrgNode = h.fetchOrganizationByID(r.Context(), *user.OrgNodeID)
 	}
@@ -197,17 +192,17 @@ func (h *AuthHandler) meWithPlatform(w http.ResponseWriter, r *http.Request, pla
 
 func (h *AuthHandler) fetchUserByID(ctx context.Context, id string) (domain.User, error) {
 	var user domain.User
-	var tenantID, identityTypeID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
+	var tenantID, orgNodeID, majorID, loginName, phone, avatarURL, studentNo, workID, idCard *string
 	var titleIDs []string
 	var oauth domain.JSONMap
 
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+		SELECT id, tenant_id, institution_id, org_node_id, major_id,
 		       role, platform, login_name, username, password_hash, name, email, phone, avatar_url,
 		       student_no, work_id, id_card, title_ids, oauth, status, last_login_at, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
-		&user.ID, &tenantID, &user.InstitutionID, &identityTypeID, &orgNodeID, &majorID,
+		&user.ID, &tenantID, &user.InstitutionID, &orgNodeID, &majorID,
 		&user.Role, &user.Platform, &loginName, &user.Username, &user.PasswordHash, &user.Name, &user.Email,
 		&phone, &avatarURL, &studentNo, &workID, &idCard, &titleIDs, &oauth, &user.Status,
 		&user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
@@ -216,7 +211,6 @@ func (h *AuthHandler) fetchUserByID(ctx context.Context, id string) (domain.User
 		return user, err
 	}
 	user.TenantID = tenantID
-	user.IdentityTypeID = identityTypeID
 	user.OrgNodeID = orgNodeID
 	user.MajorID = majorID
 	user.LoginName = loginName
@@ -290,22 +284,6 @@ func (h *AuthHandler) fetchTenantByID(ctx context.Context, id string) *domain.Te
 	return &t
 }
 
-func (h *AuthHandler) fetchIdentityTypeByID(ctx context.Context, id string) *domain.IdentityType {
-	var it domain.IdentityType
-	var description *string
-	err := h.DB.QueryRow(ctx, `
-		SELECT id, tenant_id, code, name, description, user_count, is_system, created_at
-		FROM identity_types WHERE id = $1
-	`, id).Scan(
-		&it.ID, &it.TenantID, &it.Code, &it.Name, &description, &it.UserCount, &it.IsSystem, &it.CreatedAt,
-	)
-	if err != nil {
-		return nil
-	}
-	it.Description = description
-	return &it
-}
-
 func (h *AuthHandler) fetchOrganizationByID(ctx context.Context, id string) *domain.Organization {
 	var o domain.Organization
 	var parentID *string
@@ -364,13 +342,27 @@ func (h *AuthHandler) fetchUserRoles(ctx context.Context, userID string) []domai
 	return roles
 }
 
-func (h *AuthHandler) fetchIdentityTypeCode(ctx context.Context, identityTypeID *string) string {
-	if identityTypeID == nil {
-		return ""
+func (h *AuthHandler) fetchUserRoleCodes(ctx context.Context, userID string) []string {
+	rows, err := h.DB.Query(ctx, `
+		SELECT r.code
+		FROM roles r
+		JOIN user_roles ur ON ur.role_id = r.id
+		WHERE ur.user_id = $1
+		ORDER BY r.created_at
+	`, userID)
+	if err != nil {
+		return nil
 	}
-	var code string
-	_ = h.DB.QueryRow(ctx, `SELECT code FROM identity_types WHERE id = $1`, *identityTypeID).Scan(&code)
-	return code
+	defer rows.Close()
+
+	var codes []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err == nil {
+			codes = append(codes, code)
+		}
+	}
+	return codes
 }
 
 func (h *AuthHandler) fetchMergedPermissions(ctx context.Context, userID string) domain.JSONMap {

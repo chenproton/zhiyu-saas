@@ -2,7 +2,6 @@ import type {
   Tenant,
   Organization,
   OrgType,
-  IdentityType,
   Role,
   UserExtensionField,
   UserRelation,
@@ -143,11 +142,13 @@ export interface User {
   id: string
   tenantId?: string
   institutionId?: string
-  identityTypeId?: string
   orgNodeId?: string
   majorId?: string
   role: "school" | "enterprise" | "operator"
   platform: "saas" | "portal"
+  roleIds?: string[]
+  roleCodes?: string[]
+  roleNames?: string[]
   loginName?: string
   username: string
   name: string
@@ -170,7 +171,6 @@ export interface MeResponse {
   user: User
   institution?: Institution
   tenant?: import("./types/backend").Tenant
-  identityType?: import("./types/backend").IdentityType
   orgNode?: import("./types/backend").Organization
   major?: import("./types/backend").Major
   roles?: import("./types/backend").Role[]
@@ -491,12 +491,10 @@ export const orgApi = {
 
 export const orgTypeApi = createCrudApi<OrgType, Omit<OrgType, "id" | "createdAt">, Partial<Omit<OrgType, "id" | "createdAt">>>("/org-types")
 
-export const identityTypeApi = createCrudApi<IdentityType, Omit<IdentityType, "id" | "userCount" | "createdAt">, Partial<Omit<IdentityType, "id" | "userCount" | "createdAt">>>("/identity-types")
-
 export interface CreateUserRequest {
   tenantId?: string
   institutionId?: string
-  identityTypeId: string
+  roleId: string
   orgNodeId?: string
   majorId?: string
   role: "school" | "enterprise" | "operator"
@@ -516,7 +514,7 @@ export interface CreateUserRequest {
 }
 
 export const userManagementApi = {
-  list: (params?: { tenantId?: string; identityTypeId?: string; orgNodeId?: string; majorId?: string; search?: string; status?: string; limit?: number; offset?: number }) =>
+  list: (params?: { tenantId?: string; roleId?: string; roleCode?: string; orgNodeId?: string; majorId?: string; search?: string; status?: string; limit?: number; offset?: number }) =>
     request<ListResponse<User>>(`/users${buildQuery(params || {})}`),
   get: (id: string) => request<User>(`/users/${id}`),
   create: (req: CreateUserRequest) => request<User>("/users", { method: "POST", body: JSON.stringify(req) }),
@@ -530,19 +528,8 @@ export const userManagementApi = {
 
 // Portal-scoped variants: use the portal JWT so school-internal admin pages stay
 // decoupled from the SaaS login token.
-export const portalIdentityTypeApi = {
-  list: (params?: { tenantId?: string; search?: string; limit?: number; offset?: number }) =>
-    portalRequest<ListResponse<IdentityType>>(`/identity-types${buildQuery(params || {})}`),
-  get: (id: string) => portalRequest<IdentityType>(`/identity-types/${id}`),
-  create: (req: Omit<IdentityType, "id" | "userCount" | "createdAt">) =>
-    portalRequest<IdentityType>("/identity-types", { method: "POST", body: JSON.stringify(req) }),
-  update: (id: string, req: Partial<Omit<IdentityType, "id" | "userCount" | "createdAt">>) =>
-    portalRequest<IdentityType>(`/identity-types/${id}`, { method: "PUT", body: JSON.stringify(req) }),
-  delete: (id: string) => portalRequest<{ id: string }>(`/identity-types/${id}`, { method: "DELETE" }),
-}
-
 export const portalUserManagementApi = {
-  list: (params?: { tenantId?: string; institutionId?: string; identityTypeId?: string; orgNodeId?: string; majorId?: string; search?: string; status?: string; limit?: number; offset?: number }) =>
+  list: (params?: { tenantId?: string; institutionId?: string; roleId?: string; roleCode?: string; orgNodeId?: string; majorId?: string; search?: string; status?: string; limit?: number; offset?: number }) =>
     portalRequest<ListResponse<User>>(`/users${buildQuery(params || {})}`),
   get: (id: string) => portalRequest<User>(`/users/${id}`),
   create: (req: CreateUserRequest) => portalRequest<User>("/users", { method: "POST", body: JSON.stringify(req) }),
@@ -779,7 +766,8 @@ export const importExportApi = {
 }
 
 export const portalApi = {
-  workspaceDashboard: () => request<WorkspaceDashboard>("/portal/workspace/dashboard"),
+  workspaceDashboard: (params?: { role?: string }) =>
+    request<WorkspaceDashboard>(`/portal/workspace/dashboard${buildQuery(params || {})}`),
 }
 
 // ==================== Phase 3.5: Evaluation APIs ====================

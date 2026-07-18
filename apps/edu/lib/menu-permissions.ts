@@ -134,23 +134,3 @@ export function checkMenuPermission(menus: unknown, path: string): boolean {
   }
   return true
 }
-
-/**
- * 合并多角色的菜单权限：
- * - 任一角色未配置 menus → 视为不限制（返回 undefined）
- * - 全部角色都配置了 menus → 取并集
- */
-export function mergeRoleMenus(
-  roles?: Array<{ permissions?: Record<string, any> | null }>
-): Record<string, boolean> | undefined {
-  if (!roles || roles.length === 0) return undefined
-  const merged: Record<string, boolean> = {}
-  for (const role of roles) {
-    const menus = role?.permissions?.menus
-    if (!menus || typeof menus !== "object") return undefined
-    for (const [key, value] of Object.entries(menus)) {
-      if (value === true) merged[key] = true
-    }
-  }
-  return merged
-}

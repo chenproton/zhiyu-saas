@@ -37,17 +37,6 @@ export interface OrgType {
   createdAt: string
 }
 
-export interface IdentityType {
-  id: string
-  tenantId: string
-  code: string
-  name: string
-  description?: string
-  userCount: number
-  isSystem: boolean
-  createdAt: string
-}
-
 export interface UserExtensionField {
   id: string
   tenantId: string
@@ -56,7 +45,7 @@ export interface UserExtensionField {
   fieldType: "text" | "number" | "date" | "select"
   isEnabled: boolean
   isRequired: boolean
-  applicableIdentityTypeIds: string[]
+  applicableRoleCodes: string[]
   slotNumber: number
   createdAt: string
 }

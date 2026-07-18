@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -24,10 +23,10 @@ type UserExtensionFieldListResponse struct {
 }
 
 type UpdateUserExtensionFieldRequest struct {
-	FieldName               string   `json:"fieldName"`
-	IsEnabled               bool     `json:"isEnabled"`
-	IsRequired              bool     `json:"isRequired"`
-	ApplicableIdentityCodes []string `json:"applicableIdentityCodes"`
+	FieldName           string   `json:"fieldName"`
+	IsEnabled           bool     `json:"isEnabled"`
+	IsRequired          bool     `json:"isRequired"`
+	ApplicableRoleCodes []string `json:"applicableRoleCodes"`
 }
 
 func (h *UserExtensionFieldHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +43,7 @@ func (h *UserExtensionFieldHandler) List(w http.ResponseWriter, r *http.Request)
 
 	rows, err := h.DB.Query(r.Context(), `
 		SELECT id, tenant_id, field_key, field_name, field_type, is_enabled, is_required,
-			applicable_identity_type_ids, slot_number, created_at
+			applicable_role_codes, slot_number, created_at
 		FROM user_extension_fields
 		WHERE tenant_id = $1
 		ORDER BY slot_number ASC
@@ -55,7 +54,7 @@ func (h *UserExtensionFieldHandler) List(w http.ResponseWriter, r *http.Request)
 	}
 	defer rows.Close()
 
-	items, err := h.scanUserExtensionFieldRows(r.Context(), rows, tenantID)
+	items, err := h.scanUserExtensionFieldRows(rows)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to scan extension fields")
 		return
@@ -73,20 +72,20 @@ func (h *UserExtensionFieldHandler) Update(w http.ResponseWriter, r *http.Reques
 	id := chi.URLParam(r, "id")
 
 	var existing domain.UserExtensionField
-	var applicableIDs []string
+	var applicableCodes []string
 	err := h.DB.QueryRow(r.Context(), `
 		SELECT id, tenant_id, field_key, field_name, field_type, is_enabled, is_required,
-			applicable_identity_type_ids, slot_number, created_at
+			applicable_role_codes, slot_number, created_at
 		FROM user_extension_fields WHERE id = $1
 	`, id).Scan(
 		&existing.ID, &existing.TenantID, &existing.FieldKey, &existing.FieldName, &existing.FieldType,
-		&existing.IsEnabled, &existing.IsRequired, &applicableIDs, &existing.SlotNumber, &existing.CreatedAt,
+		&existing.IsEnabled, &existing.IsRequired, &applicableCodes, &existing.SlotNumber, &existing.CreatedAt,
 	)
 	if err != nil {
 		respondError(w, http.StatusNotFound, "extension field not found")
 		return
 	}
-	existing.ApplicableIdentityTypeIDs = applicableIDs
+	existing.ApplicableRoleCodes = applicableCodes
 
 	var req UpdateUserExtensionFieldRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -99,17 +98,13 @@ func (h *UserExtensionFieldHandler) Update(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	resolvedIDs, err := h.resolveIdentityCodes(r.Context(), existing.TenantID, req.ApplicableIdentityCodes)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to resolve identity codes")
-		return
-	}
+	roleCodes := h.filterTenantRoleCodes(r.Context(), existing.TenantID, req.ApplicableRoleCodes)
 
 	_, err = h.DB.Exec(r.Context(), `
 		UPDATE user_extension_fields SET field_name = $1, is_enabled = $2, is_required = $3,
-			applicable_identity_type_ids = $4
+			applicable_role_codes = $4
 		WHERE id = $5
-	`, req.FieldName, req.IsEnabled, req.IsRequired, resolvedIDs, id)
+	`, req.FieldName, req.IsEnabled, req.IsRequired, roleCodes, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update extension field")
 		return
@@ -144,7 +139,7 @@ func (h *UserExtensionFieldHandler) ensureDefaultSlots(ctx context.Context, tena
 		fieldKey := "field_" + itoa(slot)
 		fieldName := "扩展字段" + itoa(slot)
 		_, err := h.DB.Exec(ctx, `
-			INSERT INTO user_extension_fields (id, tenant_id, field_key, field_name, field_type, is_enabled, is_required, applicable_identity_type_ids, slot_number)
+			INSERT INTO user_extension_fields (id, tenant_id, field_key, field_name, field_type, is_enabled, is_required, applicable_role_codes, slot_number)
 			VALUES ($1, $2, $3, $4, 'text', FALSE, FALSE, '{}', $5)
 			ON CONFLICT (tenant_id, field_key) DO NOTHING
 		`, uuid.NewString(), tenantID, fieldKey, fieldName, slot)
@@ -155,80 +150,28 @@ func (h *UserExtensionFieldHandler) ensureDefaultSlots(ctx context.Context, tena
 	return nil
 }
 
-func (h *UserExtensionFieldHandler) resolveIdentityCodes(ctx context.Context, tenantID string, codes []string) ([]string, error) {
+// filterTenantRoleCodes keeps only codes that exist as roles under the tenant.
+func (h *UserExtensionFieldHandler) filterTenantRoleCodes(ctx context.Context, tenantID string, codes []string) []string {
 	if len(codes) == 0 {
-		return []string{}, nil
+		return []string{}
 	}
-
-	placeholders := make([]string, 0, len(codes))
-	args := make([]interface{}, 0, len(codes)+1)
-	args = append(args, tenantID)
-	for i, code := range codes {
-		placeholders = append(placeholders, "$"+itoa(i+2))
-		args = append(args, code)
-	}
-
-	query := `
-		SELECT id FROM identity_types
-		WHERE tenant_id = $1 AND code IN (` + strings.Join(placeholders, ", ") + `)
-	`
-	rows, err := h.DB.Query(ctx, query, args...)
+	rows, err := h.DB.Query(ctx, `
+		SELECT code FROM roles WHERE tenant_id = $1 AND code = ANY($2::text[])
+	`, tenantID, codes)
 	if err != nil {
-		return nil, err
+		return []string{}
 	}
 	defer rows.Close()
 
-	ids := make([]string, 0)
+	valid := make([]string, 0, len(codes))
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, nil
-}
-
-func (h *UserExtensionFieldHandler) mapIdentityIDsToCodes(ctx context.Context, tenantID string, ids []string) ([]string, error) {
-	if len(ids) == 0 {
-		return []string{}, nil
-	}
-
-	placeholders := make([]string, 0, len(ids))
-	args := make([]interface{}, 0, len(ids)+1)
-	args = append(args, tenantID)
-	for i, id := range ids {
-		placeholders = append(placeholders, "$"+itoa(i+2))
-		args = append(args, id)
-	}
-
-	query := `
-		SELECT id, code FROM identity_types
-		WHERE tenant_id = $1 AND id IN (` + strings.Join(placeholders, ", ") + `)
-	`
-	rows, err := h.DB.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	codeMap := make(map[string]string)
-	for rows.Next() {
-		var id, code string
-		if err := rows.Scan(&id, &code); err != nil {
-			return nil, err
-		}
-		codeMap[id] = code
-	}
-
-	codes := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if code, ok := codeMap[id]; ok {
-			codes = append(codes, code)
+		var code string
+		if err := rows.Scan(&code); err == nil {
+			valid = append(valid, code)
 		}
 	}
-	sort.Strings(codes)
-	return codes, nil
+	sort.Strings(valid)
+	return valid
 }
 
 func (h *UserExtensionFieldHandler) canManageUsers(r *http.Request) bool {
@@ -236,57 +179,40 @@ func (h *UserExtensionFieldHandler) canManageUsers(r *http.Request) bool {
 	if claims == nil {
 		return false
 	}
-	if canManagePortal(claims) {
-		return true
-	}
-	return claims.Platform == domain.UserPlatformPortal && h.currentIdentityCode(r) == "school_admin"
-}
-
-func (h *UserExtensionFieldHandler) currentIdentityCode(r *http.Request) string {
-	claims := middleware.CurrentUser(r)
-	if claims == nil || claims.IdentityTypeID == nil {
-		return ""
-	}
-	var code string
-	_ = h.DB.QueryRow(r.Context(), `SELECT code FROM identity_types WHERE id = $1`, *claims.IdentityTypeID).Scan(&code)
-	return code
+	return canManagePortal(claims)
 }
 
 func (h *UserExtensionFieldHandler) fetchUserExtensionField(ctx context.Context, id string) (domain.UserExtensionField, error) {
 	var field domain.UserExtensionField
-	var applicableIDs []string
+	var applicableCodes []string
 
 	err := h.DB.QueryRow(ctx, `
 		SELECT id, tenant_id, field_key, field_name, field_type, is_enabled, is_required,
-			applicable_identity_type_ids, slot_number, created_at
+			applicable_role_codes, slot_number, created_at
 		FROM user_extension_fields WHERE id = $1
 	`, id).Scan(
 		&field.ID, &field.TenantID, &field.FieldKey, &field.FieldName, &field.FieldType,
-		&field.IsEnabled, &field.IsRequired, &applicableIDs, &field.SlotNumber, &field.CreatedAt,
+		&field.IsEnabled, &field.IsRequired, &applicableCodes, &field.SlotNumber, &field.CreatedAt,
 	)
 	if err != nil {
 		return field, err
 	}
-	field.ApplicableIdentityTypeIDs = applicableIDs
-	codes, _ := h.mapIdentityIDsToCodes(ctx, field.TenantID, applicableIDs)
-	field.ApplicableIdentityCodes = codes
+	field.ApplicableRoleCodes = applicableCodes
 	return field, nil
 }
 
-func (h *UserExtensionFieldHandler) scanUserExtensionFieldRows(ctx context.Context, rows pgx.Rows, tenantID string) ([]domain.UserExtensionField, error) {
+func (h *UserExtensionFieldHandler) scanUserExtensionFieldRows(rows pgx.Rows) ([]domain.UserExtensionField, error) {
 	items := make([]domain.UserExtensionField, 0)
 	for rows.Next() {
 		var field domain.UserExtensionField
-		var applicableIDs []string
+		var applicableCodes []string
 		if err := rows.Scan(
 			&field.ID, &field.TenantID, &field.FieldKey, &field.FieldName, &field.FieldType,
-			&field.IsEnabled, &field.IsRequired, &applicableIDs, &field.SlotNumber, &field.CreatedAt,
+			&field.IsEnabled, &field.IsRequired, &applicableCodes, &field.SlotNumber, &field.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
-		field.ApplicableIdentityTypeIDs = applicableIDs
-		codes, _ := h.mapIdentityIDsToCodes(ctx, tenantID, applicableIDs)
-		field.ApplicableIdentityCodes = codes
+		field.ApplicableRoleCodes = applicableCodes
 		items = append(items, field)
 	}
 	return items, nil

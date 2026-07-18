@@ -102,17 +102,6 @@ type Organization struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
-type IdentityType struct {
-	ID          string    `json:"id"`
-	TenantID    string    `json:"tenantId"`
-	Code        string    `json:"code"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description,omitempty"`
-	UserCount   int       `json:"userCount"`
-	IsSystem    bool      `json:"isSystem"`
-	CreatedAt   time.Time `json:"createdAt"`
-}
-
 type Major struct {
 	ID         string    `json:"id"`
 	TenantID   string    `json:"tenantId"`
@@ -166,8 +155,7 @@ type UserExtensionField struct {
 	FieldType                   string    `json:"fieldType"`
 	IsEnabled                   bool      `json:"isEnabled"`
 	IsRequired                  bool      `json:"isRequired"`
-	ApplicableIdentityTypeIDs   []string  `json:"applicableIdentityTypeIds,omitempty"`
-	ApplicableIdentityCodes     []string  `json:"applicableIdentityCodes"`
+	ApplicableRoleCodes         []string  `json:"applicableRoleCodes"`
 	SlotNumber                  int       `json:"slotNumber"`
 	CreatedAt                   time.Time `json:"createdAt"`
 }

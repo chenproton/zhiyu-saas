@@ -61,11 +61,13 @@ type User struct {
 	ID             string       `json:"id"`
 	TenantID       *string      `json:"tenantId,omitempty"`
 	InstitutionID  *string      `json:"institutionId,omitempty"`
-	IdentityTypeID *string      `json:"identityTypeId,omitempty"`
 	OrgNodeID      *string      `json:"orgNodeId,omitempty"`
 	MajorID        *string      `json:"majorId,omitempty"`
 	Role           UserRole     `json:"role"`
 	Platform       UserPlatform `json:"platform"`
+	RoleIDs        []string     `json:"roleIds,omitempty"`
+	RoleCodes      []string     `json:"roleCodes,omitempty"`
+	RoleNames      []string     `json:"roleNames,omitempty"`
 	LoginName      *string    `json:"loginName,omitempty"`
 	Username       string     `json:"username"`
 	PasswordHash   string     `json:"-"`

@@ -158,12 +158,6 @@ func main() {
 		os.Exit(1)
 	}
 	if _, err := tx.Exec(ctx, `
-		UPDATE identity_types SET user_count = (SELECT COUNT(*) FROM users WHERE identity_type_id = identity_types.id)
-	`); err != nil {
-		fmt.Println("update identity_type user_count error:", err)
-		os.Exit(1)
-	}
-	if _, err := tx.Exec(ctx, `
 		UPDATE roles SET user_count = (SELECT COUNT(*) FROM user_roles WHERE role_id = roles.id)
 	`); err != nil {
 		fmt.Println("update roles user_count error:", err)
@@ -194,7 +188,7 @@ func main() {
 	fmt.Println("seed completed")
 }
 
-// seedUnifiedBase seeds tenants, org_types, organizations, identity_types, majors, roles
+// seedUnifiedBase seeds tenants, org_types, organizations, majors, roles
 // required by the unified user system.
 func seedUnifiedBase(ctx context.Context, tx pgx.Tx) error {
 	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
@@ -256,31 +250,6 @@ func seedUnifiedBase(ctx context.Context, tx pgx.Tx) error {
 		`, o.id, tenantID, o.name, o.typeID, o.parentID)
 		if err != nil {
 			return fmt.Errorf("seed organization %s: %w", o.name, err)
-		}
-	}
-
-	identityTypes := []struct {
-		id       uuid.UUID
-		code     string
-		name     string
-		system   bool
-	}{
-		{uuid.MustParse("41111111-1111-1111-1111-111111111111"), "platform_admin", "平台管理员", true},
-		{uuid.MustParse("41111111-1111-1111-1111-111111111112"), "school_admin", "学校管理员", true},
-		{uuid.MustParse("41111111-1111-1111-1111-111111111113"), "teacher", "教师", true},
-		{uuid.MustParse("41111111-1111-1111-1111-111111111114"), "student", "学生", true},
-
-		{uuid.MustParse("41111111-1111-1111-1111-111111111116"), "enterprise_mentor", "企业导师", true},
-	}
-	for _, it := range identityTypes {
-		_, err := tx.Exec(ctx, `
-			INSERT INTO identity_types (id, tenant_id, code, name, description, user_count, is_system, created_at)
-			VALUES ($1, $2, $3, $4, '', 0, $5, NOW())
-			ON CONFLICT (id) DO UPDATE SET
-				code = EXCLUDED.code, name = EXCLUDED.name, is_system = EXCLUDED.is_system
-		`, it.id, tenantID, it.code, it.name, it.system)
-		if err != nil {
-			return fmt.Errorf("seed identity type %s: %w", it.name, err)
 		}
 	}
 
@@ -725,66 +694,66 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 
 	users := []struct {
-		ID             uuid.UUID
-		InstitutionID  *string
-		IdentityTypeID uuid.UUID
-		OrgNodeID      *uuid.UUID
-		MajorID        *uuid.UUID
-		Role           string
-		Platform       string
-		Username       string
-		Password       string
-		Name           string
-		Email          string
-		Phone          string
-		StudentNo      *string
+		ID            uuid.UUID
+		InstitutionID *string
+		RoleCode      string
+		OrgNodeID     *uuid.UUID
+		MajorID       *uuid.UUID
+		Role          string
+		Platform      string
+		Username      string
+		Password      string
+		Name          string
+		Email         string
+		Phone         string
+		StudentNo     *string
 	}{
 		{
-			ID:             uuid.MustParse("71111111-1111-1111-1111-111111111111"),
-			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111111"),
-			Role:           "operator", Platform: "saas", Username: "operator", Password: "operator123",
+			ID:       uuid.MustParse("71111111-1111-1111-1111-111111111111"),
+			RoleCode: "platform_admin",
+			Role:     "operator", Platform: "saas", Username: "operator", Password: "operator123",
 			Name: "平台管理员", Email: "admin@zhiyu.com", Phone: "13800000001",
 		},
 		{
-			ID:             uuid.MustParse("71111111-1111-1111-1111-111111111112"),
-			InstitutionID:  str("inst-002"),
-			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111112"),
-			OrgNodeID:      uuidPtr("31111111-1111-1111-1111-111111111111"),
-			Role:           "school", Platform: "saas", Username: "school", Password: "school123",
+			ID:            uuid.MustParse("71111111-1111-1111-1111-111111111112"),
+			InstitutionID: str("inst-002"),
+			RoleCode:      "school_admin",
+			OrgNodeID:     uuidPtr("31111111-1111-1111-1111-111111111111"),
+			Role:          "school", Platform: "saas", Username: "school", Password: "school123",
 			Name: "李华", Email: "lihua@bitc.edu.cn", Phone: "13900000002",
 		},
 		{
-			ID:             uuid.MustParse("71111111-1111-1111-1111-111111111113"),
-			InstitutionID:  str("inst-001"),
-			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111116"),
-			OrgNodeID:      nil,
-			Role:           "enterprise", Platform: "saas", Username: "enterprise", Password: "enterprise123",
+			ID:            uuid.MustParse("71111111-1111-1111-1111-111111111113"),
+			InstitutionID: str("inst-001"),
+			RoleCode:      "enterprise_mentor",
+			OrgNodeID:     nil,
+			Role:          "enterprise", Platform: "saas", Username: "enterprise", Password: "enterprise123",
 			Name: "张明", Email: "zhangming@cybersec.com", Phone: "13800000003",
 		},
 		{
-			ID:             uuid.MustParse("71111111-1111-1111-1111-111111111114"),
-			InstitutionID:  str("inst-002"),
-			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111113"),
-			OrgNodeID:      uuidPtr("31111111-1111-1111-1111-111111111112"),
-			MajorID:        uuidPtr("51111111-1111-1111-1111-111111111111"),
-			Role:           "school", Platform: "portal", Username: "teacher", Password: "teacher123",
+			ID:            uuid.MustParse("71111111-1111-1111-1111-111111111114"),
+			InstitutionID: str("inst-002"),
+			RoleCode:      "teacher",
+			OrgNodeID:     uuidPtr("31111111-1111-1111-1111-111111111112"),
+			MajorID:       uuidPtr("51111111-1111-1111-1111-111111111111"),
+			Role:          "school", Platform: "portal", Username: "teacher", Password: "teacher123",
 			Name: "王老师", Email: "teacher@bitc.edu.cn", Phone: "13900000004",
 		},
 		{
-			ID:             uuid.MustParse("71111111-1111-1111-1111-111111111115"),
-			InstitutionID:  str("inst-002"),
-			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111114"),
-			OrgNodeID:      uuidPtr("31111111-1111-1111-1111-111111111114"),
-			MajorID:        uuidPtr("51111111-1111-1111-1111-111111111111"),
-			Role:           "school", Platform: "portal", Username: "student", Password: "student123",
+			ID:            uuid.MustParse("71111111-1111-1111-1111-111111111115"),
+			InstitutionID: str("inst-002"),
+			RoleCode:      "student",
+			OrgNodeID:     uuidPtr("31111111-1111-1111-1111-111111111114"),
+			MajorID:       uuidPtr("51111111-1111-1111-1111-111111111111"),
+			Role:          "school", Platform: "portal", Username: "student", Password: "student123",
 			Name: "张学生", Email: "student@bitc.edu.cn", Phone: "13900000005", StudentNo: str("20230101"),
 		},
 		{
-			ID:             uuid.MustParse("71111111-1111-1111-1111-111111111116"),
-			InstitutionID:  str("inst-002"),
-			IdentityTypeID: uuid.MustParse("41111111-1111-1111-1111-111111111112"),
-			OrgNodeID:      uuidPtr("31111111-1111-1111-1111-111111111111"),
-			Role:           "school", Platform: "portal", Username: "school", Password: "school123",
+			ID:            uuid.MustParse("71111111-1111-1111-1111-111111111116"),
+			InstitutionID: str("inst-002"),
+			RoleCode:      "school_admin",
+			OrgNodeID:     uuidPtr("31111111-1111-1111-1111-111111111111"),
+			Role:          "school", Platform: "portal", Username: "school", Password: "school123",
 			Name: "李华", Email: "lihua@bitc.edu.cn", Phone: "13900000002",
 		},
 	}
@@ -804,30 +773,30 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 		}
 
 		_, err = tx.Exec(ctx, `
-			INSERT INTO users (id, tenant_id, institution_id, identity_type_id, org_node_id, major_id,
+			INSERT INTO users (id, tenant_id, institution_id, org_node_id, major_id,
 				role, platform, login_name, username, password_hash, name, email, phone, avatar_url, student_no,
 				status, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'active', NOW(), NOW())
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'active', NOW(), NOW())
 			ON CONFLICT (id) DO UPDATE SET
 				tenant_id = EXCLUDED.tenant_id, institution_id = EXCLUDED.institution_id,
-				identity_type_id = EXCLUDED.identity_type_id, org_node_id = EXCLUDED.org_node_id,
+				org_node_id = EXCLUDED.org_node_id,
 				major_id = EXCLUDED.major_id, role = EXCLUDED.role, platform = EXCLUDED.platform,
 				login_name = EXCLUDED.login_name, username = EXCLUDED.username,
 				password_hash = EXCLUDED.password_hash, name = EXCLUDED.name,
 				email = EXCLUDED.email, phone = EXCLUDED.phone, avatar_url = EXCLUDED.avatar_url,
 				student_no = EXCLUDED.student_no, status = EXCLUDED.status, updated_at = NOW()
-		`, u.ID, tenantID, u.InstitutionID, u.IdentityTypeID, orgNodeID, majorID,
+		`, u.ID, tenantID, u.InstitutionID, orgNodeID, majorID,
 			u.Role, u.Platform, u.Username, u.Username, string(hash), u.Name, u.Email, u.Phone, nil, u.StudentNo)
 		if err != nil {
 			return fmt.Errorf("insert user %s: %w", u.Username, err)
 		}
 
-		// Assign default role by identity type
+		// 绑定预设角色（角色即身份）
 		_, err = tx.Exec(ctx, `
 			INSERT INTO user_roles (id, user_id, role_id)
 			VALUES ($1, $2, (SELECT id FROM roles WHERE tenant_id = $3 AND code = $4 LIMIT 1))
 			ON CONFLICT (user_id, role_id) DO NOTHING
-		`, uuid.NewString(), u.ID, tenantID, identityTypeIDToRoleCode(u.IdentityTypeID))
+		`, uuid.NewString(), u.ID, tenantID, u.RoleCode)
 		if err != nil {
 			return fmt.Errorf("assign role for user %s: %w", u.Username, err)
 		}
@@ -842,52 +811,6 @@ func seedUsers(ctx context.Context, tx pgx.Tx) error {
 	}
 
 	return nil
-}
-
-func identityTypeIDToRoleCode(id uuid.UUID) string {
-	switch id.String() {
-	case "41111111-1111-1111-1111-111111111111":
-		return "platform_admin"
-	case "41111111-1111-1111-1111-111111111112":
-		return "school_admin"
-	case "41111111-1111-1111-1111-111111111113":
-		return "teacher"
-	case "41111111-1111-1111-1111-111111111114":
-		return "student"
-
-	case "41111111-1111-1111-1111-111111111116":
-		return "enterprise_mentor"
-	default:
-		return "student"
-	}
-}
-
-func mapRoleToRoleCode(role string, identityTypeCode ...string) string {
-	if len(identityTypeCode) > 0 {
-		switch identityTypeCode[0] {
-		case "platform_admin":
-			return "platform_admin"
-		case "school_admin":
-			return "school_admin"
-		case "teacher":
-			return "teacher"
-		case "student":
-			return "student"
-
-		case "enterprise_mentor":
-			return "enterprise_mentor"
-		}
-	}
-	switch role {
-	case "operator":
-		return "platform_admin"
-	case "school":
-		return "school_admin"
-	case "enterprise":
-		return "enterprise_mentor"
-	default:
-		return "student"
-	}
 }
 
 func seedJobData(ctx context.Context, tx pgx.Tx) error {

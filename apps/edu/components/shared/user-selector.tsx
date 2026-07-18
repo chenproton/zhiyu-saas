@@ -17,10 +17,10 @@ import {
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import {
-  orgApi, orgTypeApi, identityTypeApi, userManagementApi, portalUserManagementApi, portalIdentityTypeApi,
+  orgApi, orgTypeApi, userManagementApi, portalUserManagementApi,
 } from "@/lib/api"
 import type { User } from "@/lib/api"
-import type { Organization, IdentityType, OrgType } from "@/lib/types/backend"
+import type { Organization, OrgType } from "@/lib/types/backend"
 
 interface UserSelectorProps {
   value: string[]
@@ -114,8 +114,6 @@ export function UserSelector({
   const [usersLoading, setUsersLoading] = useState(false)
   const [userSearch, setUserSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<string[]>(value)
-  const [identityTypes, setIdentityTypes] = useState<IdentityType[]>([])
-  const [studentTypeIds, setStudentTypeIds] = useState<Set<string>>(new Set())
 
   const orgTypeMap = useMemo(() => {
     const map = new Map<string, OrgType>()
@@ -164,28 +162,15 @@ export function UserSelector({
       const api = usePortalApi ? portalUserManagementApi : userManagementApi
       const res = await api.list(params)
       let filtered = res.items
-      if (excludeStudent && studentTypeIds.size > 0) {
-        filtered = filtered.filter((u) => !studentTypeIds.has(u.identityTypeId || ""))
+      if (excludeStudent) {
+        filtered = filtered.filter((u) => !(u.roleCodes || []).includes("student"))
       }
       setUsers(filtered)
     } catch { /* ignore */ }
     finally { setUsersLoading(false) }
-  }, [selectedOrgId, userSearch, tenantId, usePortalApi, excludeStudent, studentTypeIds, orgMap])
+  }, [selectedOrgId, userSearch, tenantId, usePortalApi, excludeStudent, orgMap])
 
-  const loadIdentityTypes = useCallback(async () => {
-    try {
-      const api = usePortalApi ? portalIdentityTypeApi : identityTypeApi
-      const res = await api.list({ limit: 100 })
-      setIdentityTypes(res.items)
-      if (excludeStudent) {
-        const ids = new Set<string>()
-        res.items.forEach((it) => { if (it.code === "student") ids.add(it.id) })
-        setStudentTypeIds(ids)
-      }
-    } catch { /* ignore */ }
-  }, [usePortalApi, excludeStudent])
-
-  useEffect(() => { loadOrgTree(); loadIdentityTypes() }, [loadOrgTree, loadIdentityTypes])
+  useEffect(() => { loadOrgTree() }, [loadOrgTree])
   useEffect(() => { if (open) loadUsers() }, [open, loadUsers])
 
   useEffect(() => {
@@ -216,7 +201,7 @@ export function UserSelector({
     setOpen(false)
   }
 
-  const identityName = (typeId?: string) => identityTypes.find((t) => t.id === typeId)?.name || ""
+  const roleLabel = (u: User) => (u.roleNames || []).join("、")
   const orgName = (userId?: string) => {
     if (!userId) return ""
     const u = users.find((x) => x.id === userId)
@@ -329,7 +314,7 @@ export function UserSelector({
                           <TableCell className="text-sm font-medium">{u.username}</TableCell>
                           <TableCell className="text-sm">{u.name}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{orgMap.get(u.orgNodeId || "")?.name || "-"}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{identityName(u.identityTypeId)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{roleLabel(u)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

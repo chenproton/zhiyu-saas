@@ -53,8 +53,9 @@ export default function LoginPage() {
       setToken(res.token, "saas")
       await refresh()
       const me = await authApi.saasMe()
-      const identityCode = me.identityType?.code
-      const nextPath = getPostLoginPath(identityCode)
+      const roleCodes = (me.roles || []).map((r) => r.code)
+      const primaryCode = ["platform_admin", "school_admin", "enterprise_mentor", "teacher", "student"].find((c) => roleCodes.includes(c)) || roleCodes[0]
+      const nextPath = getPostLoginPath(primaryCode)
       if (nextPath === null) {
         removeToken("saas")
         setError(`教师和学生账号请访问教育管理平台登录：${getEduBaseUrl()}/portal/login`)

@@ -78,8 +78,8 @@ export default function StudentsPage() {
   const { institution, institutionId, tenantId } = usePortalAuth()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
-  const { users, identityTypeMap, loading, error, refetch } = usePortalUsers({
-    identityTypeCode: "student",
+  const { users, roles: tenantRoles, loading, error, refetch } = usePortalUsers({
+    roleCode: "student",
     search: searchTerm || undefined,
   })
   const { orgs, orgMap, orgTypeMap, loading: orgLoading } = useOrgTree(tenantId)
@@ -260,7 +260,6 @@ export default function StudentsPage() {
     try {
       await portalUserManagementApi.update(selectedStudent.id, {
         institutionId: original.institutionId,
-        identityTypeId: original.identityTypeId,
         orgNodeId: formClassNodeId || undefined,
         majorId: original.majorId,
         role: original.role,
@@ -296,9 +295,9 @@ export default function StudentsPage() {
       toast({ variant: "destructive", title: "创建失败", description: "请选择班级" })
       return
     }
-    const studentType = Array.from(identityTypeMap.values()).find((it) => it.code === "student")
-    if (!studentType) {
-      toast({ variant: "destructive", title: "创建失败", description: "未找到学生身份类型" })
+    const studentRole = tenantRoles.find((r) => r.code === "student")
+    if (!studentRole) {
+      toast({ variant: "destructive", title: "创建失败", description: "未找到学生角色，请先在角色管理中创建" })
       return
     }
     setSaving(true)
@@ -306,7 +305,7 @@ export default function StudentsPage() {
       await portalUserManagementApi.create({
         tenantId,
         institutionId,
-        identityTypeId: studentType.id,
+        roleId: studentRole.id,
         role: "school",
         platform: "portal",
         loginName: formUsername.trim(),

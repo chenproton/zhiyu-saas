@@ -19,7 +19,7 @@ export function LearningTab() {
 
   useEffect(() => {
     setLoading(true)
-    portalApi.workspaceDashboard()
+    portalApi.workspaceDashboard({ role: "student" })
       .then((res) => {
         setCourses(res.courses || [])
         setSceneTasks(res.sceneTasks || [])

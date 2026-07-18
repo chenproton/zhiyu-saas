@@ -24,7 +24,7 @@ func cleanupTenant(ctx context.Context, t *testing.T, env *testhelper.TestEnv, t
 	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-status-inv-test")
 	env.DB.Exec(ctx, "DELETE FROM users WHERE login_name = $1", "admin-admin-sub-test")
 	env.DB.Exec(ctx, "DELETE FROM users WHERE tenant_id = $1", tenantID)
-	env.DB.Exec(ctx, "DELETE FROM identity_types WHERE tenant_id = $1", tenantID)
+	env.DB.Exec(ctx, "DELETE FROM roles WHERE tenant_id = $1", tenantID)
 	env.DB.Exec(ctx, "DELETE FROM subscription_packages WHERE tenant_id = $1", tenantID)
 	env.DB.Exec(ctx, "DELETE FROM org_types WHERE tenant_id = $1", tenantID)
 	env.DB.Exec(ctx, "DELETE FROM tenants WHERE id = $1", tenantID)

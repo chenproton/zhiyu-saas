@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
 import { authApi, getToken, removeToken, type MeResponse } from "@/lib/api"
-import type { IdentityType, Organization, Major, Role } from "@/lib/types/backend"
-import { checkMenuPermission, mergeRoleMenus } from "@/lib/menu-permissions"
+import type { Organization, Major, Role } from "@/lib/types/backend"
+import { checkMenuPermission } from "@/lib/menu-permissions"
+import { persistActiveRole, resolveActiveRole } from "@/lib/active-role"
 
 export type UserRole = "school" | "enterprise" | "operator"
 
@@ -14,15 +15,15 @@ interface AuthContextType {
   institutionId?: string
 
   tenantId?: string
-  identityTypeId?: string
-  identityType?: IdentityType
-  identityTypeCode?: string
   orgNodeId?: string
   orgNode?: Organization
   majorId?: string
   major?: Major
   permissions?: Record<string, any>
   roles?: Role[]
+  activeRole?: Role
+  activeRoleCode?: string
+  setActiveRole: (roleId: string) => void
 
   loading: boolean
   error?: string
@@ -36,6 +37,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   refresh: async () => {},
   logout: () => {},
+  setActiveRole: () => {},
   hasPermission: () => false,
   hasMenuPermission: () => true,
 })
@@ -97,21 +99,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const user = state.me?.user
   const role = user?.role as UserRole | undefined
   const roles = state.me?.roles
-  const identityTypeCode = state.me?.identityType?.code
+  const [activeRoleId, setActiveRoleId] = useState<string | undefined>()
+
+  const activeRole = useMemo(() => {
+    if (!roles || roles.length === 0) return undefined
+    if (activeRoleId) {
+      const found = roles.find((r) => r.id === activeRoleId)
+      if (found) return found
+    }
+    return resolveActiveRole(user?.id, roles)
+  }, [roles, activeRoleId, user?.id])
+
+  const setActiveRole = useCallback((roleId: string) => {
+    if (user) persistActiveRole(user.id, roleId)
+    setActiveRoleId(roleId)
+    // 整页刷新，保证所有 provider 与页面状态基于新角色重建
+    if (typeof window !== "undefined") {
+      window.location.reload()
+    }
+  }, [user])
 
   // Merge permissions from all roles into a single object.
+  // 权限只取当前激活角色：每次仅以一种角色身份使用系统
   const permissions = useMemo(() => {
-    const merged = roles?.reduce<Record<string, any>>((acc, r) => {
-      if (r.permissions && typeof r.permissions === "object") {
-        Object.assign(acc, r.permissions)
-      }
-      return acc
-    }, {}) ?? {}
-    const menus = mergeRoleMenus(roles)
-    if (menus) merged.menus = menus
-    else delete merged.menus
-    return merged
-  }, [roles])
+    if (activeRole?.permissions && typeof activeRole.permissions === "object") {
+      return activeRole.permissions as Record<string, any>
+    }
+    return {}
+  }, [activeRole])
 
   const hasPermission = useCallback((module: string, page?: string, action?: string) => {
     const perms = permissions
@@ -144,15 +159,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role,
         institutionId: user?.institutionId,
         tenantId: user?.tenantId,
-        identityTypeId: user?.identityTypeId,
-        identityType: state.me?.identityType,
-        identityTypeCode,
         orgNodeId: user?.orgNodeId,
         orgNode: state.me?.orgNode,
         majorId: user?.majorId,
         major: state.me?.major,
         permissions,
         roles,
+        activeRole,
+        activeRoleCode: activeRole?.code,
+        setActiveRole,
         loading: state.loading,
         error: state.error,
         refresh,
