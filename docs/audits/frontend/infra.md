@@ -45,6 +45,6 @@
 
 ## 风险与约束
 
-- 两个应用仍共用同一后端与数据库，安全边界依赖 JWT 中的 `platform` 与 `identity_type_code`/角色权限。
+- 两个应用仍共用同一后端与数据库，安全边界依赖 JWT 中的 `platform` 与 `roleCodes`（角色权限）。身份类型体系已移除，用户身份统一由 `roles`/`user_roles` 管理，页面入口与路由拦截依赖角色的菜单权限（`roles.permissions.menus`），登录后可在顶栏切换当前角色（每次仅以一种角色使用系统）。
 - `@zhiyu/ui` 组件库变更需同时保证商城与教育管理应用可用。
 - 静态资源按应用拆分，公共资源建议放后端 CDN 或 `@zhiyu/ui/public`。
