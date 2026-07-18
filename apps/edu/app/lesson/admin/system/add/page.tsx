@@ -51,7 +51,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { MAJORS } from "@/lib/types/lesson-source"
 import type { SystemCourseNode, NodeResource, NodeRefType } from "@/lib/types/lesson-source"
 
 import { KnowledgeSelector } from "../../_components/knowledge/knowledge-selector"
@@ -64,7 +63,7 @@ import CourseNodeTree from "./_components/CourseNodeTree"
 import PublishCheckPanel from "./_components/PublishCheckPanel"
 
 import type { KnowledgePointItem } from "@/lib/types/lesson"
-import { courseApi, courseNodeApi, knowledgeApi, approvalApi } from "@/lib/api"
+import { courseApi, courseNodeApi, knowledgeApi, approvalApi, majorApi } from "@/lib/api"
 
 /* ---------- node editing mode ---------- */
 
@@ -167,6 +166,7 @@ function AddSystemPageInner() {
   const [courseName, setCourseName] = useState("")
   const [courseCode, setCourseCode] = useState(`AB8G-A1-${Math.floor(10000000 + Math.random() * 90000000)}`)
   const [major, setMajor] = useState("")
+  const [majorNames, setMajorNames] = useState<string[]>([])
   const [courseDescription, setCourseDescription] = useState("")
   const [coverImage, setCoverImage] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -195,6 +195,12 @@ function AddSystemPageInner() {
       }
     }).catch(() => {}).finally(() => setLoadingEdit(false))
   }, [editId])
+
+  useEffect(() => {
+    majorApi.list({ limit: 1000 }).then((res) => {
+      setMajorNames(res.items.filter((m) => m.enabled).map((m) => m.name))
+    }).catch(() => {})
+  }, [])
 
   const handleAddNode = useCallback((parentId: string | null, name: string, order: number, type?: NodeRefType, sourceId?: string, sourceName?: string) => {
     const newNode: SystemCourseNode = {
@@ -650,7 +656,7 @@ function AddSystemPageInner() {
                         <SelectValue placeholder="请选择适用专业" />
                       </SelectTrigger>
                       <SelectContent>
-                        {MAJORS.filter((m) => m !== "全部").map((m) => (
+                        {majorNames.map((m) => (
                           <SelectItem key={m} value={m}>{m}</SelectItem>
                         ))}
                       </SelectContent>

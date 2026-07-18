@@ -41,7 +41,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { MAJORS } from "@/lib/types/lesson-source"
 import { EvaluationMethodSelector } from "../../../_components/assessment/evaluation-method-selector"
 import { CourseEvaluationRulesDialog } from "../../../_components/assessment/course-evaluation-rules-dialog"
 import { TeachingResourceSelector } from "./teaching-resource-selector"
@@ -224,8 +223,8 @@ export function createDefaultNodeModuleData(
     form: {
       name: existing?.name ?? "",
       code: existing?.code ?? `HYB-${ts.slice(-6)}`,
-      majorId: existing?.majorId ?? MAJORS[1],
-      majorName: existing?.majorName ?? (MAJORS[1] || ""),
+      majorId: existing?.majorId ?? "",
+      majorName: existing?.majorName ?? "",
       semester: existing?.semester ?? "2026-2027-1",
       category,
       courseObjectives: "",

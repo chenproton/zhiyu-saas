@@ -44,7 +44,6 @@ const quickAccess = [
   { icon: Briefcase, label: "岗位资源管理", href: "/job/positions" },
   { icon: Layers, label: "场景资源管理", href: "/scene" },
   { icon: BarChart3, label: "日志管理", href: "/portal/apps/system/logs/login" },
-  { icon: CheckCircle, label: "审批管理", href: "/portal/apps/system/approval" },
 ]
 
 interface PlatformStyle {
@@ -72,7 +71,6 @@ const systemModules = [
   { id: "resource-mgmt", title: "系统资源管理", desc: "套餐、编码、行业、专业", note: "管理系统套餐与资源编码配置", href: "/portal/apps/system/resource/package" },
   { id: "log", title: "日志管理", desc: "登录日志、操作日志查看", note: "追溯用户操作记录和登录历史", href: "/portal/apps/system/logs/login" },
   { id: "org-user", title: "组织用户管理", desc: "组织架构、用户账户管理", note: "管理组织关系、角色权限和用户账号", href: "/portal/apps/system/org-user/org-structure" },
-  { id: "approval", title: "审批流程管理", desc: "审批流配置与管理", note: "自定义审批流程和审批规则", href: "/portal/apps/system/approval" },
 ]
 
 const fallbackModules: Record<string, ModuleItem[]> = {

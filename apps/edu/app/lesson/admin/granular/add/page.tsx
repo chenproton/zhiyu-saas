@@ -28,8 +28,7 @@ import {
 
 import type { SystemCourseNode, NodeResource } from "@/lib/types/lesson-source"
 import type { Course } from "@/lib/types/lesson"
-import { MAJORS } from "@/lib/types/lesson-source"
-import { courseApi, knowledgeApi, fileApi, approvalApi } from "@/lib/api"
+import { courseApi, knowledgeApi, fileApi, approvalApi, majorApi } from "@/lib/api"
 
 import { KnowledgeSelector } from "../../_components/knowledge/knowledge-selector"
 import { ResourceSelector, type ResourceItem } from "../../_components/resources/resource-selector"
@@ -61,6 +60,7 @@ function AddGranularPageInner() {
   const [hours, setHours] = useState("")
   const [learningGoal, setLearningGoal] = useState("")
   const [major, setMajor] = useState("")
+  const [majorNames, setMajorNames] = useState<string[]>([])
   const [difficulty, setDifficulty] = useState<number>(0)
   const [coverImage, setCoverImage] = useState("")
 
@@ -112,6 +112,12 @@ function AddGranularPageInner() {
     }
     load()
   }, [editId])
+
+  useEffect(() => {
+    majorApi.list({ limit: 1000 }).then((res) => {
+      setMajorNames(res.items.filter((m) => m.enabled).map((m) => m.name))
+    }).catch(() => {})
+  }, [])
 
   const currentCheckNode: SystemCourseNode | undefined = useMemo(() => {
     const kpForCheck = knowledgePoints.map((kp) => ({
@@ -271,7 +277,7 @@ function AddGranularPageInner() {
                         <SelectValue placeholder="请选择适用专业" />
                       </SelectTrigger>
                       <SelectContent>
-                        {MAJORS.filter((m) => m !== "全部").map((m) => (
+                        {majorNames.map((m) => (
                           <SelectItem key={m} value={m}>{m}</SelectItem>
                         ))}
                       </SelectContent>

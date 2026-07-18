@@ -14,10 +14,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { MAJORS } from "@/lib/types/lesson-source"
 import { ArrowLeft, Save, Send, Info, Plus, X, BookOpen, Layers, BookMarked, Microscope, Briefcase, Database, FileStack, Monitor, CheckCircle2, BarChart3, ClipboardList, Zap, Shuffle, MessageSquare, HelpCircle, ChevronDown, ChevronRight, Bold, Italic, Underline, List, ListOrdered, Image as ImageIcon, ImageUp, Link as LinkIcon, AlignLeft } from "lucide-react"
 import { toast } from "sonner"
-import { courseApi, approvalApi } from "@/lib/api"
+import { courseApi, approvalApi, majorApi } from "@/lib/api"
 import type { Course } from "@/lib/types/lesson"
 import type { SystemCourseNode, NodeRefType } from "@/lib/types/lesson-source"
 import CourseNodeTree from "../../system/add/_components/CourseNodeTree"
@@ -78,6 +77,7 @@ function HybridCourseAddForm() {
   const claimCourse = searchParams.get("claimCourse")
   const claimSessionsParam = searchParams.get("claimSessions")
   const [existing, setExisting] = useState<Course | null>(null)
+  const [majorNames, setMajorNames] = useState<string[]>([])
 
   useEffect(() => {
     if (!editId) {
@@ -86,6 +86,12 @@ function HybridCourseAddForm() {
     }
     courseApi.get(editId).then((c) => setExisting(c)).catch(() => setExisting(null))
   }, [editId])
+
+  useEffect(() => {
+    majorApi.list({ limit: 1000 }).then((res) => {
+      setMajorNames(res.items.filter((m) => m.enabled).map((m) => m.name))
+    }).catch(() => {})
+  }, [])
 
   interface ClaimPayload {
     course?: string
@@ -621,7 +627,7 @@ function HybridCourseAddForm() {
                         <SelectValue placeholder="请选择所属专业" />
                       </SelectTrigger>
                       <SelectContent>
-                        {MAJORS.filter((m) => m !== "全部").map((m) => (
+                        {majorNames.map((m) => (
                           <SelectItem key={m} value={m}>{m}</SelectItem>
                         ))}
                       </SelectContent>

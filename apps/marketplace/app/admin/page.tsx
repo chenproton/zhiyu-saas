@@ -395,7 +395,6 @@ function SchoolAdminDashboard() {
     { name: "教师管理", href: "/portal/apps/system/org-user/teachers", icon: GraduationCap, desc: "维护本校教师" },
     { name: "学生管理", href: "/portal/apps/system/org-user/students", icon: User, desc: "维护本校学生" },
     { name: "角色权限", href: "/portal/apps/system/org-user/roles", icon: CheckCircle, desc: "配置本校角色" },
-    { name: "审批流程", href: "/portal/apps/system/approval", icon: FileText, desc: "配置审批流程" },
   ]
 
   return (

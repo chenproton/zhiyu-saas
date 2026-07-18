@@ -8,7 +8,6 @@ import {
   Database,
   History,
   Users,
-  Workflow,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -60,12 +59,6 @@ const menuItems = [
       { id: "roles", label: "角色权限管理", href: "/portal/apps/system/org-user/roles" },
       { id: "positions", label: "职位管理", href: "/portal/apps/system/org-user/positions" },
     ],
-  },
-  {
-    id: "approval",
-    label: "审批流程管理",
-    icon: Workflow,
-    href: "/portal/apps/system/approval",
   },
 ]
 

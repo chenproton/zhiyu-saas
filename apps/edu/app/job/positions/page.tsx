@@ -63,7 +63,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-import { positionApi, batchApi, workflowApi, approvalApi, importExportApi } from "@/lib/api"
+import { positionApi, batchApi, workflowApi, approvalApi, importExportApi, majorApi } from "@/lib/api"
 import {
   convertCareerPositionToPosition,
   convertJobBatchToBatch,
@@ -88,6 +88,7 @@ export default function PositionsPage() {
   const [positions, setPositions] = useState<Position[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
   const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [majorMap, setMajorMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
 
   const [activeTab, setActiveTab] = useState<TabType>("my")
@@ -140,6 +141,14 @@ export default function PositionsPage() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  useEffect(() => {
+    majorApi.list({ limit: 1000 }).then((res) => {
+      const map = new Map<string, string>()
+      res.items.forEach((m) => map.set(m.id, m.name))
+      setMajorMap(map)
+    }).catch(() => {})
+  }, [])
 
   const [expandedBatches, setExpandedBatches] = useState<string[]>(batches.map((b) => b.id))
   useEffect(() => {
@@ -869,7 +878,7 @@ export default function PositionsPage() {
                           <ChevronRight className="h-4 w-4 text-gray-400" />
                         )}
                         <span className="font-medium text-gray-800">{batch.name}</span>
-                        <span className="text-xs text-gray-400">({batch.department} - {batch.majorId})</span>
+                        <span className="text-xs text-gray-400">({batch.department} - {majorMap.get(batch.majorId || "") || batch.major || batch.majorId})</span>
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         {batchPositions.length} 个岗位

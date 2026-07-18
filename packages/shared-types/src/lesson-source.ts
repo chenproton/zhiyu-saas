@@ -91,17 +91,6 @@ export const INDUSTRIES = [
   '食品药品与粮食',
 ]
 
-export const MAJORS = [
-  '全部',
-  '教学计划专业00',
-  '软件工程专业',
-  '自动化专业',
-  '人工智能专业',
-  '计算机科学与技术专业',
-  '大数据管理与应用专业',
-  'UI自动化测试专业',
-]
-
 export const COURSE_TYPE_OPTIONS = [
   { value: 'all', label: '全部' },
   { value: 'system', label: '体系课' },

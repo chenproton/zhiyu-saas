@@ -28,7 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { positionApi, batchApi, approvalApi } from '@/lib/api'
+import { positionApi, batchApi, approvalApi, majorApi } from '@/lib/api'
 import {
   convertCareerPositionToPosition,
   convertJobBatchToBatch,
@@ -49,6 +49,7 @@ function PositionEditPageContent({ params }: PageProps) {
   const { toast } = useToast()
   const [positions, setPositions] = useState<Position[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
+  const [majorMap, setMajorMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const [activeStep, setActiveStep] = useState('basic')
   const [isSaving, setIsSaving] = useState(false)
@@ -92,6 +93,14 @@ function PositionEditPageContent({ params }: PageProps) {
       setActiveStep('competency')
     }
   }, [searchParams])
+
+  useEffect(() => {
+    majorApi.list({ limit: 1000 }).then((res) => {
+      const map = new Map<string, string>()
+      res.items.forEach((m) => map.set(m.id, m.name))
+      setMajorMap(map)
+    }).catch(() => {})
+  }, [])
 
   if (loading) {
     return (
@@ -221,7 +230,7 @@ function PositionEditPageContent({ params }: PageProps) {
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-800">{position.name}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {batch?.department} - {batch?.majorId} | 版本 {position.version}
+            {batch?.department} - {majorMap.get(batch?.majorId || "") || batch?.major || batch?.majorId} | 版本 {position.version}
           </p>
         </div>
 

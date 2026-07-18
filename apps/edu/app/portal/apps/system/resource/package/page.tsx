@@ -30,7 +30,6 @@ const SUBSCRIPTION_PLATFORM_DEFS: Record<string, {
       { id: "tenant", label: "租户信息" },
       { id: "org-user", label: "组织用户" },
       { id: "resource", label: "系统资源" },
-      { id: "approval", label: "审批流程" },
       { id: "logs", label: "日志管理" },
     ],
   },

@@ -30,11 +30,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { MAJORS } from "@/lib/types/lesson-source"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { BookOpen, Users, Calendar, CheckCircle2, MapPin, Clock, Rocket, Settings, Search, Copy } from "lucide-react"
-import { courseApi } from "@/lib/api"
+import { courseApi, majorApi } from "@/lib/api"
 import type { Course } from "@/lib/types/lesson"
 import { useToast } from "@/hooks/use-toast"
 
@@ -78,6 +77,7 @@ export default function ClassClaimPage() {
   const [coursesLoading, setCoursesLoading] = useState(false)
   const [classes, setClasses] = useState<ClassItem[]>(initialClasses)
   const [sessions] = useState<ClassSession[]>(initialSessions)
+  const [majorNames, setMajorNames] = useState<string[]>([])
   const [selectedTerm, setSelectedTerm] = useState(semesters[0])
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmClass, setConfirmClass] = useState<ClassItem | null>(null)
@@ -97,6 +97,12 @@ export default function ClassClaimPage() {
       .then((res) => setHybridCourses(res.items))
       .catch((err: any) => toast({ variant: "destructive", title: "加载混合课失败", description: err.message }))
       .finally(() => setCoursesLoading(false))
+  }, [])
+
+  useEffect(() => {
+    majorApi.list({ limit: 1000 }).then((res) => {
+      setMajorNames(res.items.filter((m) => m.enabled).map((m) => m.name))
+    }).catch(() => {})
   }, [])
 
   const uniqueCategories = useMemo(() => {
@@ -389,7 +395,7 @@ export default function ClassClaimPage() {
                     <SelectTrigger className="h-9 text-sm w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="全部">全部</SelectItem>
-                      {MAJORS.filter((m) => m !== "全部").map((m) => (
+                      {majorNames.map((m) => (
                         <SelectItem key={m} value={m}>{m}</SelectItem>
                       ))}
                     </SelectContent>
