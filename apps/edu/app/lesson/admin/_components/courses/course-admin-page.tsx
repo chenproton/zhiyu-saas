@@ -53,7 +53,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-import { courseApi, lessonBatchApi, workflowApi, importExportApi } from "@/lib/api"
+import { courseApi, lessonBatchApi, workflowApi, importExportApi, approvalApi } from "@/lib/api"
 import { CourseList } from "./course-list"
 import type { Course, CourseStatus, CourseType } from "@/lib/types/lesson-source"
 import type { Course as BackendCourse, LessonBatch } from "@/lib/types/lesson"
@@ -259,6 +259,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
       const course = courses.find((c) => c.id === id)
       if (course && (course.status === "draft" || course.status === "rejected") && course.batchId) {
         await courseApi.submit(id)
+        await approvalApi.create({ targetType: "course", targetId: id })
       }
     }
     setSelectedIds([])
@@ -406,6 +407,7 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
       return
     }
     await courseApi.submit(course.id)
+    await approvalApi.create({ targetType: "course", targetId: course.id })
     await loadData()
   }
 
@@ -992,8 +994,8 @@ export function CourseAdminPage({ title, subtitle, courseType, addHref }: Course
                   <div className="text-gray-600">{wf.description || "-"}</div>
                   <div>
                     <div className="flex flex-wrap gap-1">
-                      {wf.steps.map((step) => (
-                        <Badge key={step.id} variant="outline" className="text-xs">
+                      {wf.steps.map((step, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
                           {step.name}
                         </Badge>
                       ))}

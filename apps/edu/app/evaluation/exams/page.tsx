@@ -28,7 +28,7 @@ import {
   X,
   XCircle,
 } from "lucide-react"
-import { examApi, evaluationBatchApi, workflowApi, importExportApi } from "@/lib/api"
+import { examApi, evaluationBatchApi, workflowApi, importExportApi, approvalApi } from "@/lib/api"
 import type { Exam, EvaluationBatch, Workflow } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -324,6 +324,7 @@ export default function ExamsPage() {
   const handleSubmitApproval = async (id: string) => {
     try {
       await examApi.submit(id)
+      await approvalApi.create({ targetType: "exam", targetId: id })
       await loadData()
     } catch (err) {
       console.error("提交审批失败", err)
@@ -353,9 +354,14 @@ export default function ExamsPage() {
     }
   }
 
-  const handleReview = async (id: string, status: "published" | "rejected") => {
+  const handleReview = async (id: string, status: "approved" | "rejected") => {
     try {
-      await examApi.review(id, { status })
+      const records = await approvalApi.list({ targetType: "exam", targetId: id, limit: 1 })
+      if (records.items.length === 0) {
+        alert("未找到审批记录")
+        return
+      }
+      await approvalApi.review(records.items[0].id, { status })
       await loadData()
     } catch (err) {
       console.error("审批操作失败", err)
@@ -691,7 +697,7 @@ export default function ExamsPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700"
-                            onClick={() => handleReview(exam.id, "published")}
+                            onClick={() => handleReview(exam.id, "approved")}
                           >
                             <CheckCircle className="mr-1 h-3 w-3" />
                             通过
@@ -1214,8 +1220,8 @@ export default function ExamsPage() {
                       <TableCell className="text-sm text-gray-600">{wf.description}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {wf.steps?.map((step) => (
-                            <Badge key={step.id} variant="outline" className="text-xs">
+                          {wf.steps?.map((step, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
                               {step.name}
                             </Badge>
                           ))}

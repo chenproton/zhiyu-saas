@@ -24,18 +24,20 @@ type WorkflowListResponse struct {
 }
 
 type CreateWorkflowRequest struct {
-	Name        string           `json:"name"`
-	Scene       *string          `json:"scene"`
-	Description *string          `json:"description"`
-	Steps       domain.JSONSlice `json:"steps"`
+	Name        string            `json:"name"`
+	Scene       *string           `json:"scene"`
+	Description *string           `json:"description"`
+	Steps       domain.JSONSlice  `json:"steps"`
+	MajorIds    domain.StringSlice `json:"majorIds"`
 }
 
 type UpdateWorkflowRequest struct {
-	Name        string           `json:"name"`
-	Scene       *string          `json:"scene"`
-	Description *string          `json:"description"`
-	Steps       domain.JSONSlice `json:"steps"`
-	Status      string           `json:"status"`
+	Name        string            `json:"name"`
+	Scene       *string           `json:"scene"`
+	Description *string           `json:"description"`
+	Steps       domain.JSONSlice  `json:"steps"`
+	MajorIds    domain.StringSlice `json:"majorIds"`
+	Status      string            `json:"status"`
 }
 
 func (h *WorkflowHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +97,7 @@ func (h *WorkflowHandler) List(w http.ResponseWriter, r *http.Request) {
 	_ = h.DB.QueryRow(r.Context(), countQuery, args...).Scan(&total)
 
 	query := `
-		SELECT id, tenant_id, name, scene, description, steps, usage_count, status, created_at
+		SELECT id, tenant_id, name, scene, description, steps, major_ids, usage_count, status, created_at
 		FROM workflows
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY created_at DESC
@@ -154,14 +156,17 @@ func (h *WorkflowHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.Steps == nil {
 		req.Steps = domain.JSONSlice{}
 	}
+	if req.MajorIds == nil {
+		req.MajorIds = domain.StringSlice{}
+	}
 
 	id := uuid.NewString()
 	status := domain.WorkflowStatusActive
 
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO workflows (id, tenant_id, name, scene, description, steps, usage_count, status)
-		VALUES ($1, $2, $3, $4, $5, $6, 0, $7)
-	`, id, claims.TenantID, req.Name, req.Scene, req.Description, req.Steps, status)
+		INSERT INTO workflows (id, tenant_id, name, scene, description, steps, major_ids, usage_count, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8)
+	`, id, claims.TenantID, req.Name, req.Scene, req.Description, req.Steps, req.MajorIds, status)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create workflow")
 		return
@@ -206,12 +211,15 @@ func (h *WorkflowHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.Steps == nil {
 		req.Steps = domain.JSONSlice{}
 	}
+	if req.MajorIds == nil {
+		req.MajorIds = domain.StringSlice{}
+	}
 
 	_, err = h.DB.Exec(r.Context(), `
 		UPDATE workflows SET
-			name = $1, scene = $2, description = $3, steps = $4, status = $5
-		WHERE id = $6
-	`, req.Name, req.Scene, req.Description, req.Steps, req.Status, id)
+			name = $1, scene = $2, description = $3, steps = $4, major_ids = $5, status = $6
+		WHERE id = $7
+	`, req.Name, req.Scene, req.Description, req.Steps, req.MajorIds, req.Status, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update workflow")
 		return
@@ -247,10 +255,10 @@ func (h *WorkflowHandler) fetchWorkflow(ctx context.Context, id string) (domain.
 	var steps domain.JSONSlice
 
 	err := h.DB.QueryRow(ctx, `
-		SELECT id, tenant_id, name, scene, description, steps, usage_count, status, created_at
+		SELECT id, tenant_id, name, scene, description, steps, major_ids, usage_count, status, created_at
 		FROM workflows WHERE id = $1
 	`, id).Scan(
-		&w.ID, &tenantID, &w.Name, &scene, &description, &steps, &w.UsageCount, &w.Status, &w.CreatedAt,
+		&w.ID, &tenantID, &w.Name, &scene, &description, &steps, &w.MajorIds, &w.UsageCount, &w.Status, &w.CreatedAt,
 	)
 	if err != nil {
 		return w, err
@@ -269,7 +277,7 @@ func (h *WorkflowHandler) scanWorkflowRows(rows pgx.Rows) ([]domain.Workflow, er
 		var tenantID, scene, description *string
 		var steps domain.JSONSlice
 		if err := rows.Scan(
-			&w.ID, &tenantID, &w.Name, &scene, &description, &steps, &w.UsageCount, &w.Status, &w.CreatedAt,
+			&w.ID, &tenantID, &w.Name, &scene, &description, &steps, &w.MajorIds, &w.UsageCount, &w.Status, &w.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

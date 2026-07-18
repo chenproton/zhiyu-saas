@@ -1018,8 +1018,8 @@ export default function PositionsPage() {
                       <TableCell className="text-sm text-gray-600">{wf.description}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {wf.steps.map((step) => (
-                            <Badge key={step.id} variant="outline" className="text-xs">
+                          {wf.steps.map((step, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
                               {step.name}
                             </Badge>
                           ))}

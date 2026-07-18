@@ -191,10 +191,10 @@ export interface PlatformLink {
 }
 
 export interface WorkflowStep {
-  id: string
   name: string
-  reviewerType?: string
-  reviewerIds?: string[]
+  order: number
+  approverIds: string[]
+  approvalMode: "any" | "all"
 }
 
 export interface Workflow {
@@ -204,6 +204,7 @@ export interface Workflow {
   scene?: string
   description?: string
   steps: WorkflowStep[]
+  majorIds: string[]
   usageCount: number
   status: "active" | "inactive"
   createdAt: string

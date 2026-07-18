@@ -374,8 +374,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const loadApprovalItems = useCallback(async () => {
-    const res = await approvalApi.list()
-    setApprovalItems(res.items.map(mapApprovalRecord))
+    const [banks, exams] = await Promise.all([
+      approvalApi.list({ targetType: 'question_bank', limit: 1000 }),
+      approvalApi.list({ targetType: 'exam', limit: 1000 }),
+    ])
+    setApprovalItems([...banks.items, ...exams.items].map(mapApprovalRecord))
   }, [])
 
   const loadGraduationTopics = useCallback(async () => {
@@ -519,16 +522,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         break
       case 'submit':
         await questionBankApi.submit(id)
+        await approvalApi.create({ targetType: 'question_bank', targetId: id })
         break
       case 'withdraw':
         await questionBankApi.update(id, { status: 'unsubmitted' })
         break
       case 'approve':
-        await questionBankApi.review(id, { status: 'approved' })
+      case 'reject': {
+        const records = await approvalApi.list({ targetType: 'question_bank', targetId: id, limit: 1 })
+        if (records.items.length > 0) {
+          await approvalApi.review(records.items[0].id, { status: action === 'approve' ? 'approved' : 'rejected' })
+        }
         break
-      case 'reject':
-        await questionBankApi.review(id, { status: 'rejected' })
-        break
+      }
       case 'publish':
         await questionBankApi.publish(id)
         break
@@ -620,16 +626,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         break
       case 'submit':
         await examApi.submit(id)
+        await approvalApi.create({ targetType: 'exam', targetId: id })
         break
       case 'withdraw':
         await examApi.update(id, { status: 'unsubmitted' })
         break
       case 'approve':
-        await examApi.review(id, { status: 'approved' })
+      case 'reject': {
+        const records = await approvalApi.list({ targetType: 'exam', targetId: id, limit: 1 })
+        if (records.items.length > 0) {
+          await approvalApi.review(records.items[0].id, { status: action === 'approve' ? 'approved' : 'rejected' })
+        }
         break
-      case 'reject':
-        await examApi.review(id, { status: 'rejected' })
-        break
+      }
       case 'publish':
         await examApi.publish(id)
         break

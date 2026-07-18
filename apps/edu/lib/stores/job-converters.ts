@@ -24,11 +24,12 @@ export function convertApiWorkflowToLocal(w: ApiWorkflow): Workflow {
     name: w.name,
     description: w.description ?? '',
     steps: (w.steps || []).map((s, index) => ({
-      id: s.id || `step-${w.id}-${index}`,
       name: s.name || '',
-      role: s.reviewerType === 'admin' ? 'admin' : 'reviewer' as Workflow['steps'][0]['role'],
-      order: index + 1,
+      order: index,
+      approverIds: s.approverIds || [],
+      approvalMode: s.approvalMode || 'any',
     })),
+    majorIds: w.majorIds || [],
     createdAt: w.createdAt,
   }
 }

@@ -114,7 +114,7 @@ export default function ApprovalsPage() {
     if (reviewerRoles.includes(role)) {
       const workflow = workflows.find(w => w.id === approval.workflowId)
       const currentStep = workflow?.steps[approval.currentStepIndex]
-      return currentStep?.role === "reviewer" || currentStep?.role === "admin"
+      return currentStep?.approverIds?.includes(user?.id ?? "") || role === "admin"
     }
     if (user && builderRoles.includes(role)) {
       return approval.submittedBy === user.id
@@ -360,7 +360,7 @@ export default function ApprovalsPage() {
                           {currentStep && (
                             <span className="text-sm text-muted-foreground">
                               <ArrowRight className="inline h-3 w-3" />{" "}
-                              {currentStep.role === "admin" ? "管理员" : "审批人"}
+                              审批人
                             </span>
                           )}
                         </div>
@@ -464,7 +464,7 @@ export default function ApprovalsPage() {
                 <div className="space-y-3">
                   {getWorkflowSteps(selectedApproval).map((step, index) => (
                     <div
-                      key={step.id}
+                      key={index}
                       className="flex items-center gap-4 rounded-lg border p-3"
                     >
                       <div
@@ -481,7 +481,7 @@ export default function ApprovalsPage() {
                       <div className="flex-1">
                         <div className="font-medium">{step.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          审批角色：{step.role === "admin" ? "管理员" : step.role === "reviewer" ? "审批人" : step.role === "builder" ? "建设者" : "学生"}
+                          审批人：{step.approverIds?.join(", ") || "未配置"}
                         </div>
                       </div>
                       <StatusBadge

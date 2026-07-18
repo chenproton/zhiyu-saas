@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { MAJORS } from "@/lib/types/lesson-source"
 import { ArrowLeft, Save, Send, Info, Plus, X, BookOpen, Layers, BookMarked, Microscope, Briefcase, Database, FileStack, Monitor, CheckCircle2, BarChart3, ClipboardList, Zap, Shuffle, MessageSquare, HelpCircle, ChevronDown, ChevronRight, Bold, Italic, Underline, List, ListOrdered, Image as ImageIcon, ImageUp, Link as LinkIcon, AlignLeft } from "lucide-react"
 import { toast } from "sonner"
-import { courseApi } from "@/lib/api"
+import { courseApi, approvalApi } from "@/lib/api"
 import type { Course } from "@/lib/types/lesson"
 import type { SystemCourseNode, NodeRefType } from "@/lib/types/lesson-source"
 import CourseNodeTree from "../../system/add/_components/CourseNodeTree"
@@ -459,6 +459,7 @@ function HybridCourseAddForm() {
         courseId = created.id
       }
       await courseApi.submit(courseId)
+      await approvalApi.create({ targetType: "course", targetId: courseId })
       toast.success(`已提交混合课程审批：${rootForm.name}`)
     } catch (e) {
       toast.error("提交失败，请重试")

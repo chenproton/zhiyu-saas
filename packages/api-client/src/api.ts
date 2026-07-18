@@ -636,7 +636,7 @@ export const approvalApi = {
   list: (params?: { targetType?: string; targetId?: string; status?: string; submitterId?: string; limit?: number; offset?: number }) =>
     request<ListResponse<ApprovalRecord>>(`/approvals${buildQuery(params || {})}`),
   get: (id: string) => request<ApprovalRecord>(`/approvals/${id}`),
-  create: (req: Omit<ApprovalRecord, "id" | "createdAt" | "updatedAt">) =>
+  create: (req: { targetType: string; targetId: string; workflowId?: string }) =>
     request<ApprovalRecord>("/approvals", { method: "POST", body: JSON.stringify(req) }),
   review: (id: string, req: { status: "approved" | "rejected"; comment?: string; stepIdx?: number }) =>
     request<ApprovalRecord>(`/approvals/${id}/review`, {

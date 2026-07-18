@@ -26,29 +26,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, Pencil, Trash2, Search, ChevronsUpDown, Check, Loader2, MoreHorizontal } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { portalUserRelationApi, portalUserManagementApi, portalIdentityTypeApi } from "@/lib/api"
-import type { User } from "@/lib/api"
+import { Plus, Pencil, Trash2, Search, Loader2, MoreHorizontal } from "lucide-react"
+import { portalUserRelationApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { UserSelector } from "@/components/shared/user-selector"
 
 const relationTypes = [
   { value: "superior", label: "上下级" },
@@ -69,15 +55,10 @@ export default function RelationsPage() {
   const [loading, setLoading] = useState(true)
   const [searchText, setSearchText] = useState("")
   const [showDialog, setShowDialog] = useState(false)
-  const [initiatorOpen, setInitiatorOpen] = useState(false)
-  const [targetOpen, setTargetOpen] = useState(false)
-  const [users, setUsers] = useState<User[]>([])
   const [selectedInitiator, setSelectedInitiator] = useState("")
   const [selectedTarget, setSelectedTarget] = useState("")
   const [selectedType, setSelectedType] = useState("")
   const [saving, setSaving] = useState(false)
-  const [userSearch, setUserSearch] = useState("")
-  const [studentIdentityTypeIds, setStudentIdentityTypeIds] = useState<Set<string>>(new Set())
 
   const loadRelations = useCallback(async () => {
     setLoading(true)
@@ -94,29 +75,6 @@ export default function RelationsPage() {
   useEffect(() => {
     loadRelations()
   }, [loadRelations])
-
-  const loadUsers = useCallback(async (search?: string) => {
-    try {
-      const res = await portalUserManagementApi.list({ search, limit: 50 })
-      setUsers(res.items.filter((u) => !studentIdentityTypeIds.has(u.identityTypeId || "")))
-    } catch {
-      // ignore user list load failures
-    }
-  }, [studentIdentityTypeIds])
-
-  useEffect(() => {
-    loadUsers()
-  }, [loadUsers])
-
-  useEffect(() => {
-    portalIdentityTypeApi.list({ limit: 100 }).then((res) => {
-      const ids = new Set<string>()
-      res.items.forEach((it) => {
-        if (it.code === "student") ids.add(it.id)
-      })
-      setStudentIdentityTypeIds(ids)
-    }).catch(() => {})
-  }, [])
 
   const handleCreate = async () => {
     if (!selectedInitiator || !selectedTarget || !selectedType) return
@@ -241,113 +199,21 @@ export default function RelationsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">关系发起人</label>
-              <Popover open={initiatorOpen} onOpenChange={setInitiatorOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={initiatorOpen}
-                    className="w-full justify-between"
-                  >
-                    {selectedInitiator
-                      ? users.find((u) => u.id === selectedInitiator)?.name || "已选择"
-                      : "搜索选择用户..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command>
-                    <CommandInput
-                      placeholder="搜索用户..."
-                      value={userSearch}
-                      onValueChange={(v) => {
-                        setUserSearch(v)
-                        loadUsers(v)
-                      }}
-                    />
-                    <CommandList>
-                      <CommandEmpty>未找到用户</CommandEmpty>
-                      <CommandGroup>
-                        {users.map((user) => (
-                          <CommandItem
-                            key={user.id}
-                            value={user.id}
-                            onSelect={(currentValue) => {
-                              setSelectedInitiator(currentValue === selectedInitiator ? "" : currentValue)
-                              setInitiatorOpen(false)
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedInitiator === user.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            <div>
-                              <div>{user.name}</div>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <UserSelector
+                value={selectedInitiator ? [selectedInitiator] : []}
+                onChange={(ids) => setSelectedInitiator(ids[0] || "")}
+                multiple={false}
+                placeholder="搜索选择用户..."
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">关系目标人</label>
-              <Popover open={targetOpen} onOpenChange={setTargetOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={targetOpen}
-                    className="w-full justify-between"
-                  >
-                    {selectedTarget
-                      ? users.find((u) => u.id === selectedTarget)?.name || "已选择"
-                      : "搜索选择用户..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command>
-                    <CommandInput
-                      placeholder="搜索用户..."
-                      value={userSearch}
-                      onValueChange={(v) => {
-                        setUserSearch(v)
-                        loadUsers(v)
-                      }}
-                    />
-                    <CommandList>
-                      <CommandEmpty>未找到用户</CommandEmpty>
-                      <CommandGroup>
-                        {users.map((user) => (
-                          <CommandItem
-                            key={user.id}
-                            value={user.id}
-                            onSelect={(currentValue) => {
-                              setSelectedTarget(currentValue === selectedTarget ? "" : currentValue)
-                              setTargetOpen(false)
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedTarget === user.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            <div>
-                              <div>{user.name}</div>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <UserSelector
+                value={selectedTarget ? [selectedTarget] : []}
+                onChange={(ids) => setSelectedTarget(ids[0] || "")}
+                multiple={false}
+                placeholder="搜索选择用户..."
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">关系类型</label>

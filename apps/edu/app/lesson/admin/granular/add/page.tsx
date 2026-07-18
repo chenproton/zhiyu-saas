@@ -29,7 +29,7 @@ import {
 import type { SystemCourseNode, NodeResource } from "@/lib/types/lesson-source"
 import type { Course } from "@/lib/types/lesson"
 import { MAJORS } from "@/lib/types/lesson-source"
-import { courseApi, knowledgeApi, fileApi } from "@/lib/api"
+import { courseApi, knowledgeApi, fileApi, approvalApi } from "@/lib/api"
 
 import { KnowledgeSelector } from "../../_components/knowledge/knowledge-selector"
 import { ResourceSelector, type ResourceItem } from "../../_components/resources/resource-selector"
@@ -193,6 +193,7 @@ function AddGranularPageInner() {
     setSaving(true)
     try {
       await courseApi.submit(editId)
+      await approvalApi.create({ targetType: "course", targetId: editId })
       toast.success("颗粒课已提交审批")
     } catch (err: any) {
       toast.error(err.message || "提交失败")

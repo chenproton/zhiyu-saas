@@ -28,7 +28,7 @@ import {
   X,
   XCircle,
 } from "lucide-react"
-import { questionBankApi, questionApi, evaluationBatchApi, workflowApi, importExportApi } from "@/lib/api"
+import { questionBankApi, questionApi, evaluationBatchApi, workflowApi, importExportApi, approvalApi } from "@/lib/api"
 import type { QuestionBank, Question, EvaluationBatch, Workflow } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -316,6 +316,7 @@ export default function QuestionBanksPage() {
   const handleSubmitApproval = async (id: string) => {
     try {
       await questionBankApi.submit(id)
+      await approvalApi.create({ targetType: "question_bank", targetId: id })
       await loadData()
     } catch (err) {
       console.error("提交审批失败", err)
@@ -345,9 +346,14 @@ export default function QuestionBanksPage() {
     }
   }
 
-  const handleReview = async (id: string, status: "published" | "rejected") => {
+  const handleReview = async (id: string, status: "approved" | "rejected") => {
     try {
-      await questionBankApi.review(id, { status })
+      const records = await approvalApi.list({ targetType: "question_bank", targetId: id, limit: 1 })
+      if (records.items.length === 0) {
+        alert("未找到审批记录")
+        return
+      }
+      await approvalApi.review(records.items[0].id, { status })
       await loadData()
     } catch (err) {
       console.error("审批操作失败", err)
@@ -706,7 +712,7 @@ export default function QuestionBanksPage() {
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700"
-                          onClick={() => handleReview(bank.id, "published")}
+                          onClick={() => handleReview(bank.id, "approved")}
                         >
                           <CheckCircle className="mr-1 h-3 w-3" />
                           通过
@@ -1204,8 +1210,8 @@ export default function QuestionBanksPage() {
                       <TableCell className="text-sm text-gray-600">{wf.description}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {wf.steps?.map((step) => (
-                            <Badge key={step.id} variant="outline" className="text-xs">
+                          {wf.steps?.map((step, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
                               {step.name}
                             </Badge>
                           ))}

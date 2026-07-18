@@ -1,383 +1,134 @@
-'use client'
+"use client"
 
-import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
+import { GitBranch, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Plus, Trash2, GripVertical, ArrowRight, GitBranch, Pencil, FolderKanban, Loader2, MoreHorizontal } from 'lucide-react'
-import { ROLE_LABELS, type UserRole, type Workflow, type WorkflowStep } from '@/lib/types/job-source'
-import { convertApiWorkflowToLocal, convertJobBatchToBatch } from '@/lib/stores/job-converters'
-import { workflowApi, batchApi } from '@/lib/api'
-import { useToast } from '@/hooks/use-toast'
-import type { Batch } from '@/lib/types/job-source'
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table"
+import { workflowApi, majorApi } from "@/lib/api"
+import type { Workflow } from "@/lib/types/backend"
+import { useToast } from "@/hooks/use-toast"
+import { WorkflowEditor, buildWorkflowSteps, WorkflowStepEditor } from "@/components/shared/workflow-editor"
+
+const DEFAULT_STEP: WorkflowStepEditor = { name: "", approverIds: [], approvalMode: "any" }
 
 export default function WorkflowsPage() {
   const { toast } = useToast()
   const [workflows, setWorkflows] = useState<Workflow[]>([])
-  const [batches, setBatches] = useState<Batch[]>([])
+  const [majors, setMajors] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    steps: [] as Omit<WorkflowStep, 'id'>[],
-  })
-  const [newStep, setNewStep] = useState({
-    name: '',
-    role: '' as UserRole | '',
-  })
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [steps, setSteps] = useState<WorkflowStepEditor[]>([{ ...DEFAULT_STEP }])
+  const [majorIdsInput, setMajorIdsInput] = useState("")
 
-  const loadData = useCallback(async () => {
+  const loadWorkflows = async () => {
     setLoading(true)
     try {
-      const [wfRes, batchRes] = await Promise.all([
-        workflowApi.list({ limit: 1000 }),
-        batchApi.list({ limit: 1000 }),
-      ])
-      setWorkflows(wfRes.items.map(convertApiWorkflowToLocal))
-      setBatches(batchRes.items.map(convertJobBatchToBatch))
+      const res = await workflowApi.list({ limit: 1000 })
+      setWorkflows(res.items)
     } catch (err: any) {
-      toast({ variant: 'destructive', title: '加载失败', description: err?.message || '请稍后重试' })
-    } finally {
-      setLoading(false)
-    }
-  }, [toast])
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  const resetForm = () => {
-    setFormData({ name: '', description: '', steps: [] })
-    setNewStep({ name: '', role: '' })
+      toast({ variant: "destructive", title: "加载失败", description: err.message || "无法获取审批流程" })
+    } finally { setLoading(false) }
   }
 
-  const handleAddStep = () => {
-    if (!newStep.name || !newStep.role) return
-    setFormData({
-      ...formData,
-      steps: [
-        ...formData.steps,
-        {
-          name: newStep.name,
-          role: newStep.role as UserRole,
-          order: formData.steps.length + 1,
-        },
-      ],
-    })
-    setNewStep({ name: '', role: '' })
+  const loadMajors = async () => { try { const res = await majorApi.list(); setMajors(res.items || []) } catch {} }
+
+  useEffect(() => { loadWorkflows(); loadMajors() }, [])
+
+  const reset = () => { setName(""); setDescription(""); setSteps([{ ...DEFAULT_STEP }]); setMajorIdsInput(""); setEditId(null); setError(null) }
+
+  const openEdit = (wf: Workflow) => {
+    setEditId(wf.id)
+    setName(wf.name)
+    setDescription(wf.description || "")
+    setMajorIdsInput((wf.majorIds || []).join(","))
+    setSteps((wf.steps || []).length > 0 ? wf.steps.map((s) => ({
+      name: s.name || "",
+      approverIds: s.approverIds || [],
+      approvalMode: s.approvalMode || "any",
+    })) : [{ ...DEFAULT_STEP }])
+    setError(null)
+    setIsEditOpen(true)
   }
 
-  const handleRemoveStep = (index: number) => {
-    const newSteps = formData.steps.filter((_, i) => i !== index)
-    setFormData({
-      ...formData,
-      steps: newSteps.map((step, i) => ({ ...step, order: i + 1 })),
-    })
-  }
-
-  const handleCreate = async () => {
-    if (!formData.name || formData.steps.length === 0) return
+  const handleSave = async () => {
+    const built = buildWorkflowSteps(steps)
+    if (!name.trim()) { setError("请输入流程名称"); return }
+    if (built.length === 0) { setError("请至少配置一个审批步骤"); return }
+    setError(null)
     try {
-      await workflowApi.create({
-        name: formData.name,
-        description: formData.description || undefined,
-        steps: formData.steps.map((step) => ({
-          name: step.name,
-          reviewerType: step.role,
-        })) as any,
-        status: 'active',
-      } as any)
-      await loadData()
-      setIsCreateOpen(false)
-      resetForm()
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: '创建失败', description: err?.message || '请稍后重试' })
-    }
+      const body = {
+        name: name.trim(), description: description.trim() || undefined, steps: built,
+        scene: "job", status: "active" as const,
+        majorIds: majorIdsInput.split(/[,，\s]+/).map((s) => s.trim()).filter(Boolean),
+      }
+      if (editId) { await workflowApi.update(editId, body); toast({ title: "保存成功" }) }
+      else { await workflowApi.create(body); toast({ title: "创建成功" }) }
+      setIsCreateOpen(false); setIsEditOpen(false); reset(); await loadWorkflows()
+    } catch (err: any) { toast({ variant: "destructive", title: "保存失败", description: err.message }) }
   }
 
-  const handleEdit = (workflow: Workflow) => {
-    setEditingWorkflow(workflow)
-    setFormData({
-      name: workflow.name,
-      description: workflow.description,
-      steps: workflow.steps.map(({ name, role, order }) => ({ name, role, order })),
-    })
+  const handleDelete = async (id: string) => {
+    if (!confirm("确定删除该审批流程吗？")) return
+    try { await workflowApi.delete(id); await loadWorkflows(); toast({ title: "删除成功" }) }
+    catch (err: any) { toast({ variant: "destructive", title: "删除失败", description: err.message }) }
   }
 
-  const handleUpdate = async () => {
-    if (!editingWorkflow) return
-    try {
-      await workflowApi.update(editingWorkflow.id, {
-        name: formData.name,
-        description: formData.description,
-        steps: formData.steps.map((step) => ({
-          name: step.name,
-          reviewerType: step.role,
-        })) as any,
-        status: 'active',
-      })
-      await loadData()
-      setEditingWorkflow(null)
-      resetForm()
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: '更新失败', description: err?.message || '请稍后重试' })
-    }
-  }
-
-  const handleDelete = async (workflowId: string) => {
-    if (!confirm('确定要删除这个审批流程吗？')) return
-    try {
-      await workflowApi.delete(workflowId)
-      await loadData()
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: '删除失败', description: err?.message || '请稍后重试' })
-    }
-  }
-
-  const getRelatedBatches = (workflowId: string) => {
-    return batches.filter(b => b.workflowId === workflowId)
-  }
-
-  const WorkflowForm = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <FieldGroup className="gap-4">
-      <Field>
-        <FieldLabel>流程名称</FieldLabel>
-        <Input
-          placeholder="例如：标准审批流程"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-        />
-      </Field>
-      <Field>
-        <FieldLabel>流程说明</FieldLabel>
-        <Textarea
-          placeholder="描述这个流程的用途..."
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-        />
-      </Field>
-
-      <div className="space-y-3">
-        <FieldLabel>审批步骤</FieldLabel>
-        {formData.steps.length > 0 && (
-          <div className="space-y-2">
-            {formData.steps.map((step, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30"
-              >
-                <GripVertical className="h-4 w-4 text-muted-foreground" />
-                <Badge variant="outline" className="shrink-0">
-                  第 {index + 1} 步
-                </Badge>
-                <span className="flex-1 font-medium">{step.name}</span>
-                <Badge>{ROLE_LABELS[step.role]}</Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive"
-                  onClick={() => handleRemoveStep(index)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <Input
-            placeholder="步骤名称"
-            value={newStep.name}
-            onChange={(e) => setNewStep({ ...newStep, name: e.target.value })}
-            className="flex-1"
-          />
-          <Select
-            value={newStep.role}
-            onValueChange={(value) => setNewStep({ ...newStep, role: value as UserRole })}
-          >
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder="角色" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="reviewer">审批者</SelectItem>
-              <SelectItem value="admin">管理员</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button type="button" variant="outline" onClick={handleAddStep}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
+  const renderDialog = (isEdit: boolean) => (
+    <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>{isEdit ? "编辑审批流程" : "新增审批流程"}</DialogTitle>
+        <DialogDescription>{isEdit ? "修改审批流程配置" : "创建新的审批流程模板"}</DialogDescription>
+      </DialogHeader>
+      <WorkflowEditor error={error} name={name} onNameChange={setName} description={description} onDescriptionChange={setDescription} steps={steps} onStepsChange={setSteps} majorIdsInput={majorIdsInput} onMajorIdsChange={setMajorIdsInput} majors={majors} />
       <DialogFooter>
-        <Button
-          variant="outline"
-          onClick={() => {
-            if (isEdit) setEditingWorkflow(null)
-            else setIsCreateOpen(false)
-            resetForm()
-          }}
-        >
-          取消
-        </Button>
-        <Button onClick={isEdit ? handleUpdate : handleCreate}>
-          {isEdit ? '保存' : '创建'}
-        </Button>
+        <Button variant="outline" onClick={() => { setIsCreateOpen(false); setIsEditOpen(false); reset() }}>取消</Button>
+        <Button onClick={handleSave}>{isEdit ? "保存修改" : "创建流程"}</Button>
       </DialogFooter>
-    </FieldGroup>
+    </DialogContent>
   )
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">审批流程管理</h1>
-          <p className="text-muted-foreground mt-1">配置岗位审批的流程和步骤</p>
-        </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              新建流程
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>新建审批流程</DialogTitle>
-              <DialogDescription>创建一个新的审批流程模板</DialogDescription>
-            </DialogHeader>
-            <WorkflowForm />
-          </DialogContent>
+        <div><h1 className="text-2xl font-semibold text-gray-800">审批流程管理</h1><p className="text-sm text-gray-500 mt-1">配置岗位审批流模板，供批次关联使用</p></div>
+        <Dialog open={isCreateOpen} onOpenChange={(o) => { if (o) reset(); setIsCreateOpen(o) }}>
+          <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />新增审批流程</Button></DialogTrigger>
+          {renderDialog(false)}
         </Dialog>
       </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {workflows.map((workflow) => {
-            const relatedBatches = getRelatedBatches(workflow.id)
-            return (
-              <Card key={workflow.id} className="relative">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <GitBranch className="h-4 w-4 text-primary" />
-                      </div>
-                      <CardTitle className="text-lg">{workflow.name}</CardTitle>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(workflow)}>
-                          编辑
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(workflow.id)}>
-                          删除
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <CardDescription>{workflow.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-2">审批步骤</p>
-                    <div className="flex items-center flex-wrap gap-2">
-                      {workflow.steps.map((step, index) => (
-                        <div key={step.id} className="flex items-center gap-2">
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted">
-                            <Badge variant="outline" className="text-xs">
-                              {index + 1}
-                            </Badge>
-                            <span className="text-sm font-medium">{step.name}</span>
-                          </div>
-                          {index < workflow.steps.length - 1 && (
-                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-2">
-                      <FolderKanban className="inline h-3.5 w-3.5 mr-1" />
-                      关联批次 ({relatedBatches.length})
-                    </p>
-                    {relatedBatches.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">暂无关联批次</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {relatedBatches.map((batch) => (
-                          <Badge key={batch.id} variant="secondary" className="text-xs">
-                            {batch.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      {!loading && workflows.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <GitBranch className="h-12 w-12 text-muted-foreground/50" />
-            <p className="mt-4 text-muted-foreground">暂无审批流程，点击上方按钮创建</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <Dialog open={!!editingWorkflow} onOpenChange={(open) => !open && setEditingWorkflow(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>编辑审批流程</DialogTitle>
-            <DialogDescription>修改审批流程配置</DialogDescription>
-          </DialogHeader>
-          <WorkflowForm isEdit />
-        </DialogContent>
-      </Dialog>
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>{renderDialog(true)}</Dialog>
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><GitBranch className="h-4 w-4" />审批流程列表</CardTitle><CardDescription>共 {workflows.length} 个审批流程</CardDescription></CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <Table>
+              <TableHeader><TableRow className="bg-slate-50"><TableHead className="text-xs">流程名称</TableHead><TableHead className="text-xs">流程描述</TableHead><TableHead className="text-xs">审批步骤</TableHead><TableHead className="text-xs">适用专业</TableHead><TableHead className="text-xs">创建时间</TableHead><TableHead className="w-12" /></TableRow></TableHeader>
+              <TableBody>
+                {loading ? (<TableRow><TableCell colSpan={6} className="text-center py-8">加载中...</TableCell></TableRow>) : workflows.length === 0 ? (<TableRow><TableCell colSpan={6} className="text-center py-8">暂无审批流程</TableCell></TableRow>) : (
+                  workflows.map((wf) => (<TableRow key={wf.id}><TableCell className="font-medium">{wf.name}</TableCell><TableCell className="text-sm text-gray-600">{wf.description || "-"}</TableCell><TableCell><div className="flex flex-wrap gap-1">{(wf.steps || []).map((s, idx) => (<Badge key={idx} variant="outline" className="text-xs">{idx + 1}.{s.name}({s.approvalMode === "all" ? "全" : "任一"})</Badge>))}</div></TableCell><TableCell className="text-sm text-gray-600">{wf.majorIds?.length ? majors.filter((m) => wf.majorIds.includes(m.id)).map((m) => m.name).join("、") || wf.majorIds.join(",") : "-"}</TableCell><TableCell className="text-sm text-gray-500">{new Date(wf.createdAt).toLocaleDateString()}</TableCell><TableCell><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => openEdit(wf)}>编辑</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem className="text-destructive" onClick={() => handleDelete(wf.id)}>删除</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

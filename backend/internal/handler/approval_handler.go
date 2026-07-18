@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -31,9 +32,8 @@ type CreateApprovalRequest struct {
 }
 
 type ReviewApprovalRequest struct {
-	Action      string `json:"action"`
-	Remark      string `json:"remark"`
-	NextStepIdx *int   `json:"nextStepIdx"`
+	Action string `json:"action"`
+	Remark string `json:"remark"`
 }
 
 func (h *ApprovalHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -188,6 +188,11 @@ func (h *ApprovalHandler) Review(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if record.Status != string(domain.ApprovalStatusPending) {
+		respondError(w, http.StatusBadRequest, "approval record is not pending")
+		return
+	}
+
 	var req ReviewApprovalRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body")
@@ -208,19 +213,55 @@ func (h *ApprovalHandler) Review(w http.ResponseWriter, r *http.Request) {
 		"createdAt":    time.Now().UTC(),
 	}
 	record.History = append(record.History, entry)
-	record.Status = req.Action
 
-	if req.NextStepIdx != nil {
-		record.CurrentStepIdx = *req.NextStepIdx
+	if req.Action == string(domain.ApprovalStatusRejected) {
+		record.Status = string(domain.ApprovalStatusRejected)
+		_, err = h.DB.Exec(r.Context(), `
+			UPDATE approval_records SET status = $1, history = $2, updated_at = NOW() WHERE id = $3
+		`, record.Status, record.History, id)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to review approval record")
+			return
+		}
+		h.syncEntityStatusQuiet(r.Context(), record.TargetType, record.TargetID, string(domain.ApprovalStatusRejected))
+		record, _ = h.fetchApproval(r.Context(), id)
+		respondJSON(w, http.StatusOK, record)
+		return
+	}
+
+	var workflow *domain.Workflow
+	if record.WorkflowID != nil {
+		wf, wfErr := h.fetchWorkflow(r.Context(), *record.WorkflowID)
+		if wfErr == nil {
+			workflow = &wf
+		}
+	}
+
+	stepIdx := record.CurrentStepIdx
+	stepComplete := h.isStepComplete(workflow, &record, stepIdx)
+	if !stepComplete {
+		_, err = h.DB.Exec(r.Context(), `
+			UPDATE approval_records SET history = $1, updated_at = NOW() WHERE id = $2
+		`, record.History, id)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to update approval record")
+			return
+		}
+		record, _ = h.fetchApproval(r.Context(), id)
+		respondJSON(w, http.StatusOK, record)
+		return
+	}
+
+	if h.isLastStep(workflow, stepIdx) {
+		record.Status = string(domain.ApprovalStatusApproved)
+		record.CurrentStepIdx = stepIdx + 1
+		h.syncEntityStatusQuiet(r.Context(), record.TargetType, record.TargetID, string(domain.ApprovalStatusApproved))
+	} else {
+		record.CurrentStepIdx = stepIdx + 1
 	}
 
 	_, err = h.DB.Exec(r.Context(), `
-		UPDATE approval_records SET
-			status = $1,
-			current_step_idx = $2,
-			history = $3,
-			updated_at = NOW()
-		WHERE id = $4
+		UPDATE approval_records SET status = $1, current_step_idx = $2, history = $3, updated_at = NOW() WHERE id = $4
 	`, record.Status, record.CurrentStepIdx, record.History, id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to review approval record")
@@ -229,6 +270,106 @@ func (h *ApprovalHandler) Review(w http.ResponseWriter, r *http.Request) {
 
 	record, _ = h.fetchApproval(r.Context(), id)
 	respondJSON(w, http.StatusOK, record)
+}
+
+func (h *ApprovalHandler) isStepComplete(workflow *domain.Workflow, record *domain.ApprovalRecord, stepIdx int) bool {
+	if workflow == nil || len(workflow.Steps) == 0 || stepIdx >= len(workflow.Steps) {
+		return true
+	}
+	stepMap, ok := workflow.Steps[stepIdx].(map[string]interface{})
+	if !ok {
+		return true
+	}
+	mode, _ := stepMap["approvalMode"].(string)
+	if mode == "" {
+		mode = "any"
+	}
+	if mode == "any" {
+		return true
+	}
+
+	approverIdsRaw, _ := stepMap["approverIds"].([]interface{})
+	approvedSet := make(map[string]bool)
+	for _, hEntry := range record.History {
+		entryMap, ok := hEntry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		action, _ := entryMap["action"].(string)
+		if action != string(domain.ApprovalStatusApproved) {
+			continue
+		}
+		stepFlt, _ := entryMap["stepIdx"].(float64)
+		if int(stepFlt) != stepIdx {
+			continue
+		}
+		rid, _ := entryMap["reviewerId"].(string)
+		approvedSet[rid] = true
+	}
+	for _, a := range approverIdsRaw {
+		id, _ := a.(string)
+		if !approvedSet[id] {
+			return false
+		}
+	}
+	return true
+}
+
+func (h *ApprovalHandler) isLastStep(workflow *domain.Workflow, stepIdx int) bool {
+	if workflow == nil || len(workflow.Steps) == 0 {
+		return true
+	}
+	return stepIdx >= len(workflow.Steps)-1
+}
+
+func (h *ApprovalHandler) syncEntityStatusQuiet(ctx context.Context, targetType, targetID, status string) {
+	if err := h.syncEntityStatus(ctx, targetType, targetID, status); err != nil {
+		fmt.Printf("warn: sync entity status failed targetType=%s targetId=%s status=%s err=%v\n",
+			targetType, targetID, status, err)
+	}
+}
+
+func (h *ApprovalHandler) fetchWorkflow(ctx context.Context, id string) (domain.Workflow, error) {
+	var w domain.Workflow
+	var tenantID, scene, description *string
+	var steps domain.JSONSlice
+	var majorIds domain.StringSlice
+
+	err := h.DB.QueryRow(ctx, `
+		SELECT id, tenant_id, name, scene, description, steps, major_ids, usage_count, status, created_at
+		FROM workflows WHERE id = $1
+	`, id).Scan(
+		&w.ID, &tenantID, &w.Name, &scene, &description, &steps, &majorIds, &w.UsageCount, &w.Status, &w.CreatedAt,
+	)
+	if err != nil {
+		return w, err
+	}
+	w.TenantID = tenantID
+	w.Scene = scene
+	w.Description = description
+	w.Steps = steps
+	w.MajorIds = majorIds
+	return w, nil
+}
+
+var entityTableMap = map[string]string{
+	"career_position": "career_positions",
+	"scenario":        "scenarios",
+	"course":          "courses",
+	"question_bank":   "question_banks",
+	"exam":            "exams",
+}
+
+func (h *ApprovalHandler) syncEntityStatus(ctx context.Context, targetType, targetID, status string) error {
+	tableName, ok := entityTableMap[targetType]
+	if !ok {
+		return nil
+	}
+	_, err := h.DB.Exec(ctx,
+		fmt.Sprintf("UPDATE %s SET status = $1, updated_at = NOW() WHERE id = $2", tableName),
+		status, targetID,
+	)
+	return err
 }
 
 func (h *ApprovalHandler) fetchApproval(ctx context.Context, id string) (domain.ApprovalRecord, error) {

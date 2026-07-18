@@ -64,7 +64,7 @@ import CourseNodeTree from "./_components/CourseNodeTree"
 import PublishCheckPanel from "./_components/PublishCheckPanel"
 
 import type { KnowledgePointItem } from "@/lib/types/lesson"
-import { courseApi, courseNodeApi, knowledgeApi } from "@/lib/api"
+import { courseApi, courseNodeApi, knowledgeApi, approvalApi } from "@/lib/api"
 
 /* ---------- node editing mode ---------- */
 
@@ -500,6 +500,7 @@ function AddSystemPageInner() {
     setSaving(true)
     try {
       await courseApi.submit(courseId)
+      await approvalApi.create({ targetType: "course", targetId: courseId })
       toast.success("课程已提交审核")
     } catch {
       toast.error("提交失败")
@@ -992,6 +993,7 @@ function AddSystemPageInner() {
                 setSaving(true)
                 try {
                   await courseApi.submit(courseId)
+      await approvalApi.create({ targetType: "course", targetId: courseId })
                   toast.success("课程已提交审核")
                 } catch { toast.error("提交失败") }
                 setSaving(false)

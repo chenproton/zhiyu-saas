@@ -1,11 +1,38 @@
 package domain
 
-import "time"
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"time"
+)
 
 // JSONMap / JSONSlice are generic containers for JSONB columns.
 type JSONMap map[string]interface{}
 
 type JSONSlice []interface{}
+
+// StringSlice is a JSON-serializable string slice for JSONB columns.
+type StringSlice []string
+
+func (s StringSlice) Value() (driver.Value, error) { return json.Marshal(s) }
+
+func (s *StringSlice) Scan(src interface{}) error {
+	if src == nil {
+		*s = nil
+		return nil
+	}
+	var data []byte
+	switch v := src.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		*s = nil
+		return nil
+	}
+	return json.Unmarshal(data, (*[]string)(s))
+}
 
 type TenantStatus string
 
@@ -236,6 +263,7 @@ type Workflow struct {
 	Scene       *string        `json:"scene,omitempty"`
 	Description *string        `json:"description,omitempty"`
 	Steps       JSONSlice      `json:"steps"`
+	MajorIds    StringSlice    `json:"majorIds"`
 	UsageCount  int            `json:"usageCount"`
 	Status      WorkflowStatus `json:"status"`
 	CreatedAt   time.Time      `json:"createdAt"`

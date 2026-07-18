@@ -33,18 +33,18 @@ export interface Batch {
 
 // 审批流程步骤
 export interface WorkflowStep {
-  id: string
   name: string
-  role: UserRole
   order: number
+  approverIds: string[]
+  approvalMode: "any" | "all"
 }
 
-// 审批流程
 export interface Workflow {
   id: string
   name: string
   description: string
   steps: WorkflowStep[]
+  majorIds: string[]
   createdAt: string
 }
 

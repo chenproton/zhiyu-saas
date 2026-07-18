@@ -54,7 +54,6 @@ import { getAnnotation } from "@/lib/prd-annotations"
 const typeTabs: { value: ApprovalType; label: string }[] = [
   { value: "questionBank", label: "题库" },
   { value: "exam", label: "试卷" },
-  { value: "onlineExam", label: "考试" },
 ]
 
 const typeIcons: Record<ApprovalType, React.ReactNode> = {

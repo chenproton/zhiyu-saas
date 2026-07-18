@@ -192,11 +192,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       name: w.name,
       description: w.description ?? '',
       steps: (w.steps || []).map((s: any, index: number) => ({
-        id: s.id || `step-${w.id}-${index}`,
         name: s.name || '',
-        role: s.role || s.reviewerType || 'reviewer',
-        order: s.order ?? index + 1,
+        order: index,
+        approverIds: s.approverIds || [],
+        approvalMode: s.approvalMode || 'any',
       })),
+      majorIds: w.majorIds || [],
       createdAt: w.createdAt,
     }
   }
