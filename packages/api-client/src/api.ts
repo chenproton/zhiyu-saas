@@ -539,6 +539,8 @@ export const portalUserManagementApi = {
     portalRequest<User>(`/users/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
   resetPassword: (id: string, password: string) =>
     portalRequest<User>(`/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ password }) }),
+  bindRoles: (id: string, roleIds: string[]) =>
+    portalRequest<User>(`/users/${id}/roles`, { method: "POST", body: JSON.stringify({ roleIds }) }),
   batchCreate: (reqs: CreateUserRequest[]) =>
     portalRequest<{ count: number }>("/users/batch", { method: "POST", body: JSON.stringify({ items: reqs }) }),
   batchGraduate: (req: { userIds: string[]; graduateYear?: number }) =>

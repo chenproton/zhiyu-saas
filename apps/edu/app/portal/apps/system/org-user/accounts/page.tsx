@@ -6,12 +6,16 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Badge } from "@/components/ui/badge"
 import { usePortalUsers } from "@/hooks/use-portal-users"
 import { useOrgTree } from "@/hooks/use-org-tree"
 import { portalUserManagementApi } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
-import { Search, MoreHorizontal, Trash2, Loader2, AlertCircle, RotateCcw } from "lucide-react"
+import { Search, MoreHorizontal, Trash2, Loader2, AlertCircle, RotateCcw, Check, ChevronDown, X } from "lucide-react"
 
 function mapAccountStatus(status: string): { label: string; className: string } {
   if (status === "active") {
@@ -24,13 +28,45 @@ export default function AccountsPage() {
   const { toast } = useToast()
   const { tenantId } = usePortalAuth()
   const [searchText, setSearchText] = useState("")
-  const { users, loading, error, refetch } = usePortalUsers({
+  const { users, roles, loading, error, refetch } = usePortalUsers({
     search: searchText || undefined,
   })
   const { orgMap, orgTypeMap } = useOrgTree(tenantId)
 
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
   const [batchDeleting, setBatchDeleting] = useState(false)
+
+  const [bindTarget, setBindTarget] = useState<{ id: string; name: string } | null>(null)
+  const [bindRoleIds, setBindRoleIds] = useState<string[]>([])
+  const [bindSaving, setBindSaving] = useState(false)
+  const [rolePickerOpen, setRolePickerOpen] = useState(false)
+
+  const openBindDialog = (account: { id: string; name: string; roleIds: string[] }) => {
+    setBindTarget({ id: account.id, name: account.name })
+    setBindRoleIds(account.roleIds)
+    setRolePickerOpen(false)
+  }
+
+  const toggleBindRole = (roleId: string) => {
+    setBindRoleIds((prev) =>
+      prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]
+    )
+  }
+
+  const handleBindRoles = async () => {
+    if (!bindTarget || bindRoleIds.length === 0) return
+    setBindSaving(true)
+    try {
+      await portalUserManagementApi.bindRoles(bindTarget.id, bindRoleIds)
+      toast({ title: "角色绑定成功" })
+      setBindTarget(null)
+      await refetch()
+    } catch (err) {
+      toast({ variant: "destructive", title: "绑定失败", description: err instanceof Error ? err.message : "未知错误" })
+    } finally {
+      setBindSaving(false)
+    }
+  }
 
   const handleResetPassword = async (id: string, name: string) => {
     const password = window.prompt(`请输入 ${name} 的新密码：`)
@@ -107,6 +143,7 @@ export default function AccountsPage() {
       id: user.id,
       name: user.name,
       roleNames: user.roleNames ?? [],
+      roleIds: user.roleIds ?? [],
       orgNodeName: orgNode?.name || "—",
       orgTypeName: orgTypeName || undefined,
       loginName: user.loginName || user.username || "",
@@ -230,6 +267,9 @@ export default function AccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openBindDialog(account)}>
+                          绑定角色
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleResetPassword(account.id, account.name)}>
                           重置密码
                         </DropdownMenuItem>
@@ -255,6 +295,70 @@ export default function AccountsPage() {
         </Table>
       </div>
 
+      <Dialog open={!!bindTarget} onOpenChange={(open) => { if (!open) setBindTarget(null) }}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>绑定角色 - {bindTarget?.name}</DialogTitle>
+            <DialogDescription>为用户绑定 1 个或多个角色，用户登录后可在顶栏切换当前角色</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Popover open={rolePickerOpen} onOpenChange={setRolePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                  {bindRoleIds.length > 0 ? `已选择 ${bindRoleIds.length} 个角色` : "搜索并选择角色..."}
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="搜索角色名称或编码..." />
+                  <CommandList>
+                    <CommandEmpty>未找到角色</CommandEmpty>
+                    <CommandGroup>
+                      {roles.map((r) => (
+                        <CommandItem
+                          key={r.id}
+                          value={`${r.name} ${r.code}`}
+                          onSelect={() => toggleBindRole(r.id)}
+                        >
+                          <span className="flex-1">{r.name}</span>
+                          <span className="mr-2 font-mono text-xs text-muted-foreground">{r.code}</span>
+                          {bindRoleIds.includes(r.id) && <Check className="h-4 w-4 text-primary" />}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            <div className="flex min-h-8 flex-wrap gap-1.5">
+              {bindRoleIds.map((id) => {
+                const r = roles.find((x) => x.id === id)
+                if (!r) return null
+                return (
+                  <Badge key={id} variant="secondary" className="gap-1">
+                    {r.name}
+                    <button type="button" onClick={() => toggleBindRole(id)} className="ml-0.5 rounded-full hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )
+              })}
+              {bindRoleIds.length === 0 && (
+                <span className="text-sm text-muted-foreground">至少需要绑定一个角色</span>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBindTarget(null)} disabled={bindSaving}>取消</Button>
+            <Button onClick={handleBindRoles} disabled={bindSaving || bindRoleIds.length === 0}>
+              {bindSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

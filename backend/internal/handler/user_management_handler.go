@@ -80,6 +80,10 @@ type BatchGraduateRequest struct {
 	GraduateYear *int     `json:"graduateYear"`
 }
 
+type BindUserRolesRequest struct {
+	RoleIDs []string `json:"roleIds"`
+}
+
 func (h *UserManagementHandler) canManageUsers(r *http.Request) bool {
 	claims := middleware.CurrentUser(r)
 	if claims == nil {
@@ -482,6 +486,107 @@ func (h *UserManagementHandler) BatchGraduate(w http.ResponseWriter, r *http.Req
 	}
 
 	respondJSON(w, http.StatusOK, map[string]int{"count": len(req.UserIDs)})
+}
+
+// BindRoles replaces the user's role bindings with the given set (at least one),
+// all roles must belong to the user's tenant.
+func (h *UserManagementHandler) BindRoles(w http.ResponseWriter, r *http.Request) {
+	if !h.canManageUsers(r) {
+		respondError(w, http.StatusForbidden, "permission denied")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	user, err := h.fetchUser(r.Context(), id)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	var req BindUserRolesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	roleIDs := uniqueStrings(req.RoleIDs)
+	if len(roleIDs) == 0 {
+		respondError(w, http.StatusBadRequest, "至少需要绑定一个角色")
+		return
+	}
+
+	var validCount int
+	_ = h.DB.QueryRow(r.Context(),
+		`SELECT COUNT(*) FROM roles WHERE id = ANY($1::uuid[]) AND tenant_id = $2`,
+		roleIDs, user.TenantID,
+	).Scan(&validCount)
+	if validCount != len(roleIDs) {
+		respondError(w, http.StatusBadRequest, "存在无效角色或角色不属于当前租户")
+		return
+	}
+
+	tx, err := h.DB.Begin(r.Context())
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	if _, err := tx.Exec(r.Context(), `
+		UPDATE roles SET user_count = GREATEST(user_count - 1, 0)
+		WHERE id IN (SELECT role_id FROM user_roles WHERE user_id = $1)
+	`, id); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to bind roles")
+		return
+	}
+	if _, err := tx.Exec(r.Context(), `DELETE FROM user_roles WHERE user_id = $1`, id); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to bind roles")
+		return
+	}
+	for _, roleID := range roleIDs {
+		if _, err := tx.Exec(r.Context(), `
+			INSERT INTO user_roles (id, user_id, role_id)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (user_id, role_id) DO NOTHING
+		`, uuid.NewString(), id, roleID); err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to bind roles")
+			return
+		}
+	}
+	if _, err := tx.Exec(r.Context(),
+		`UPDATE roles SET user_count = user_count + 1 WHERE id = ANY($1::uuid[])`,
+		roleIDs,
+	); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to bind roles")
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to commit")
+		return
+	}
+
+	updated, _ := h.fetchUser(r.Context(), id)
+	updated.PasswordHash = ""
+	items := []domain.User{updated}
+	h.attachUserRoles(r.Context(), items)
+	respondJSON(w, http.StatusOK, items[0])
+}
+
+func uniqueStrings(items []string) []string {
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, s := range items {
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
 
 func (h *UserManagementHandler) decRoleCountsForUser(ctx context.Context, userID string) {

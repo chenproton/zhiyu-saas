@@ -233,6 +233,7 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 				r.Delete("/users/{id}", userManagementHandler.Delete)
 				r.Post("/users/{id}/status", userManagementHandler.UpdateStatus)
 				r.Post("/users/{id}/reset-password", userManagementHandler.ResetPassword)
+				r.Post("/users/{id}/roles", userManagementHandler.BindRoles)
 				r.Post("/users/batch", userManagementHandler.BatchCreate)
 				r.Post("/users/batch-graduate", userManagementHandler.BatchGraduate)
 

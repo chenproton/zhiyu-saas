@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Plus, MoreHorizontal, Pencil, Trash2, Search, Upload, Download, Eye, Settings, ChevronRight, ChevronDown, FolderTree, AlertCircle, LayoutDashboard } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { roleApi } from "@/lib/api"
+import { roleApi, portalUserManagementApi, type User } from "@/lib/api"
 import type { Role } from "@/lib/types/backend"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { useToast } from "@/hooks/use-toast"
@@ -265,6 +265,24 @@ export default function RolesPage() {
     }
   }
 
+  const [usersRole, setUsersRole] = useState<Role | null>(null)
+  const [roleUsers, setRoleUsers] = useState<User[]>([])
+  const [usersLoading, setUsersLoading] = useState(false)
+
+  const openUsersDialog = async (role: Role) => {
+    setUsersRole(role)
+    setRoleUsers([])
+    setUsersLoading(true)
+    try {
+      const res = await portalUserManagementApi.list({ tenantId, roleId: role.id, limit: 1000 })
+      setRoleUsers(res.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载角色用户失败")
+    } finally {
+      setUsersLoading(false)
+    }
+  }
+
   const deleteRole = async (role: Role) => {
     if (!confirm(`确定要删除角色「${role.name}」吗？`)) return
     try {
@@ -376,7 +394,7 @@ export default function RolesPage() {
                               <DropdownMenuItem onClick={() => openPermDialog(role)}>
                                 权限配置
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openUsersDialog(role)}>
                                 查看用户
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive" onClick={() => deleteRole(role)}>
@@ -420,6 +438,62 @@ export default function RolesPage() {
               {isSaving ? "保存中..." : "保存"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 角色绑定用户列表 */}
+      <Dialog open={!!usersRole} onOpenChange={(open) => { if (!open) setUsersRole(null) }}>
+        <DialogContent className="!max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>绑定用户 - {usersRole?.name}</DialogTitle>
+            <DialogDescription>
+              {usersLoading ? "加载中..." : `共 ${roleUsers.length} 个用户绑定了该角色`}
+            </DialogDescription>
+          </DialogHeader>
+          {usersLoading ? (
+            <div className="flex h-40 items-center justify-center gap-2 text-muted-foreground">
+              <Spinner className="h-5 w-5" />
+              加载中...
+            </div>
+          ) : roleUsers.length === 0 ? (
+            <Empty className="h-40">
+              <EmptyHeader>
+                <EmptyTitle>暂无用户</EmptyTitle>
+                <EmptyDescription>还没有用户绑定该角色，可在「账户列表」中为用户绑定角色</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>姓名</TableHead>
+                  <TableHead>登录账号</TableHead>
+                  <TableHead>全部角色</TableHead>
+                  <TableHead>状态</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {roleUsers.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{u.loginName || u.username}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(u.roleNames ?? []).map((rn) => (
+                          <Badge key={rn} variant="secondary">{rn}</Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={u.status === "active" ? "default" : "secondary"}>
+                        {u.status === "active" ? "正常" : u.status === "graduated" ? "已毕业" : "禁用"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </DialogContent>
       </Dialog>
 
