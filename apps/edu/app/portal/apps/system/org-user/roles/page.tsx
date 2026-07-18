@@ -20,7 +20,7 @@ import { roleApi } from "@/lib/api"
 import type { Role } from "@/lib/types/backend"
 import { usePortalAuth } from "@/contexts/portal-auth-context"
 import { useToast } from "@/hooks/use-toast"
-import { buildMenuTree } from "@/lib/menu-permissions"
+import { buildMenuTree, normalizeMenuPath } from "@/lib/menu-permissions"
 import type { MenuTreeItem } from "@/lib/menu-permissions"
 
 let roleCounter = 5
@@ -189,17 +189,19 @@ export default function RolesPage() {
     }
     if (perms.menus && typeof perms.menus === "object") {
       menuSet.clear()
-      for (const item of menuTree) {
-        const walk = (nodes: MenuTreeItem[]) => {
-          for (const n of nodes) {
-            if (n.href && perms.menus[n.href] === true) {
-              menuSet.add(n.id)
-            }
-            if (n.children) walk(n.children)
-          }
-        }
-        walk([item])
+      const granted = new Set<string>()
+      for (const [key, value] of Object.entries(perms.menus as Record<string, unknown>)) {
+        if (value === true) granted.add(normalizeMenuPath(key))
       }
+      const walk = (nodes: MenuTreeItem[]) => {
+        for (const n of nodes) {
+          if (n.href && granted.has(normalizeMenuPath(n.href))) {
+            menuSet.add(n.id)
+          }
+          if (n.children) walk(n.children)
+        }
+      }
+      walk(menuTree)
     } else {
       walkAllIds(menuTree)
     }
@@ -223,10 +225,7 @@ export default function RolesPage() {
       }
       walkMenuTree(menuTree)
 
-      const permissions: Record<string, any> = {}
-      if (Object.keys(menus).length > 0) {
-        permissions.menus = menus
-      }
+      const permissions: Record<string, any> = { ...(selectedRole.permissions || {}), menus }
 
       await roleApi.update(selectedRole.id, { ...selectedRole, permissions })
       await fetchData()
@@ -438,7 +437,7 @@ export default function RolesPage() {
             </TabsList>
             <TabsContent value="menus" className="mt-4">
               <div className="text-sm text-muted-foreground mb-3">
-                选择该角色可以在侧边导航中看到的功能页面。未勾选的页面在菜单中不可见。
+                选择该角色可访问的功能页面。未勾选的页面将在应用中心与各平台侧边导航中隐藏入口。
               </div>
               <ScrollArea className="border border-border rounded-lg p-4">
                 <div className="space-y-4">

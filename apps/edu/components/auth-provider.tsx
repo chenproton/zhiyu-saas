@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
 import { authApi, getToken, removeToken, type MeResponse } from "@/lib/api"
 import type { IdentityType, Organization, Major, Role } from "@/lib/types/backend"
+import { checkMenuPermission, mergeRoleMenus } from "@/lib/menu-permissions"
 
 export type UserRole = "school" | "enterprise" | "operator"
 
@@ -100,12 +101,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Merge permissions from all roles into a single object.
   const permissions = useMemo(() => {
-    return roles?.reduce<Record<string, any>>((acc, r) => {
+    const merged = roles?.reduce<Record<string, any>>((acc, r) => {
       if (r.permissions && typeof r.permissions === "object") {
         Object.assign(acc, r.permissions)
       }
       return acc
     }, {}) ?? {}
+    const menus = mergeRoleMenus(roles)
+    if (menus) merged.menus = menus
+    else delete merged.menus
+    return merged
   }, [roles])
 
   const hasPermission = useCallback((module: string, page?: string, action?: string) => {
@@ -128,9 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [permissions])
 
   const hasMenuPermission = useCallback((path: string) => {
-    const menus = permissions?.menus
-    if (!menus || typeof menus !== "object") return true
-    return menus[path] === true
+    return checkMenuPermission(permissions?.menus, path)
   }, [permissions])
 
   return (
