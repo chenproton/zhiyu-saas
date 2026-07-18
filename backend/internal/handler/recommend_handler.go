@@ -136,12 +136,17 @@ func (h *RecommendHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO position_recommendations (
-			id, major_id, career_position_id, position_type, reason, sort_order, is_enabled, created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, id, req.MajorID, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsEnabled, claims.UserID)
+			id, tenant_id, major_id, career_position_id, position_type, reason, sort_order, is_enabled, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, id, tenantID, req.MajorID, req.CareerPositionID, req.PositionType, req.Reason, req.SortOrder, req.IsEnabled, claims.UserID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create recommendation")
 		return

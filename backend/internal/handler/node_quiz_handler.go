@@ -128,11 +128,16 @@ func (h *NodeQuizHandler) CreateQuiz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO node_quizzes (id, node_id, title, type, time_limit)
-		VALUES ($1, $2, $3, $4, $5)
-	`, id, req.NodeID, req.Title, req.Type, req.TimeLimit)
+		INSERT INTO node_quizzes (id, tenant_id, node_id, title, type, time_limit)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, id, tenantID, req.NodeID, req.Title, req.Type, req.TimeLimit)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create quiz")
 		return
@@ -274,11 +279,16 @@ func (h *NodeQuizHandler) AddQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO node_quiz_questions (id, quiz_id, type, question, options, answer, score, sort_order)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, id, quizID, req.Type, req.Question, req.Options, req.Answer, req.Score, req.SortOrder)
+		INSERT INTO node_quiz_questions (id, tenant_id, quiz_id, type, question, options, answer, score, sort_order)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, id, tenantID, quizID, req.Type, req.Question, req.Options, req.Answer, req.Score, req.SortOrder)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to add question")
 		return

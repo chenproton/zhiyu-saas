@@ -22,32 +22,32 @@ var importExportEntities = map[string]importExportEntity{
 	"question_banks": {
 		displayName: "题库",
 		insertSQL: `
-			INSERT INTO question_banks (id, name, description, status, question_count, creator_id, version, owner_type, is_draft_pool)
-			VALUES ($1, $2, $3, 'draft', 0, $4, 'v1.0', 'tenant', FALSE)
+			INSERT INTO question_banks (id, tenant_id, name, description, status, question_count, creator_id, version, owner_type, is_draft_pool)
+			VALUES ($1, $2, $3, $4, 'draft', 0, $5, 'v1.0', 'tenant', FALSE)
 		`,
 		defaultCols: []string{"id", "name", "description", "status", "created_at"},
 	},
 	"exams": {
 		displayName: "试卷",
 		insertSQL: `
-			INSERT INTO exams (id, name, description, status, total_score, duration, creator_id, version, owner_type)
-			VALUES ($1, $2, $3, 'draft', 0, 60, $4, 'v1.0', 'tenant')
+			INSERT INTO exams (id, tenant_id, name, description, status, total_score, duration, creator_id, version, owner_type)
+			VALUES ($1, $2, $3, $4, 'draft', 0, 60, $5, 'v1.0', 'tenant')
 		`,
 		defaultCols: []string{"id", "name", "description", "status", "created_at"},
 	},
 	"courses": {
 		displayName: "课程",
 		insertSQL: `
-			INSERT INTO courses (id, code, name, type, category, status, creator_id, co_creator_ids, node_count, resource_count, study_count)
-			VALUES ($1, $2, $3, 'system', '导入', 'draft', $4, '{}', 0, 0, 0)
+			INSERT INTO courses (id, tenant_id, code, name, type, category, status, creator_id, co_creator_ids, node_count, resource_count, study_count)
+			VALUES ($1, $2, $3, $4, 'system', '导入', 'draft', $5, '{}', 0, 0, 0)
 		`,
 		defaultCols: []string{"id", "code", "name", "status", "created_at"},
 	},
 	"career_positions": {
 		displayName: "岗位",
 		insertSQL: `
-			INSERT INTO career_positions (id, name, short_name, position_type, status, creator_id)
-			VALUES ($1, $2, $3, 'other', 'draft', $4)
+			INSERT INTO career_positions (id, tenant_id, name, short_name, position_type, status, creator_id)
+			VALUES ($1, $2, $3, $4, 'other', 'draft', $5)
 		`,
 		defaultCols: []string{"id", "name", "short_name", "status", "created_at"},
 	},
@@ -127,6 +127,11 @@ func (h *ImportExportHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid form")
 		return
@@ -192,7 +197,7 @@ func (h *ImportExportHandler) Import(w http.ResponseWriter, r *http.Request) {
 			code = fmt.Sprintf("IMP-%s", uuid.NewString()[:8])
 		}
 
-		_, execErr := h.DB.Exec(r.Context(), meta.insertSQL, id, name, code, claims.UserID)
+		_, execErr := h.DB.Exec(r.Context(), meta.insertSQL, id, tenantID, name, code, claims.UserID)
 		if execErr != nil {
 			failed++
 			continue

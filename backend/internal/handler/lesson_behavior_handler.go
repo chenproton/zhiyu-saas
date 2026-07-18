@@ -132,7 +132,12 @@ func (h *LessonBehaviorHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	record, err := h.upsert(r.Context(), req)
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
+	record, err := h.upsert(r.Context(), req, tenantID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to save behavior record")
 		return
@@ -187,7 +192,7 @@ func (h *LessonBehaviorHandler) listRecords(ctx context.Context, courseID, start
 	return records, nil
 }
 
-func (h *LessonBehaviorHandler) upsert(ctx context.Context, req CreateLessonBehaviorRequest) (*domain.LessonBehaviorRecord, error) {
+func (h *LessonBehaviorHandler) upsert(ctx context.Context, req CreateLessonBehaviorRequest, tenantID string) (*domain.LessonBehaviorRecord, error) {
 	recordDate := req.RecordDate
 	if recordDate == "" {
 		recordDate = time.Now().Format("2006-01-02")
@@ -197,8 +202,8 @@ func (h *LessonBehaviorHandler) upsert(ctx context.Context, req CreateLessonBeha
 	var recordDateOut time.Time
 	err := h.DB.QueryRow(ctx, `
 		INSERT INTO lesson_behavior_records
-		(course_id, student_user_id, record_date, attendance, quiz_score, interaction_count, praise_count, rush_correct_count, rush_avg_time_sec)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		(tenant_id, course_id, student_user_id, record_date, attendance, quiz_score, interaction_count, praise_count, rush_correct_count, rush_avg_time_sec)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (course_id, student_user_id, record_date)
 		DO UPDATE SET attendance = EXCLUDED.attendance,
 					  quiz_score = EXCLUDED.quiz_score,
@@ -208,7 +213,7 @@ func (h *LessonBehaviorHandler) upsert(ctx context.Context, req CreateLessonBeha
 					  rush_avg_time_sec = EXCLUDED.rush_avg_time_sec,
 					  updated_at = NOW()
 		RETURNING id, course_id, student_user_id, record_date, attendance, quiz_score, interaction_count, praise_count, rush_correct_count, rush_avg_time_sec, created_at, updated_at
-	`, req.CourseID, req.StudentUserID, recordDate, req.Attendance, req.QuizScore, req.InteractionCount, req.PraiseCount, req.RushCorrectCount, req.RushAvgTimeSec).Scan(
+	`, tenantID, req.CourseID, req.StudentUserID, recordDate, req.Attendance, req.QuizScore, req.InteractionCount, req.PraiseCount, req.RushCorrectCount, req.RushAvgTimeSec).Scan(
 		&rec.ID, &rec.CourseID, &rec.StudentUserID, &recordDateOut, &rec.Attendance,
 		&rec.QuizScore, &rec.InteractionCount, &rec.PraiseCount, &rec.RushCorrectCount, &rec.RushAvgTimeSec,
 		&rec.CreatedAt, &rec.UpdatedAt)

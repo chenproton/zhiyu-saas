@@ -143,11 +143,16 @@ func (h *AbilityHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO ability_points (id, name, description, category, is_public)
-		VALUES ($1, $2, $3, $4, $5)
-	`, id, req.Name, req.Description, req.Category, req.IsPublic)
+		INSERT INTO ability_points (id, tenant_id, name, description, category, is_public)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, id, tenantID, req.Name, req.Description, req.Category, req.IsPublic)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create ability point")
 		return

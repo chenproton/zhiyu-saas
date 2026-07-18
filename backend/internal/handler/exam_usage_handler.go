@@ -149,11 +149,13 @@ func (h *ExamUsageHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO exam_usages (id, exam_id, name, description, start_time, end_time, duration, target_type, target_ids, status, creator_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', $10)
-	`, id, req.ExamID, req.Name, req.Description, req.StartTime, req.EndTime, req.Duration, req.TargetType, coalesceStringSlice(req.TargetIDs), claims.UserID)
+		INSERT INTO exam_usages (id, tenant_id, exam_id, name, description, start_time, end_time, duration, target_type, target_ids, status, creator_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'draft', $11)
+	`, id, tenantID, req.ExamID, req.Name, req.Description, req.StartTime, req.EndTime, req.Duration, req.TargetType, coalesceStringSlice(req.TargetIDs), claims.UserID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create exam usage")
 		return

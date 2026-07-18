@@ -127,15 +127,17 @@ func (h *MicroCertHandler) CreateTemplate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	id := uuid.NewString()
 	certTypeUUID, err := uuid.Parse(req.CertTypeID)
 	if err != nil {
 		certTypeUUID = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(req.CertTypeID))
 	}
 	_, err = h.DB.Exec(r.Context(), `
-		INSERT INTO micro_cert_templates (id, title, cert_type_id, cert_type_name, content, cover_image)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, id, req.Title, certTypeUUID.String(), req.CertTypeName, req.Content, req.CoverImage)
+		INSERT INTO micro_cert_templates (id, tenant_id, title, cert_type_id, cert_type_name, content, cover_image)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, id, tenantID, req.Title, certTypeUUID.String(), req.CertTypeName, req.Content, req.CoverImage)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create micro cert template")
 		return
@@ -236,13 +238,15 @@ func (h *MicroCertHandler) IssueCerts(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	count := 0
 	for _, userID := range req.UserIDs {
 		recordID := uuid.NewString()
 		_, err := tx.Exec(r.Context(), `
-			INSERT INTO cert_issuance_records (id, template_id, user_id, issue_date, status, cert_number)
-			VALUES ($1, $2, $3, $4, 'issued', $5)
-		`, recordID, req.TemplateID, userID, time.Now(), uuid.NewString())
+			INSERT INTO cert_issuance_records (id, tenant_id, template_id, user_id, issue_date, status, cert_number)
+			VALUES ($1, $2, $3, $4, $5, 'issued', $6)
+		`, recordID, tenantID, req.TemplateID, userID, time.Now(), uuid.NewString())
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to issue certs")
 			return

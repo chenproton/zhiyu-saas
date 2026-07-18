@@ -153,11 +153,13 @@ func (h *CertificationHandler) CreateRule(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO certification_rules (id, career_position_id, status, rule_source)
-		VALUES ($1, $2, 'draft', $3)
-	`, id, req.CareerPositionID, req.RuleSource)
+		INSERT INTO certification_rules (id, tenant_id, career_position_id, status, rule_source)
+		VALUES ($1, $2, $3, 'draft', $4)
+	`, id, tenantID, req.CareerPositionID, req.RuleSource)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create certification rule")
 		return
@@ -248,11 +250,13 @@ func (h *CertificationHandler) ConfigItems(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
+		tenantID, ok := requireTenant(w, r); if !ok { return }
+
 		id := uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
-			INSERT INTO certification_ability_items (id, rule_id, name, sort_order)
-			VALUES ($1, $2, $3, $4)
-		`, id, ruleID, req.Name, req.SortOrder)
+			INSERT INTO certification_ability_items (id, tenant_id, rule_id, name, sort_order)
+			VALUES ($1, $2, $3, $4, $5)
+		`, id, tenantID, ruleID, req.Name, req.SortOrder)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create certification item")
 			return
@@ -309,6 +313,8 @@ func (h *CertificationHandler) ConfigPoints(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
+		tenantID, ok := requireTenant(w, r); if !ok { return }
+
 		id := uuid.NewString()
 		if req.CustomLevelMapping == nil {
 			req.CustomLevelMapping = domain.JSONSlice{}
@@ -318,9 +324,9 @@ func (h *CertificationHandler) ConfigPoints(w http.ResponseWriter, r *http.Reque
 			abilityPointUUID = uuid.NewSHA1(uuid.NameSpaceDNS, []byte(req.AbilityPointID))
 		}
 		_, err = h.DB.Exec(r.Context(), `
-			INSERT INTO certification_ability_points (id, item_id, ability_point_id, mapping_type, custom_level_mapping, required_level, weight)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-		`, id, itemID, abilityPointUUID.String(), req.MappingType, req.CustomLevelMapping, req.RequiredLevel, req.Weight)
+			INSERT INTO certification_ability_points (id, tenant_id, item_id, ability_point_id, mapping_type, custom_level_mapping, required_level, weight)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`, id, tenantID, itemID, abilityPointUUID.String(), req.MappingType, req.CustomLevelMapping, req.RequiredLevel, req.Weight)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create certification point")
 			return

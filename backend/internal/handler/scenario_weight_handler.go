@@ -117,6 +117,11 @@ func (h *ScenarioWeightHandler) UpsertWeight(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	var id string
 	if req.ID != "" {
 		_, err := h.DB.Exec(r.Context(), `
@@ -129,11 +134,11 @@ func (h *ScenarioWeightHandler) UpsertWeight(w http.ResponseWriter, r *http.Requ
 		id = req.ID
 	} else {
 		err := h.DB.QueryRow(r.Context(), `
-			INSERT INTO scenario_weight_configs (scenario_id, task_id, weight)
-			VALUES ($1, $2, $3)
+			INSERT INTO scenario_weight_configs (tenant_id, scenario_id, task_id, weight)
+			VALUES ($1, $2, $3, $4)
 			ON CONFLICT (scenario_id, task_id) DO UPDATE SET weight = EXCLUDED.weight
 			RETURNING id
-		`, req.ScenarioID, req.TaskID, req.Weight).Scan(&id)
+		`, tenantID, req.ScenarioID, req.TaskID, req.Weight).Scan(&id)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to upsert weight")
 			return

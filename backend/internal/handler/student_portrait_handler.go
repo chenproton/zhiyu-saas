@@ -127,14 +127,16 @@ func (h *StudentPortraitHandler) Generate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO student_ability_portraits (id, user_id, career_position_id, overall_grade,
+		INSERT INTO student_ability_portraits (id, tenant_id, user_id, career_position_id, overall_grade,
 			domain_scores, class_rank, class_total, major_rank, major_total, recommend_positions, updated_at,
 			completed_courses, completed_scenes, total_credits, archive_count, course_records,
 			graduation_qualified, attendance_rate, diploma_badge, dual_badge)
-		VALUES ($1, $2, $3, 'D', '[]', NULL, NULL, NULL, NULL, '[]', NOW(), 0, 0, 0, 0, '[]', false, 0, '', '')
-	`, id, req.UserID, req.CareerPositionID)
+		VALUES ($1, $2, $3, $4, 'D', '[]', NULL, NULL, NULL, NULL, '[]', NOW(), 0, 0, 0, 0, '[]', false, 0, '', '')
+	`, id, tenantID, req.UserID, req.CareerPositionID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to generate portrait")
 		return
@@ -239,6 +241,8 @@ func (h *StudentPortraitHandler) CreateArchive(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	id := uuid.NewString()
 	direction := req.Direction
 	if direction == nil || *direction == "" {
@@ -246,10 +250,10 @@ func (h *StudentPortraitHandler) CreateArchive(w http.ResponseWriter, r *http.Re
 		direction = &d
 	}
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO student_ability_archives (id, user_id, material_type, material_name, issuing_org, obtain_date,
+		INSERT INTO student_ability_archives (id, tenant_id, user_id, material_type, material_name, issuing_org, obtain_date,
 			audit_status, converted_credit, direction, is_enabled)
-		VALUES ($1, $2, $3, $4, $5, $6, 'pending', 0, $7, true)
-	`, id, req.UserID, req.MaterialType, req.MaterialName, req.IssuingOrg, req.ObtainDate, *direction)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 0, $8, true)
+	`, id, tenantID, req.UserID, req.MaterialType, req.MaterialName, req.IssuingOrg, req.ObtainDate, *direction)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create student archive")
 		return

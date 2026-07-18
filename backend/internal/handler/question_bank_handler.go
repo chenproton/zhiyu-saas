@@ -149,6 +149,8 @@ func (h *QuestionBankHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	id := uuid.NewString()
 	creatorID := claims.UserID
 	tx, err := h.DB.Begin(r.Context())
@@ -159,10 +161,10 @@ func (h *QuestionBankHandler) Create(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 
 	_, err = tx.Exec(r.Context(), `
-		INSERT INTO question_banks (id, name, description, cover_image, status, question_count, creator_id,
+		INSERT INTO question_banks (id, tenant_id, name, description, cover_image, status, question_count, creator_id,
 			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, is_draft_pool)
-		VALUES ($1, $2, $3, $4, 'draft', 0, $5, $6, $7, $8, 'v1.0', 'mine', false)
-	`, id, req.Name, req.Description, req.CoverImage, creatorID, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID)
+		VALUES ($1, $2, $3, $4, $5, 'draft', 0, $6, $7, $8, $9, 'v1.0', 'mine', false)
+	`, id, tenantID, req.Name, req.Description, req.CoverImage, creatorID, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create question bank")
 		return

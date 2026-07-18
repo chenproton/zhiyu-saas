@@ -122,6 +122,11 @@ func (h *ScenarioGradeHandler) UpsertGradeMapping(w http.ResponseWriter, r *http
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	var id string
 	if req.ID != "" {
 		_, err := h.DB.Exec(r.Context(), `
@@ -136,10 +141,10 @@ func (h *ScenarioGradeHandler) UpsertGradeMapping(w http.ResponseWriter, r *http
 		id = req.ID
 	} else {
 		err := h.DB.QueryRow(r.Context(), `
-			INSERT INTO scenario_grade_mappings (scenario_id, task_id, level, min_score, max_score, description, color)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO scenario_grade_mappings (tenant_id, scenario_id, task_id, level, min_score, max_score, description, color)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING id
-		`, req.ScenarioID, req.TaskID, req.Level, req.MinScore, req.MaxScore, req.Description, req.Color).Scan(&id)
+		`, tenantID, req.ScenarioID, req.TaskID, req.Level, req.MinScore, req.MaxScore, req.Description, req.Color).Scan(&id)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create grade mapping")
 			return

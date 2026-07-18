@@ -100,13 +100,18 @@ func (h *HybridModuleHandler) UpsertModule(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := req.ID
 	if id == "" {
 		id = uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
-			INSERT INTO hybrid_node_modules (id, node_id, module_key, mode, data)
-			VALUES ($1, $2, $3, $4, $5)
-		`, id, req.NodeID, req.ModuleKey, req.Mode, req.Data)
+			INSERT INTO hybrid_node_modules (id, tenant_id, node_id, module_key, mode, data)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`, id, tenantID, req.NodeID, req.ModuleKey, req.Mode, req.Data)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create hybrid module")
 			return

@@ -151,15 +151,20 @@ func (h *KnowledgePointHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	creatorID := claims.UserID
 	if req.GranularLessonIds == nil {
 		req.GranularLessonIds = domain.JSONSlice{}
 	}
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO knowledge_points (id, name, code, description, linked, granular_lesson_ids, creator_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, id, req.Name, req.Code, req.Description, req.Linked, req.GranularLessonIds, creatorID)
+		INSERT INTO knowledge_points (id, tenant_id, name, code, description, linked, granular_lesson_ids, creator_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, id, tenantID, req.Name, req.Code, req.Description, req.Linked, req.GranularLessonIds, creatorID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create knowledge point")
 		return

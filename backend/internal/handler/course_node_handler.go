@@ -155,6 +155,11 @@ func (h *CourseNodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	tx, err := h.DB.Begin(r.Context())
 	if err != nil {
@@ -164,10 +169,10 @@ func (h *CourseNodeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 
 	_, err = tx.Exec(r.Context(), `
-		INSERT INTO system_course_nodes (id, course_id, parent_id, name, sort_order, ref_type, source_id, source_name,
+		INSERT INTO system_course_nodes (id, tenant_id, course_id, parent_id, name, sort_order, ref_type, source_id, source_name,
 			teaching_goals, duration, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	`, id, req.CourseID, req.ParentID, req.Name, req.SortOrder, req.RefType, req.SourceID, req.SourceName,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	`, id, tenantID, req.CourseID, req.ParentID, req.Name, req.SortOrder, req.RefType, req.SourceID, req.SourceName,
 		req.TeachingGoals, req.Duration, req.Status)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create course node")

@@ -142,13 +142,18 @@ func (h *PositionAbilityHandler) CreateBinding(w http.ResponseWriter, r *http.Re
 		req.Source = "custom"
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
 		INSERT INTO position_ability_bindings (
-			id, career_position_id, responsibility_id, ability_point_id, source,
+			id, tenant_id, career_position_id, responsibility_id, ability_point_id, source,
 			domain, required_level, rubric_description, attributes, weight
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, id, req.CareerPositionID, req.ResponsibilityID, req.AbilityPointID, req.Source,
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`, id, tenantID, req.CareerPositionID, req.ResponsibilityID, req.AbilityPointID, req.Source,
 		req.Domain, req.RequiredLevel, req.RubricDescription, coalesceStringSlice(req.Attributes), req.Weight)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create binding")

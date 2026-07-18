@@ -152,12 +152,14 @@ func (h *ExamHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO exams (id, name, description, status, total_score, duration, cover_image,
+		INSERT INTO exams (id, tenant_id, name, description, status, total_score, duration, cover_image,
 			collaborator_ids, collaborator_dept_ids, batch_id, version, owner_type, creator_id)
-		VALUES ($1, $2, $3, 'draft', 0, $4, $5, $6, $7, $8, 'v1.0', 'mine', $9)
-	`, id, req.Name, req.Description, req.Duration, req.CoverImage, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID, claims.UserID)
+		VALUES ($1, $2, $3, $4, 'draft', 0, $5, $6, $7, $8, $9, 'v1.0', 'mine', $10)
+	`, id, tenantID, req.Name, req.Description, req.Duration, req.CoverImage, coalesceStringSlice(req.CollaboratorIDs), coalesceStringSlice(req.CollaboratorDeptIDs), req.BatchID, claims.UserID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create exam")
 		return
@@ -401,10 +403,12 @@ func (h *ExamHandler) AddQuestion(w http.ResponseWriter, r *http.Request) {
 	optionsJSON, _ := json.Marshal(q.Options)
 	answerJSON, _ := json.Marshal(q.Answer)
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	_, err = h.DB.Exec(r.Context(), `
-		INSERT INTO exam_questions (id, exam_id, question_id, type, content, options, answer, analysis, score, sort_order)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM exam_questions WHERE exam_id = $2))
-	`, uuid.NewString(), id, q.ID, q.Type, q.Content, string(optionsJSON), string(answerJSON), q.Analysis, score)
+		INSERT INTO exam_questions (id, tenant_id, exam_id, question_id, type, content, options, answer, analysis, score, sort_order)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM exam_questions WHERE exam_id = $3))
+	`, uuid.NewString(), tenantID, id, q.ID, q.Type, q.Content, string(optionsJSON), string(answerJSON), q.Analysis, score)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to add question")
 		return

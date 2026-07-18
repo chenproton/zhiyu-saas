@@ -119,11 +119,12 @@ func TestTenant_List(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unmarshal list: %v", err)
 	}
-	if total < 2 {
-		t.Fatalf("expected total >= 2, got %d", total)
+	// 认证版租户列表按租户隔离：只返回调用者自己的租户，跨租户列表走 /admin/tenants
+	if total != 1 {
+		t.Fatalf("expected total == 1 (own tenant only), got %d", total)
 	}
-	if len(items) == 0 {
-		t.Fatal("expected items > 0")
+	if len(items) != 1 || items[0].ID != testhelper.TestTenantID {
+		t.Fatalf("expected only own tenant %s, got %+v", testhelper.TestTenantID, items)
 	}
 }
 

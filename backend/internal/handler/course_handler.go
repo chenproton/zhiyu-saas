@@ -204,6 +204,11 @@ func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	if req.Version == nil || *req.Version == "" {
 		v := "v1.0"
 		req.Version = &v
@@ -214,12 +219,12 @@ func (h *CourseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.CoCreatorIds = domain.JSONSlice{}
 	}
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO courses (id, code, name, type, category, major_id, teacher_id, industry_id, version,
+		INSERT INTO courses (id, tenant_id, code, name, type, category, major_id, teacher_id, industry_id, version,
 			online_hours, offline_hours, online_weight, offline_weight, semester, class_name,
 			status, cover_color, cover_image, course_tag, creator_id, co_creator_ids, batch_id,
 			node_count, resource_count, study_count)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'draft', $16, $17, $18, $19, $20, $21, 0, 0, 0)
-	`, id, req.Code, req.Name, req.Type, req.Category, req.MajorID, req.TeacherID, req.IndustryID, req.Version,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'draft', $17, $18, $19, $20, $21, $22, 0, 0, 0)
+	`, id, tenantID, req.Code, req.Name, req.Type, req.Category, req.MajorID, req.TeacherID, req.IndustryID, req.Version,
 		req.OnlineHours, req.OfflineHours, req.OnlineWeight, req.OfflineWeight, req.Semester, req.ClassName,
 		req.CoverColor, req.CoverImage, req.CourseTag, claims.UserID, req.CoCreatorIds, req.BatchID)
 	if err != nil {

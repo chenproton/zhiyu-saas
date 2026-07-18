@@ -177,15 +177,17 @@ func (h *GraduationHandler) CreateTopic(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	startDate, _ := time.Parse(time.RFC3339, req.StartDate)
 	endDate, _ := time.Parse(time.RFC3339, req.EndDate)
 
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO graduation_project_topics (id, name, career_position_id, college, source, status, capacity, applied_count,
+		INSERT INTO graduation_project_topics (id, tenant_id, name, career_position_id, college, source, status, capacity, applied_count,
 			advisor_id, enterprise_mentor_id, start_date, end_date, description)
-		VALUES ($1, $2, $3, $4, $5, 'draft', $6, 0, $7, $8, $9, $10, $11)
-	`, id, req.Name, req.CareerPositionID, req.College, req.Source, req.Capacity, req.AdvisorID, req.EnterpriseMentorID, startDate, endDate, req.Description)
+		VALUES ($1, $2, $3, $4, $5, $6, 'draft', $7, 0, $8, $9, $10, $11, $12)
+	`, id, tenantID, req.Name, req.CareerPositionID, req.College, req.Source, req.Capacity, req.AdvisorID, req.EnterpriseMentorID, startDate, endDate, req.Description)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create graduation topic")
 		return
@@ -316,11 +318,13 @@ func (h *GraduationHandler) ArchivesCRUD(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
+		tenantID, ok := requireTenant(w, r); if !ok { return }
+
 		id := uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
-			INSERT INTO graduation_project_archives (id, topic_id, user_id, phase, doc_status, doc_count, last_updated, has_rectification)
-			VALUES ($1, $2, $3, $4, 'making', 0, NOW(), false)
-		`, id, req.TopicID, req.UserID, req.Phase)
+			INSERT INTO graduation_project_archives (id, tenant_id, topic_id, user_id, phase, doc_status, doc_count, last_updated, has_rectification)
+			VALUES ($1, $2, $3, $4, $5, 'making', 0, NOW(), false)
+		`, id, tenantID, req.TopicID, req.UserID, req.Phase)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create graduation archive")
 			return
@@ -402,12 +406,14 @@ func (h *GraduationHandler) EvaluationsCRUD(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
+		tenantID, ok := requireTenant(w, r); if !ok { return }
+
 		id := uuid.NewString()
 		_, err := h.DB.Exec(r.Context(), `
-			INSERT INTO graduation_project_evaluations (id, topic_id, user_id, advisor_score,
+			INSERT INTO graduation_project_evaluations (id, tenant_id, topic_id, user_id, advisor_score,
 				enterprise_score, defense_score, comprehensive_grade, is_excellent, status, evaluated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW())
-		`, id, req.TopicID, req.UserID, req.AdvisorScore, req.EnterpriseScore, req.DefenseScore, req.ComprehensiveGrade, req.IsExcellent)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', NOW())
+		`, id, tenantID, req.TopicID, req.UserID, req.AdvisorScore, req.EnterpriseScore, req.DefenseScore, req.ComprehensiveGrade, req.IsExcellent)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create graduation evaluation")
 			return

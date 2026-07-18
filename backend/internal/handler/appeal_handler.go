@@ -142,11 +142,13 @@ func (h *AppealHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO appeal_records (id, user_id, type, reason, status)
-		VALUES ($1, $2, $3, $4, 'pending')
-	`, id, req.UserID, req.Type, req.Reason)
+		INSERT INTO appeal_records (id, tenant_id, user_id, type, reason, status)
+		VALUES ($1, $2, $3, $4, $5, 'pending')
+	`, id, tenantID, req.UserID, req.Type, req.Reason)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create appeal")
 		return

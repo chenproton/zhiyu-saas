@@ -140,6 +140,11 @@ func (h *LearnRoadHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Steps = domain.JSONSlice{}
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	positionUUIDs := make([]string, len(req.PositionIDs))
 	for i, pid := range req.PositionIDs {
 		if u, err := uuid.Parse(pid); err == nil {
@@ -151,9 +156,9 @@ func (h *LearnRoadHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO learn_roads (id, name, description, position_ids, steps)
-		VALUES ($1, $2, $3, $4, $5)
-	`, id, req.Name, req.Description, positionUUIDs, req.Steps)
+		INSERT INTO learn_roads (id, tenant_id, name, description, position_ids, steps)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, id, tenantID, req.Name, req.Description, positionUUIDs, req.Steps)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create learn road")
 		return

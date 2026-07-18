@@ -156,6 +156,11 @@ func (h *TaskEvaluationHandler) UpsertConfig(w http.ResponseWriter, r *http.Requ
 		req.EvalSubjects = domain.JSONSlice{}
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	var id string
 	if req.ID != "" {
 		_, err := h.DB.Exec(r.Context(), `
@@ -169,15 +174,15 @@ func (h *TaskEvaluationHandler) UpsertConfig(w http.ResponseWriter, r *http.Requ
 		id = req.ID
 	} else {
 		err := h.DB.QueryRow(r.Context(), `
-			INSERT INTO task_evaluation_configs (task_id, method_key, weight, eval_objects, eval_subjects, eval_resources)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO task_evaluation_configs (tenant_id, task_id, method_key, weight, eval_objects, eval_subjects, eval_resources)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT (task_id, method_key) DO UPDATE SET
 				weight = EXCLUDED.weight,
 				eval_objects = EXCLUDED.eval_objects,
 				eval_subjects = EXCLUDED.eval_subjects,
 				eval_resources = EXCLUDED.eval_resources
 			RETURNING id
-		`, req.TaskID, req.MethodKey, req.Weight, req.EvalObjects, req.EvalSubjects, req.EvalResources).Scan(&id)
+		`, tenantID, req.TaskID, req.MethodKey, req.Weight, req.EvalObjects, req.EvalSubjects, req.EvalResources).Scan(&id)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to upsert config")
 			return
@@ -277,6 +282,11 @@ func (h *TaskEvaluationHandler) UpsertEvalPoint(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	var id string
 	if req.ID != "" {
 		_, err := h.DB.Exec(r.Context(), `
@@ -293,11 +303,11 @@ func (h *TaskEvaluationHandler) UpsertEvalPoint(w http.ResponseWriter, r *http.R
 		id = req.ID
 	} else {
 		err := h.DB.QueryRow(r.Context(), `
-			INSERT INTO task_eval_points (config_id, name, description, weight, max_score, scoring_method,
+			INSERT INTO task_eval_points (tenant_id, config_id, name, description, weight, max_score, scoring_method,
 				grade_mapping, sub_type, knowledge_point_ids, ability_point_ids, sort_order)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 			RETURNING id
-		`, req.ConfigID, req.Name, req.Description, req.Weight, req.MaxScore, req.ScoringMethod,
+		`, tenantID, req.ConfigID, req.Name, req.Description, req.Weight, req.MaxScore, req.ScoringMethod,
 			req.GradeMapping, req.SubType, coalesceStringSlice(req.KnowledgePointIDs), coalesceStringSlice(req.AbilityPointIDs), req.SortOrder).Scan(&id)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create eval point")
@@ -397,6 +407,11 @@ func (h *TaskEvaluationHandler) UpsertReviewStep(w http.ResponseWriter, r *http.
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	var id string
 	if req.ID != "" {
 		_, err := h.DB.Exec(r.Context(), `
@@ -411,10 +426,10 @@ func (h *TaskEvaluationHandler) UpsertReviewStep(w http.ResponseWriter, r *http.
 		id = req.ID
 	} else {
 		err := h.DB.QueryRow(r.Context(), `
-			INSERT INTO task_review_steps (config_id, label, description, enabled, subject_type, weight, sort_order)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO task_review_steps (tenant_id, config_id, label, description, enabled, subject_type, weight, sort_order)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING id
-		`, req.ConfigID, req.Label, req.Description, req.Enabled, req.SubjectType, req.Weight, req.SortOrder).Scan(&id)
+		`, tenantID, req.ConfigID, req.Label, req.Description, req.Enabled, req.SubjectType, req.Weight, req.SortOrder).Scan(&id)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create review step")
 			return

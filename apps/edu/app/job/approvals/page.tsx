@@ -61,7 +61,7 @@ const APPROVAL_TABS = [
 
 function mapRoleCodeToJobRole(code?: string): string {
   if (!code) return ""
-  if (code === "platform_admin" || code === "school_admin") return "admin"
+  if (code === "school_admin") return "admin"
   if (code === "teacher") return "teacher"
   if (code === "student") return "student"
   if (code.startsWith("enterprise")) return "enterprise"

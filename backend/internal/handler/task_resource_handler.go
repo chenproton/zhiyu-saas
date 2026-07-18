@@ -131,13 +131,18 @@ func (h *TaskResourceHandler) BindResource(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	var id string
 	err := h.DB.QueryRow(r.Context(), `
-		INSERT INTO task_resource_bindings (task_id, resource_id)
-		VALUES ($1, $2)
+		INSERT INTO task_resource_bindings (tenant_id, task_id, resource_id)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (task_id, resource_id) DO UPDATE SET task_id = EXCLUDED.task_id
 		RETURNING id
-	`, req.TaskID, req.ResourceID).Scan(&id)
+	`, tenantID, req.TaskID, req.ResourceID).Scan(&id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to bind resource")
 		return

@@ -77,28 +77,34 @@ func canModifyContent(claims *middleware.Claims) bool {
 	return false
 }
 
-// canReadTenantScoped returns true if the caller has a tenant to scope reads to,
-// or is a platform admin allowed to read across tenants.
+// canReadTenantScoped returns true if the caller has a tenant to scope reads to.
+// 教育域数据一律租户内可见，不再为 platform_admin 提供跨租户特权
+// （跨租户运营操作走 superadmin 控制台的独立路径）。
 func canReadTenantScoped(claims *middleware.Claims) bool {
 	if claims == nil {
 		return false
 	}
-	if platformAdminOnly(claims) {
-		return true
-	}
 	return claims.TenantID != nil && *claims.TenantID != ""
 }
 
-// tenantFilter returns the tenant_id value to filter by, or an empty string and
-// ok=false when the caller is a platform admin and should not be filtered.
+// tenantFilter returns the tenant_id value to filter by. ok=false when the
+// caller has no tenant and cannot access tenant-scoped data.
 func tenantFilter(claims *middleware.Claims) (tenantID string, ok bool) {
 	if claims == nil {
 		return "", false
 	}
-	if platformAdminOnly(claims) {
-		return "", true
-	}
 	if claims.TenantID == nil || *claims.TenantID == "" {
+		return "", false
+	}
+	return *claims.TenantID, true
+}
+
+// requireTenant resolves the caller's tenant for tenant-scoped writes.
+// Writes a 403 response and returns ok=false when the caller has no tenant.
+func requireTenant(w http.ResponseWriter, r *http.Request) (string, bool) {
+	claims := middleware.CurrentUser(r)
+	if claims == nil || claims.TenantID == nil || *claims.TenantID == "" {
+		respondError(w, http.StatusForbidden, "missing tenant")
 		return "", false
 	}
 	return *claims.TenantID, true

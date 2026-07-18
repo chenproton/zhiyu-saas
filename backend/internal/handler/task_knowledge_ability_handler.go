@@ -40,13 +40,18 @@ func (h *TaskKnowledgeAbilityHandler) BindKnowledge(w http.ResponseWriter, r *ht
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	var id string
 	err := h.DB.QueryRow(r.Context(), `
-		INSERT INTO task_knowledge_bindings (task_id, knowledge_point_id)
-		VALUES ($1, $2)
+		INSERT INTO task_knowledge_bindings (tenant_id, task_id, knowledge_point_id)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (task_id, knowledge_point_id) DO UPDATE SET task_id = EXCLUDED.task_id
 		RETURNING id
-	`, req.TaskID, req.KnowledgePointID).Scan(&id)
+	`, tenantID, req.TaskID, req.KnowledgePointID).Scan(&id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to bind knowledge")
 		return
@@ -90,13 +95,18 @@ func (h *TaskKnowledgeAbilityHandler) BindAbility(w http.ResponseWriter, r *http
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	var id string
 	err := h.DB.QueryRow(r.Context(), `
-		INSERT INTO task_ability_bindings (task_id, ability_point_id)
-		VALUES ($1, $2)
+		INSERT INTO task_ability_bindings (tenant_id, task_id, ability_point_id)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (task_id, ability_point_id) DO UPDATE SET task_id = EXCLUDED.task_id
 		RETURNING id
-	`, req.TaskID, req.AbilityPointID).Scan(&id)
+	`, tenantID, req.TaskID, req.AbilityPointID).Scan(&id)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to bind ability")
 		return

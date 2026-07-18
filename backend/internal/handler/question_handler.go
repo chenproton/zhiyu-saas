@@ -161,6 +161,8 @@ func (h *QuestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	id := uuid.NewString()
 	if req.Answer == nil {
 		req.Answer = domain.JSONSlice{}
@@ -168,9 +170,9 @@ func (h *QuestionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	answerJSON, _ := json.Marshal(req.Answer)
 	optionsJSON, _ := json.Marshal(coalesceStringSlice(req.Options))
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO questions (id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_point_ids, creator_id, source, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft')
-	`, id, req.BankID, req.Type, req.Content, string(optionsJSON), string(answerJSON), req.Analysis, req.Score, req.Difficulty, coalesceStringSlice(req.KnowledgePoints), claims.UserID, req.Source)
+		INSERT INTO questions (id, tenant_id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_point_ids, creator_id, source, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'draft')
+	`, id, tenantID, req.BankID, req.Type, req.Content, string(optionsJSON), string(answerJSON), req.Analysis, req.Score, req.Difficulty, coalesceStringSlice(req.KnowledgePoints), claims.UserID, req.Source)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create question")
 		return
@@ -268,6 +270,8 @@ func (h *QuestionHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
 	count := 0
 	for _, item := range req.Items {
 		if item.Content == "" || item.Type == "" {
@@ -280,9 +284,9 @@ func (h *QuestionHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 		optionsJSON, _ := json.Marshal(coalesceStringSlice(item.Options))
 		id := uuid.NewString()
 		_, err := tx.Exec(r.Context(), `
-			INSERT INTO questions (id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_point_ids, creator_id, source, status)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft')
-		`, id, req.BankID, item.Type, item.Content, string(optionsJSON), string(answerJSON), item.Analysis, item.Score, item.Difficulty, coalesceStringSlice(item.KnowledgePoints), claims.UserID, item.Source)
+			INSERT INTO questions (id, tenant_id, bank_id, type, content, options, answer, analysis, score, difficulty, knowledge_point_ids, creator_id, source, status)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'draft')
+		`, id, tenantID, req.BankID, item.Type, item.Content, string(optionsJSON), string(answerJSON), item.Analysis, item.Score, item.Difficulty, coalesceStringSlice(item.KnowledgePoints), claims.UserID, item.Source)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to batch create questions")
 			return

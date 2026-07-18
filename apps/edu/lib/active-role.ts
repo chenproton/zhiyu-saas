@@ -1,6 +1,6 @@
 import type { Role } from "@/lib/types/backend"
 
-const ROLE_PRIORITY = ["school_admin", "teacher", "student", "enterprise_mentor", "platform_admin"]
+const ROLE_PRIORITY = ["school_admin", "teacher", "student", "enterprise_mentor"]
 const STORAGE_PREFIX = "zhiyu-active-role:"
 
 function storageKey(userId: string) {

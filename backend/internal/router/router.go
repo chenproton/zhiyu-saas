@@ -207,11 +207,11 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 				r.Use(schoolAdmin)
 
 				// Phase 3.1: portal management routes
+				// 认证版租户创建/状态变更为死路径（要求 platform_admin，但该角色仅存在于运营方，
+				// 跨租户运营操作统一走 /admin/tenants 超管控制台），已移除。
 				r.Get("/tenants", tenantHandler.List)
 				r.Get("/tenants/{id}", tenantHandler.Get)
-				r.Post("/tenants", tenantHandler.Create)
 				r.Put("/tenants/{id}", tenantHandler.Update)
-				r.Post("/tenants/{id}/status", tenantHandler.UpdateStatus)
 
 				r.Get("/organizations", orgHandler.List)
 				r.Get("/organizations/tree", orgHandler.Tree)
@@ -286,17 +286,12 @@ func New(db *pgxpool.Pool, jwtSecret string) http.Handler {
 				r.Get("/logs/operation", logHandler.OperationLogs)
 
 				r.Get("/subscriptions", subscriptionHandler.Get)
-				r.Put("/subscriptions/{id}", subscriptionHandler.Update)
 
+				// platform-links / app-modules 为全局目录，读接口公开；
+				// 写接口原要求 platform_admin（教育域死路径），已移除。
 				r.Get("/platform-links/{id}", platformLinkHandler.Get)
-				r.Post("/platform-links", platformLinkHandler.Create)
-				r.Put("/platform-links/{id}", platformLinkHandler.Update)
-				r.Delete("/platform-links/{id}", platformLinkHandler.Delete)
 
 				r.Get("/app-modules/{id}", appModuleHandler.Get)
-				r.Post("/app-modules", appModuleHandler.Create)
-				r.Put("/app-modules/{id}", appModuleHandler.Update)
-				r.Delete("/app-modules/{id}", appModuleHandler.Delete)
 
 				// Shared workflow & approval routes
 				r.Get("/workflows", workflowHandler.List)

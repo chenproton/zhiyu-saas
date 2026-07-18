@@ -124,11 +124,16 @@ func (h *AbilityDomainHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO ability_domains (id, career_position_id, name, description, binding_ids, sort_order)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, id, req.CareerPositionID, req.Name, req.Description, coalesceStringSlice(req.BindingIDs), req.SortOrder)
+		INSERT INTO ability_domains (id, tenant_id, career_position_id, name, description, binding_ids, sort_order)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, id, tenantID, req.CareerPositionID, req.Name, req.Description, coalesceStringSlice(req.BindingIDs), req.SortOrder)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create ability domain")
 		return

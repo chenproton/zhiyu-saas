@@ -189,6 +189,11 @@ func (h *PositionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Version = "v1.0"
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	status := domain.CareerPositionStatusDraft
 
@@ -201,11 +206,11 @@ func (h *PositionHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(r.Context(), `
 		INSERT INTO career_positions (
-			id, batch_id, name, short_name, industry_id, position_type,
+			id, tenant_id, batch_id, name, short_name, industry_id, position_type,
 			salary_min, salary_max, cover_image, description, requirements, career_path,
 			version, status, created_by, collaborators
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-	`, id, req.BatchID, req.Name, req.ShortName, req.IndustryID,
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+	`, id, tenantID, req.BatchID, req.Name, req.ShortName, req.IndustryID,
 		req.PositionType, req.SalaryMin, req.SalaryMax, req.CoverImage, req.Description,
 		coalesceStringSlice(req.Requirements), req.CareerPath, req.Version, status, claims.UserID,
 		coalesceStringSlice(req.Collaborators))

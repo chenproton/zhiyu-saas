@@ -123,11 +123,16 @@ func (h *NodeHomeworkHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, ok := requireTenant(w, r)
+	if !ok {
+		return
+	}
+
 	id := uuid.NewString()
 	_, err := h.DB.Exec(r.Context(), `
-		INSERT INTO node_homeworks (id, node_id, title, requirement, need_attachment, deadline)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, id, req.NodeID, req.Title, req.Requirement, req.NeedAttachment, req.Deadline)
+		INSERT INTO node_homeworks (id, tenant_id, node_id, title, requirement, need_attachment, deadline)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, id, tenantID, req.NodeID, req.Title, req.Requirement, req.NeedAttachment, req.Deadline)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create homework")
 		return

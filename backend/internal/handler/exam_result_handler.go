@@ -72,7 +72,9 @@ func (h *ExamResultHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.submit(r.Context(), claims.UserID, req.ExamUsageID, req.Answers)
+	tenantID, ok := requireTenant(w, r); if !ok { return }
+
+	result, err := h.submit(r.Context(), tenantID, claims.UserID, req.ExamUsageID, req.Answers)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			respondError(w, http.StatusNotFound, "exam usage not found")
@@ -85,7 +87,7 @@ func (h *ExamResultHandler) Create(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, result)
 }
 
-func (h *ExamResultHandler) submit(ctx context.Context, userID, usageID string, answers map[string]interface{}) (*domain.ExamResult, error) {
+func (h *ExamResultHandler) submit(ctx context.Context, tenantID, userID, usageID string, answers map[string]interface{}) (*domain.ExamResult, error) {
 	// fetch usage -> exam_id and total_score
 	var examID string
 	var totalScore float64
@@ -159,12 +161,12 @@ func (h *ExamResultHandler) submit(ctx context.Context, userID, usageID string, 
 	var resultID string
 	var submitTime, createdAt interface{}
 	err = h.DB.QueryRow(ctx, `
-		INSERT INTO exam_results (exam_usage_id, user_id, student_name, class_name, grade, major_id, score, total_score, is_pass, answers)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO exam_results (tenant_id, exam_usage_id, user_id, student_name, class_name, grade, major_id, score, total_score, is_pass, answers)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (exam_usage_id, user_id)
 		DO UPDATE SET score = EXCLUDED.score, total_score = EXCLUDED.total_score, is_pass = EXCLUDED.is_pass, answers = EXCLUDED.answers, submit_time = NOW()
 		RETURNING id, submit_time, created_at
-	`, usageID, userID, studentName, className, grade, majorID, score, totalScore, isPass, answersJSON).Scan(&resultID, &submitTime, &createdAt)
+	`, tenantID, usageID, userID, studentName, className, grade, majorID, score, totalScore, isPass, answersJSON).Scan(&resultID, &submitTime, &createdAt)
 	if err != nil {
 		return nil, err
 	}
